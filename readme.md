@@ -164,6 +164,12 @@ Tato app používá submodul 'JBLibs-python', takže po naklonování tohoto rep
 git submodule update --init --recursive
 ```
 
+Nebo přímé přidání, pokud by nic se submoduly nefungovalo
+
+```sh
+git submodule add -b <branch> https://github.com/dvestezarzlkl/JBLibs-python.git libs/JBLibs
+```
+
 ## Soubory v root adresáři
 
 ### `!run.py`
