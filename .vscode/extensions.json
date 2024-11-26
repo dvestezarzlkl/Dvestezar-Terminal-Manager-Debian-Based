@@ -1,0 +1,19 @@
+{
+    "recommendations": [
+        "yzhang.markdown-all-in-one",
+        "cweijan.vscode-office",
+        "ms-python.debugpy",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "kevinrose.vsc-python-indent",
+        "donjayamanne.python-environment-manager",
+        "donjayamanne.python-extension-pack",
+        "ms-python.isort",
+        "streetsidesoftware.code-spell-checker",
+        "streetsidesoftware.code-spell-checker-czech",
+        "satokaz.vscode-markdown-header-coloring",
+        "lijiang314.code2snippet",
+        "rodolphebarbanneau.python-docstring-highlighter",
+        "github.copilot"
+    ]
+}

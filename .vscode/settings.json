@@ -1,0 +1,71 @@
+{
+    "markdown-header-coloring.userDefinedHeaderColor": {
+        "enabled": true,
+        "Header_1": {
+           "color": "",
+           "backgroundColor": "background: brown;",
+           "textDecoration": "color:white;font-weight:bold;border-down:1px solid crimson;border-up:1px solid crimson"
+        },
+        "Header_2": {
+           "color": "",
+           "backgroundColor": "background: yellow;",
+           "textDecoration": "color:black;font-weight:bold;"
+        },
+        "Header_3": {
+           "color": "",
+           "backgroundColor": "background: chocolate;",
+           "textDecoration": "color:white;font-weight:bold"
+        },
+        "Header_4": {
+            "color": "",
+            "backgroundColor": "background: skyblue;",
+            "textDecoration": "color:black;font-weight:bold"
+         },
+         "Header_5": {
+           "color": "",
+           "backgroundColor": "background: blueviolet;",
+           "textDecoration": "color:white;font-weight:bold"
+        },
+        "Header_6": {
+           "color": "",
+           "backgroundColor": "background: darkblue;",
+           "textDecoration": "color:white;font-weight:bold"
+        },
+        "Header_7": {
+           "color": "",
+           "backgroundColor": "background: DarkCyan;",
+           "textDecoration": "color:white;font-weight:bold"
+        }
+   },
+   "cSpell.words": [
+      "admina",
+      "AFTERMN",
+      "ANYKEY",
+      "autocomplet",
+      "CMENU",
+      "dvestezar",
+      "gensalt",
+      "hashpw",
+      "HLPR",
+      "CHCS",
+      "INSTN",
+      "loggeru",
+      "MENUSEL",
+      "nahrátí",
+      "NDUSR",
+      "nodered",
+      "REANGE",
+      "repozitáře",
+      "RETURNKEY",
+      "SSMD",
+      "STPDIS",
+      "STPENA",
+      "stty",
+      "šablonovací",
+      "šablonovacích",
+      "tcgetattr",
+      "TCSADRAIN",
+      "tcsetattr",
+      "Tmpl"
+   ],
+}

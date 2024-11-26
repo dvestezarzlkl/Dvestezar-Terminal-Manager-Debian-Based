@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "APP",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "!run.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "RUN file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+    ]
+}
