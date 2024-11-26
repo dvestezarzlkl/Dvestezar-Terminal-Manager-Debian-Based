@@ -4,6 +4,8 @@
 
 v1.3.1
 
+[Preview](preview_v1-3-1.mp4)
+
 ## Application Description
 
 Dvestezar Terminal Manager is a tool for managing Debian-based systems such as Ubuntu, Raspbian, OrangePi, and other distributions. It provides a simple terminal-based menu for controlling various system functionalities.
