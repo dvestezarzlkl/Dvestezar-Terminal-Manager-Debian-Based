@@ -116,7 +116,24 @@ Co je potřeba ke spuštění
 
 **Nutné pro běh:**
 
-- `config.ini` je potřeba vytvořit před prvním spuštěním podle `cfg.py`
+- `config.ini` je potřeba vytvořit před prvním spuštěním podle `cfg.py` v root aplikace, tzn kde je `!run.py`  
+  Příklad:
+  ```ini
+   [globals]
+   LANGUAGE                = "cs-CZ"
+   SERVER_URL              = "moje.domena.real"
+   DEFAULT_NODE_ARCHIVE    = "/home/defaultNodeInstance.7z"
+   DEFAULT_JS_CONFIG       = "muj-node-config.default.js"
+   TEMP_DIRECTORY          = "/tmp/default_node"
+   BACKUP_DIRECTORY        = "/var/backups"
+   MIN_WIDTH               = 60
+
+   # Pokud vynecháme bude ssl vypnuto, viz default hodnoty v cfg.py
+   # vynecháme zakomentováním nebo nastavením na null None
+   # httpsKey = '/root/.acme.sh/moje.domena.real/moje.domena.real.key'
+   # httpsCert = '/root/.acme.sh/moje.domena.real/fullchain.cer'
+
+  ```
 
 **Doporučené:**
 
@@ -136,9 +153,9 @@ Testováno na python 3.10+
 
 ### Python knihovny
 
-Viz [soubor](requirements.txt)
+Viz [soubor - requirements.txt](requirements.txt)
 
-Lze instalovat pomocí souboru [níže](#rq_try_install_requirementspy)
+Lze instalovat pomocí souboru [níže - rq_try_install_requirements.py](#rq_try_install_requirementspy)
 
 ### Aplikace z apt
 
