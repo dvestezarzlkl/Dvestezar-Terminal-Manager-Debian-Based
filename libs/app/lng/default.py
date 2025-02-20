@@ -98,6 +98,7 @@ TX_REM_ERR6         ="Error: Service could not be disabled."
 TX_REM_TXT0         ="Stopping service..."
 TX_REM_TXT1         ="Disabling service..."
 TX_REM_TXT2         ="Service has been stopped and disabled."
+TX_REM_TXT22        ="Service has been stopped."
 TX_REM_TXT_OK       ="OK:Node instance for {name} has been successfully removed."
 
 TX_BKG_ERR7         ="Error creating or getting backup directory"
@@ -126,3 +127,10 @@ TX_INST_TYPE_INP_o2 ="Installation from an archive"
 TXT_MENU_INSTN_del_inst0= "Really delete this system user ?"
 TXT_MENU_INSTN_del_inst1= "The system user will be deleted along with their home directory, which will be backed up first. Are you sure you want to proceed?\nReally know what you're doing?\nPress N for begin backup and delete."
 TX_REM_CANCEL    = "Deletion canceled."
+
+
+TXT_MENU_INSTN_update_00= "Really update this node-red instance to the latest version ?"
+TXT_MENU_INSTN_update_ok= "Node-red instance has been successfully updated for user {name}."
+
+TX_UPD_RUNNING_UPD = "Updating Node-RED instance..."
+TX_UPD_RUN_SRV = "Starting service ..."

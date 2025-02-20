@@ -230,3 +230,33 @@ def deleteSelfSignedCert(userName:str)->bool:
         return True
     except FileNotFoundError:
         return False
+    
+def instanceVersion(username:str)->str:
+    """Získá verzi Node-RED z npm list --json."""
+    
+    if not instanceCheck(username):
+        return "N/A"
+    
+    # Update the service
+    user_home=getUserHome(username)
+    path=os.path.join(user_home, 'node_instance')
+    
+    import subprocess, json
+    try:
+        result = subprocess.run(
+            [
+                "su",
+                "-",
+                username,
+                "-c",
+                f"cd {path} && npm list --depth=0 --json"
+            ],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        data = json.loads(result.stdout)
+        return data['dependencies']['node-red']['version']
+    except (subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as e:
+        log.error("Chyba při získávání verze Node-RED: %s", e)
+        return "N/A"

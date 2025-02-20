@@ -11,11 +11,12 @@ from libs.app.c_cfg import cfg_data
 from libs.app.remove_instance import remove_node_instance
 from libs.app.backup import backup_node_instance_for
 from libs.app.c_service_node import c_service_node
-from libs.app.instanceHelper import instanceCheck,copyKeyToUser
+from libs.app.instanceHelper import instanceCheck,copyKeyToUser,instanceVersion
 from libs.app.install_instance import updateSettingsFileForUser
 from .menu_data_classes import menu_data
 from .menu_edit_node_instance_user import menuEdit_edit_nodeInstance_user
 from .nd_menu import nd_menu
+from libs.app.update_instance import update_instance_node_red
 
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
@@ -34,9 +35,11 @@ class menuEdit_edit_nodeInstance(nd_menu):
         self.cfg=cfg_data(self._runSelItem.data)
 
     def onShowMenu(self):
+        ver = instanceVersion(self.selectedSystemUSer)
+        
         self._setAppHeader(TXT_MENU_INSTN_editNodeInst,               
             TXT_MENU_INSTN_editNodeInst2,
-            None,
+            "Node-Red v:"+ver,
             self.selectedSystemUSer,
             self.cfg.port,
             None,
@@ -96,6 +99,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
         
         last=[]
         if instanceCheck(self.selectedSystemUSer):
+            last.append(c_menu_item(TXT_MENU_INSTN_s_upd,'u',self.update_instance))
             last.append(c_menu_item(TXT_MENU_INSTN_s_del,'delete',self.delete_instance))
 
         if self.cfg.changed:
@@ -107,7 +111,11 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_INSTANCE))
             self.menu.extend(last)
             
-        
+    def  update_instance(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Update node instance for selected system user
+        """
+        return update_instance_node_red(self.selectedSystemUSer)
     
     def delete_instance(self,selItem:c_menu_item) -> onSelReturn:
         """
