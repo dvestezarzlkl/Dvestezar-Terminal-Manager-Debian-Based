@@ -96,7 +96,7 @@ def run_requirements_install_script():
         print(f"Spouštím skript {script_name} pro instalaci Python knihoven...")
         try:
             # Spuštění "python3 rq_try_install_requirements.py"
-            subprocess.run(["python3", script_name], check=True)
+            subprocess.run(["python3", script_name, '--console'], check=True)
             print("Instalační skript knihoven byl úspěšně proveden.")
         except subprocess.CalledProcessError as e:
             print("Chyba při spouštění instalačního skriptu knihoven:\n", e)
@@ -196,7 +196,7 @@ def main():
     update_submodules()
 
     # 6) Spuštění instalačního skriptu rq_try_install_requirements.py
-    print(" ---- Spuštění instalačního skriptu Python knihoven ----")
+    print(" ---- Spuštění instalačního skriptu Python knihoven - může trvat i několik minut ----")
     run_requirements_install_script()
 
     # 7) Kontrola a případné vytvoření výchozího config.ini
