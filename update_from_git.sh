@@ -12,6 +12,8 @@ if git config --get remote.origin.pushurl | grep -q "no_push"; then
     echo "Repozitář je označen jako readonly. Spouštím aktualizaci ..."
 else
     echo "Repozitář není označen jako readonly!"
+    echo "Pro nastavení repozitáře na readonly režim spusť např. příkaz:"
+    echo "    git config remote.origin.pushurl no_push"    
     exit 1
 fi
 
