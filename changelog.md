@@ -3,6 +3,7 @@
 ## v 1.3.3
 
 - ADD - install script
+- UPD - info v update script
 
 ## v 1.3.2
 
