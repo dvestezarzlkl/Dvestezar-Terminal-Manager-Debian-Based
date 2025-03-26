@@ -176,27 +176,35 @@ def main():
     print("===== Spouštím instalační skript =====")
 
     # 1) Kontrola sudo
+    print(" ---- Kontrola sudo ----")
     check_sudo()
 
     # 2) Kontrola, že běžíme z root adresáře aplikace (!run.py)
+    print(" ---- Kontrola root adresáře aplikace ----")
     check_run_py_file()
 
     # 3) Kontrola a instalace 7z
+    print(" ---- Kontrola a instalace 7zip ----")
     check_and_install_7zip()
 
     # 4) Kontrola a instalace Node.js
+    print(" ---- Kontrola a instalace Node.js ----")
     check_and_install_node()
 
     # 5) Inicializace submodulů
+    print(" ---- Inicializace git submodulů ----")
     update_submodules()
 
     # 6) Spuštění instalačního skriptu rq_try_install_requirements.py
+    print(" ---- Spuštění instalačního skriptu Python knihoven ----")
     run_requirements_install_script()
 
     # 7) Kontrola a případné vytvoření výchozího config.ini
+    print(" ---- Kontrola a vytvoření config.ini ----")
     check_and_create_config()
 
     # 8) Vytvoření symlinku pro sys_apps.sh
+    print(" ---- Vytvoření symlinku pro sys_apps.sh ----")
     setup_sys_apps_symlink()
 
     print("===== Instalační skript dokončen úspěšně. =====")
