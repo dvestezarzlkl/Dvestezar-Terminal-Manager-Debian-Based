@@ -2,7 +2,7 @@
 <!-- cspell:ignore submoduly, submodul, symlinku, pipx, venv, pipreqs, ensurepath, pushurl, utilitku, standardní -->
 (ChatGPT)
 
-v1.3.2
+v1.3.3
 
 [Preview](preview_v1-3-1.mp4)
 

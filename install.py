@@ -135,6 +135,42 @@ MIN_WIDTH               = 60
         print(f"Chyba při vytváření config.ini: {e}")
         sys.exit(1)
 
+def setup_sys_apps_symlink():
+    """
+    1) Ověří existenci `sys_apps.sh` v aktuálním adresáři.
+    2) Zkontroluje, zda je spustitelný (`chmod +x`).
+    3) Pokud v /usr/local/bin/ neexistuje symlink `sys_apps`,
+       vytvoří jej tak, aby cílil na lokální sys_apps.sh.
+    """
+    script_name = "sys_apps.sh"
+    script_path = os.path.join(os.getcwd(), script_name)
+
+    # 1) Ověřit existenci sys_apps.sh
+    if not os.path.isfile(script_path):
+        print(f"Soubor '{script_name}' neexistuje - nelze vytvořit symlink. Přeskakuji.")
+        return
+
+    # 2) Zajistit, aby byl soubor spustitelný
+    if not os.access(script_path, os.X_OK):
+        print(f"Soubor '{script_name}' není spustitelný. Nastavuji spustitelné oprávnění.")
+        try:
+            subprocess.run(["chmod", "+x", script_path], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Chyba při nastavování oprávnění u '{script_name}': {e}")
+            return
+
+    # 3) Vytvořit symlink, pokud neexistuje
+    link_path = "/usr/local/bin/sys_apps"
+    if os.path.islink(link_path) or os.path.exists(link_path):
+        print(f"Symlink nebo soubor '{link_path}' už existuje. Přeskakuji vytváření.")
+    else:
+        try:
+            subprocess.run(["ln", "-s", script_path, link_path], check=True)
+            print(f"Vytvořen symlink: {link_path} -> {script_path}")
+            print("Nyní lze skript spustit kdykoliv příkazem 'sys_apps'.")
+        except subprocess.CalledProcessError as e:
+            print(f"Chyba při vytváření symlinku '{link_path}': {e}")
+
 
 def main():
     print("===== Spouštím instalační skript =====")
@@ -159,6 +195,9 @@ def main():
 
     # 7) Kontrola a případné vytvoření výchozího config.ini
     check_and_create_config()
+
+    # 8) Vytvoření symlinku pro sys_apps.sh
+    setup_sys_apps_symlink()
 
     print("===== Instalační skript dokončen úspěšně. =====")
 

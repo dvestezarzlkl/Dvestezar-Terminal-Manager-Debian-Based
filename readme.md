@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.3.2
+v1.3.3
 
 [ENG](readme_en.md)
 
@@ -212,6 +212,13 @@ ln -s /cesta/k/tvemu_skriptu/sys_apps.sh /usr/local/bin/sys_apps
 ```
 
 Toto vytvoří symlink pro příkaz `sys_apps` který lze potom odkudkoliv spustit.
+
+### `install.py`
+
+Instalace zip, node, requirements a update submodulů.
+
+Nakonec pokud neexistuje tak vytvoří symlink pro `sys_apps.sh`
+
 
 ### `rq.sh`
 
