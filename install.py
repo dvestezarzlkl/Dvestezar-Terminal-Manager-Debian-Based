@@ -58,23 +58,30 @@ def check_and_install_node():
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         version = result.stdout.strip()
         print(f"Node.js je již nainstalován (verze {version}).")
+    except FileNotFoundError:
+        print("Node.js není nainstalován nebo není dostupný v PATH.")
+        install_nodejs()
     except subprocess.CalledProcessError:
-        # Pokud node není nainstalován (nebo neodpoví)
-        print("Node.js není nainstalován. Pokusím se jej nainstalovat (LTS 22)...")
-        # Instalace Node.js LTS 22
-        try:
-            # 1) přidání repozitáře
-            curl_cmd = ["bash", "-c",
-                        "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"]
-            subprocess.run(curl_cmd, shell=False, check=True)
+        print("Node.js není správně nainstalován nebo neodpovídá.")
+        install_nodejs()
 
-            # 2) instalace nodejs
-            install_cmd = ["apt-get", "install", "-y", "nodejs"]
-            subprocess.run(install_cmd, check=True)
-            print("Node.js úspěšně nainstalován.")
-        except subprocess.CalledProcessError as e:
-            print("Chyba při instalaci Node.js:\n", e)
-            sys.exit(1)
+
+def install_nodejs():
+    """Instaluje Node.js LTS 22."""
+    print("Pokusím se nainstalovat Node.js (LTS 22)...")
+    try:
+        # 1) Přidání repozitáře
+        curl_cmd = ["bash", "-c",
+                    "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -"]
+        subprocess.run(curl_cmd, shell=False, check=True)
+
+        # 2) Instalace Node.js
+        install_cmd = ["apt-get", "install", "-y", "nodejs"]
+        subprocess.run(install_cmd, check=True)
+        print("Node.js úspěšně nainstalován.")
+    except subprocess.CalledProcessError as e:
+        print("Chyba při instalaci Node.js:\n", e)
+        sys.exit(1)
 
 
 def update_submodules():
