@@ -13,6 +13,8 @@ log = getLogger(__name__)
 
 _MENU_NAME_:str = TXT_MAIN_NAME
 
+# cspell:ignore dialout,usermod,tty,uart
+
 # ******* SSH    MANAGER   MENU    *******
 class menu_user_edit (ssh_menu):
     choiceBack=None
@@ -57,7 +59,13 @@ class menu_user_edit (ssh_menu):
             self.menu.append(c_menu_item(TXT_MENU2_TITLE_12,"srm",self.removeSudo))
         else:
             # add sudo
-            self.menu.append(c_menu_item(TXT_MENU2_TITLE_13,"sad",self.addSudo))
+            self.menu.append(c_menu_item(TXT_MENU2_TITLE_13,"sudo",self.addSudo))
+            
+        # přidáme tty test a menu
+        if self.checkUserTty():
+            self.menu.append(c_menu_item(TXT_MENU2_TITLE_19,"tty",self.removeUserDialout))
+        else:
+            self.menu.append(c_menu_item(TXT_MENU2_TITLE_22,"tty",self.addUserDialout))
         
         self.menu.extend([
             None,
@@ -66,7 +74,69 @@ class menu_user_edit (ssh_menu):
             c_menu_item(TXT_MENU2_TITLE_09,"p",self.pwdUser),
             c_menu_item(TXT_MENU2_TITLE_10,"u",self.updateUserSSH),
         ])
-        
+    
+    def checkUserTty(self) -> bool:
+        """Otestuje jestli má uživatel přístup k tty, tzn sériový port, UART atd.  
+        Testuje se přímo existencí uživatele v systémové skupině `dialout`.
+
+        Returns:
+            bool: True if user has tty permissions, False otherwise.
+        """
+        import grp,pwd
+        user=self._mData.selectedUser.userName
+        try:
+            user_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+            primary_gid = pwd.getpwnam(user).pw_gid
+            primary_group = grp.getgrgid(primary_gid).gr_name
+            user_groups.append(primary_group)
+            return 'dialout' in user_groups
+        except KeyError:
+            # User not found in system
+            return False
+    
+    def addUserDialout(self,selItem:c_menu_item) -> onSelReturn:
+        """Přidá uživatele do skupiny dialout."""
+        import subprocess
+        user = self._mData.selectedUser.userName
+        print (f"{TXT_MENU2_TITLE_23} - {user}")
+        try:
+            subprocess.run(['usermod', '-aG', 'dialout', user], check=True)
+        except subprocess.CalledProcessError as e:
+            return f"{TXT_MENU2_TITLE_25} - {user}: {e}"
+       
+        print(f"{TXT_MENU2_TITLE_24} - {user}")
+        anyKey()
+        return None
+    
+    def removeUserDialout(self,selItem:c_menu_item) -> onSelReturn:
+        """Odebere uživatele ze skupiny dialout, včetně případů, kdy je dialout primární skupinou."""
+        import grp, pwd, subprocess
+
+        user = self._mData.selectedUser.userName
+        print(f"{TXT_MENU2_TITLE_20} - {user}")
+        try:
+            # Získání seznamu skupin uživatele
+            current_groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+            primary_gid = pwd.getpwnam(user).pw_gid
+            primary_group = grp.getgrgid(primary_gid).gr_name
+
+            # Pokud je dialout primární skupinou, změnit ji na jinou (např. users)
+            if primary_group == 'dialout':
+                print(TXT_MENU2_TITLE_27.format(user=user))
+                subprocess.run(['usermod', '-g', 'users', user], check=True)
+                primary_group = 'users'  # Aktualizace primární skupiny
+
+            # Aktualizace sekundárních skupin (bez dialout)
+            new_groups = [g for g in set(current_groups) if g != 'dialout']
+            subprocess.run(['usermod', '-G', ','.join(new_groups), user], check=True)
+
+        except Exception as e:
+            return f"{TXT_MENU2_TITLE_26} - {user}: {e}"
+
+        print(f"{TXT_MENU2_TITLE_21} - {user}")
+        anyKey()
+        return None
+    
     def createKey(self,selItem:c_menu_item) -> onSelReturn:
         """
         Create a new system user.

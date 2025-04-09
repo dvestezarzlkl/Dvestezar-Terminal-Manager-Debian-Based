@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.3.3
+v1.3.4
 
 [ENG](readme_en.md)
 
@@ -14,6 +14,7 @@ Dvestezar Terminal Manager je nástroj pro správu systémů založených na Deb
 Tento nástroj je navržen jako modulární framework, který lze snadno rozšiřovat o nové podaplikace a funkce podle potřeb. 
 
 **Aktuální funkce aplikace:**
+
 1. **User Management:**
    - Správa uživatelů systému včetně přidávání, mazání a nastavování hesel.
    - Generování a správa SSH klíčů s automatickým ukládáním do `authorized_keys`.
@@ -24,15 +25,11 @@ Tento nástroj je navržen jako modulární framework, který lze snadno rozši�
    - Správa šablon pro rychlé nasazení nových instancí.
    - Automatická kontrola a konfigurace služeb pro každou instanci.
 
----
-
 ### Výzva k rozšíření
 
 Aplikace je připravena na rozšiřování o další moduly a podaplikace. Pokud máš nápad na novou funkcionalitu nebo chceš přidat podporu pro specifickou službu, jsi vítán!
 
 Každý nový modul může být jednoduše přidán jako nová podaplikace do adresáře `libs/app/menus/<app_dir>`. Tato struktura umožňuje snadnou integraci do hlavního menu a přehlednou správu kódu.
-
----
 
 ## Popis vytváření menu aplikací
 
@@ -86,7 +83,7 @@ Hlavní menu se vytváří tak, že projde `libs/app/menus/<app_dir>` kde `app_d
 
 Tento nástroj zjednodušuje správu více instancí Node-RED v jednom prostředí a nabízí flexibilitu při správě jednotlivých uživatelů, což zajišťuje efektivitu a konzistenci v provozu. 
 
-### SSH MANAGER
+### SSH Groups manager
 
 Manager spravuje certifikáty ssh SSH pro připojení k terminálu, ale lze využít jakkoliv.
 
@@ -95,17 +92,45 @@ Je určeno hlavně pro správce serveru. Např správa instancí např node-red,
 Spravuje přímo soubor uživatelů `authorized_keys`
 
 - Spravovat uživatele systému:
-  - vytvořit uživatele systému
-  - nastavit heslo uživatele systému
-  - smazat uživatele systému, nejdřív je ale provedena záloha home adresáře uživatele a po úspěchu je uživatel kompletně smazán ze systému vč. dat home adresáře.
+    - vytvořit uživatele systému
+    - nastavit heslo uživatele systému
+    - smazat uživatele systému, nejdřív je ale provedena záloha home adresáře uživatele a po úspěchu je uživatel kompletně smazán ze systému vč. dat home adresáře.
+    - spravovat sudo práva uživatele
+    - spravovat dialout skupinu uživatele
 - v home uživatele vytvoří v `~/.ssh/sshManager` kde ukládá generované klíče
 - generované klíče může:
-  - zobrazi privátní klíč pro předání uživateli
-  - zahrnout nebo vyřadit do/z `authorized_keys`
+    - generovat ssh klíč pro uživatele
+    - přidat veřejný klíč do `authorized_keys`
+    - odstranit veřejný klíč z `authorized_keys`
+    - zobrazit privátní klíč pro předání uživateli
 
-## Hlavní soubor
+## Hlavní soubor/y
 
-Spouštíme pomocí `!run.py`
+
+### `!run.py`
+
+Spouštíme pomocí `!run.py` - spouští aplikaci
+
+
+### `install.py`
+
+Je tu ještě jeden soubor a to `install.py` který se spouští při prvním spuštění a instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** atd. nakonec spouští `rq_try_install_requirements.py` pro instalaci knihoven potřebných pro aplikaci.
+
+!!! Tento soubor je potřeba spustit jako root nebo se sudo právy.
+
+!!! Pozor node se instaluje globálně do systému a z repo ve verzi 22.x - pokud nechceme tak se musíme postarat o instalaci node ručně aby v době spuštění install.py byl node dostupný. !!!
+
+Nakonec pokud neexistuje tak vytvoří symlink pro `sys_apps.sh` do `bin` adresáře, aby bylo možné spouštět aplikaci z terminálu bez nutnosti přepínat se do adresáře aplikace.
+
+### `update_from_git.sh`
+
+Poslední 'méně' hlavním souborem je `update_from_git.sh` který aktualizuje lokální repo podle aktuálního stavu na GITu. Pokud tu budeme mít nějaké změny tak budou anulovány.  
+Script kontroluje jestli je repo v módu readonly, pokud není tak se nespustí a zobrazí hlášení o nutnosti přepnutí do readonly.  
+Toto lze provést příkazem z terminálu
+
+```sh
+git config remote.origin.pushurl no_push
+```
 
 ## Requires
 
@@ -195,7 +220,7 @@ git submodule add -b <branch> https://github.com/dvestezarzlkl/JBLibs-python.git
 
 ### `!run.py`
 
-Hlavní soubor kterým se app spouští
+Hlavní soubor kterým se app spouští viz [výše](#runpy)
 
 ### `sys_apps.sh`
 
@@ -215,10 +240,7 @@ Toto vytvoří symlink pro příkaz `sys_apps` který lze potom odkudkoliv spust
 
 ### `install.py`
 
-Instalace zip, node, requirements a update submodulů.
-
-Nakonec pokud neexistuje tak vytvoří symlink pro `sys_apps.sh`
-
+Jak již bylo zmíněno [výše](#installpy) 
 
 ### `rq.sh`
 
@@ -261,13 +283,15 @@ Pokud chceme instalovat v prostředí venv tak postup je viz. venv prostředí.
 
 ### `rq_try_install_requirements.py`
 
-!! Jen pro globální instalaci knihoven !! a je potřeba mít admin práva !!!
+!!! Jen pro globální instalaci knihoven !! a je potřeba mít admin práva !!!
+
+!!! tento soubor spouští instalační script `install.py` !!! [viz výše](#installpy)
 
 Soubor se pokusí instalovat `requirements.txt` přes apt a pak pipx
 
 Pokud je v requirements modul s prefixem 'python_' tak se následně pokusí instalovat bez tohoto prefixu
 
-Pokud chceme instalovat v rámci prostředí tak stačí
+Pokud chceme instalovat knihovny v rámci prostředí tak stačí
 
 ```sh
 pip install -r requirements.txt
@@ -275,11 +299,11 @@ pip install -r requirements.txt
 
 ### `update_from_git.sh`
 
-!!! Script může zrušit nebo přepsat lokální změny !!!
+!!! Script má základní ochranu na test přepnutí lokálního repo do readonly, pokud není provedeno, script se nespustí !!!
+
+!!! Script může zrušit nebo přepsat lokální změny v případě ručních změn v readonly módu !!!
 
 Aktualizuje lokální repo podle aktuálního stavu na GITu. Pokud tu budeme mít nějaké změny tak budou anulovány.
-
-Script má základní ochranu na test přepnutí lokálního repo do readonly, pokud není provedeno, script se nespustí.
 
 **Přepnutí do readonly:**
 

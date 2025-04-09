@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.3.4
+
+- ADD - ssh key user management - add, remove dialout group
+
 ## v 1.3.3
 
 - ADD - install script
