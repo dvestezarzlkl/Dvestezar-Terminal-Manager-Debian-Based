@@ -3,7 +3,7 @@ from .c_service_node import c_service_node
 from libs.JBLibs.machine_info import c_machine_info
 
 # cspell:ignore fullchain
-VERSION = "1.3.4"
+VERSION = "1.4.0"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
