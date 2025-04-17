@@ -6,9 +6,9 @@ import re
 from datetime import datetime
 from libs.app import cfg
 
-EXCLUDED_DIRS = {"__pycache__","release"}
-EXCLUDED_FILES = {"config.ini", "makeRelease.py"}
-EXCLUDED_EXTENSIONS = {".log"}
+EXCLUDED_DIRS = {"__pycache__","release","venv310"}
+EXCLUDED_FILES = {"config.ini", "makeRelease.py","run.py","test.py"}
+EXCLUDED_EXTENSIONS = {".log",".mp4"}
 
 v=cfg.VERSION.replace(".","-")
 #d=datetime.now().strftime("%Y-%m-%d-%H%M")
@@ -16,6 +16,18 @@ d=datetime.now().strftime("%Y-%m-%d")
 OUTPUT_ZIP = f"{d}_release-clean_v{v}.zip"
 
 LOG_PATTERN = re.compile(r".*\.log(\.\d+)?$")
+
+import sys
+
+def is_venv():
+    return (
+        hasattr(sys, 'real_prefix') or
+        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    )
+
+if not is_venv():
+    print("Nejsi ve virtuálním prostředí")
+    sys.exit(1)
 
 def should_exclude(file_path):
     # Vyloučit tečkované adresáře a specifické adresáře

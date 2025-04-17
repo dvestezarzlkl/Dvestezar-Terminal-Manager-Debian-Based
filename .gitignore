@@ -3,3 +3,5 @@ __pycache__
 *.log.*
 config.ini
 release/
+venv310/
+run.sh

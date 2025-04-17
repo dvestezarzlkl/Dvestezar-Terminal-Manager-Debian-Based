@@ -7,7 +7,13 @@ import os
 import sys
 import subprocess
 
-# not tested yet
+def check_venv():
+    """Ověří, že skript běží ve virtuálním prostředí (venv)."""
+    if sys.prefix == sys.base_prefix:
+        print("Chyba: Skript musí být spuštěn uvnitř virtuálního prostředí (venv). Ukončuji.")
+        sys.exit(1)
+    else:
+        print(f"Virtuální prostředí aktivní: {sys.prefix}")
 
 def check_sudo()->None:
     """Ověří, zda je skript spuštěn s právy roota (sudo)."""
@@ -17,9 +23,9 @@ def check_sudo()->None:
 
 
 def check_run_py_file()->None:
-    """Zkontroluje, zda v aktuálním adresáři existuje soubor !run.py,
+    """Zkontroluje, zda v aktuálním adresáři existuje soubor venv_run.py,
        čímž ověří, že jsme ve správném (root) adresáři projektu."""
-    file_name = "!run.py"
+    file_name = "venv_run.py"
     if not os.path.exists(file_name):
         print(f"Chyba: V aktuálním adresáři ({os.getcwd()}) "
               f"není nalezen soubor '{file_name}'. Ukončuji.")
@@ -96,20 +102,19 @@ def update_submodules():
         sys.exit(1)
 
 
-def run_requirements_install_script():
-    """Spustí skript rq_try_install_requirements.py, pokud existuje."""
-    script_name = "rq_try_install_requirements.py"
-    if os.path.exists(script_name):
-        print(f"Spouštím skript {script_name} pro instalaci Python knihoven...")
+def run_requirements_install():
+    """Spustí pip install -r requirements.txt, pokud soubor existuje."""
+    req_file = "requirements.txt"
+    if os.path.exists(req_file):
+        print(f"Instaluji knihovny z {req_file}...")
         try:
-            # Spuštění "python3 rq_try_install_requirements.py"
-            subprocess.run(["python3", script_name, '--console'], check=True)
-            print("Instalační skript knihoven byl úspěšně proveden.")
+            subprocess.run(["pip", "install", "-r", req_file], check=True)
+            print("Knihovny byly úspěšně nainstalovány.")
         except subprocess.CalledProcessError as e:
-            print("Chyba při spouštění instalačního skriptu knihoven:\n", e)
+            print("Chyba při instalaci knihoven přes pip:\n", e)
             sys.exit(1)
     else:
-        print(f"Skript {script_name} neexistuje, přeskočeno.")
+        print(f"Soubor {req_file} neexistuje. Přeskakuji instalaci knihoven.")
 
 
 def check_and_create_config():
@@ -186,6 +191,10 @@ def main():
     print(" ---- Kontrola sudo ----")
     check_sudo()
 
+    # 1.1) Kontrola, že jsme ve virtuálním prostředí
+    print(" ---- Kontrola virtuálního prostředí (venv) ----")
+    check_venv()
+
     # 2) Kontrola, že běžíme z root adresáře aplikace (!run.py)
     print(" ---- Kontrola root adresáře aplikace ----")
     check_run_py_file()
@@ -203,8 +212,8 @@ def main():
     update_submodules()
 
     # 6) Spuštění instalačního skriptu rq_try_install_requirements.py
-    print(" ---- Spuštění instalačního skriptu Python knihoven - může trvat i několik minut ----")
-    run_requirements_install_script()
+    print(" ---- Instalace Python knihoven z requirements.txt ----")
+    run_requirements_install()
 
     # 7) Kontrola a případné vytvoření výchozího config.ini
     print(" ---- Kontrola a vytvoření config.ini ----")

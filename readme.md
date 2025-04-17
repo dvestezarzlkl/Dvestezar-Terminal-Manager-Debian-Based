@@ -107,18 +107,20 @@ Spravuje přímo soubor uživatelů `authorized_keys`
 ## Hlavní soubor/y
 
 
-### `!run.py`
+### `run.sh`
 
-Spouštíme pomocí `!run.py` - spouští aplikaci
+Spouštíme pomocí `run.sh` - spouští aplikaci
 
 
-### `install.py`
+### `setup.sh`
 
-Je tu ještě jeden soubor a to `install.py` který se spouští při prvním spuštění a instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** atd. nakonec spouští `rq_try_install_requirements.py` pro instalaci knihoven potřebných pro aplikaci.
+Je tu ještě jeden soubor a to `setup.py` který se spouští při prvním spuštění a instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** a knihoven potřebných pro aplikaci.
+
+Tento soubor vytváří virtual env pro python 3.10 `venv310` a do něj instaluje potřebné knihovny podle `requirements.txt`
 
 !!! Tento soubor je potřeba spustit jako root nebo se sudo právy.
 
-!!! Pozor node se instaluje globálně do systému a z repo ve verzi 22.x - pokud nechceme tak se musíme postarat o instalaci node ručně aby v době spuštění install.py byl node dostupný. !!!
+!!! Pozor node se instaluje globálně do systému a z repo ve verzi 22.x - pokud nechceme tak se musíme postarat o instalaci node ručně aby v době spuštění setup.sh byl node dostupný. !!!
 
 Nakonec pokud neexistuje tak vytvoří symlink pro `sys_apps.sh` do `bin` adresáře, aby bylo možné spouštět aplikaci z terminálu bez nutnosti přepínat se do adresáře aplikace.
 
@@ -174,13 +176,22 @@ Testováno na Ubuntu 22+
 
 ### Python
 
-Testováno na python 3.10+
+Testováno na python 3.10+ - virtual env
+- python3.10-venv
+- python3.10-pip
+- python3.10-dev
 
 ### Python knihovny
 
 Viz [soubor - requirements.txt](requirements.txt)
 
-Lze instalovat pomocí souboru [níže - rq_try_install_requirements.py](#rq_try_install_requirementspy)
+Lze instalovat pomocí souboru 'requirements.txt' pomocí příkazu
+
+```sh
+pip install -r requirements.txt
+```
+
+Pozor, musíme být ve virtual env
 
 ### Aplikace z apt
 
@@ -218,13 +229,15 @@ git submodule add -b <branch> https://github.com/dvestezarzlkl/JBLibs-python.git
 
 ## Soubory v root adresáři
 
-### `!run.py`
+### `run.sh`
 
 Hlavní soubor kterým se app spouští viz [výše](#runpy)
 
+Tento soubor vytváří soubor `setup.sh` na konci běhu.
+
 ### `sys_apps.sh`
 
-Soubor kterým lze spustit `!run.app` z linku.
+Soubor kterým lze spustit `run.sh` z linku.
 
 **Př. globální spuštění bez modifikace PATH:**
 
@@ -238,9 +251,9 @@ ln -s /cesta/k/tvemu_skriptu/sys_apps.sh /usr/local/bin/sys_apps
 
 Toto vytvoří symlink pro příkaz `sys_apps` který lze potom odkudkoliv spustit.
 
-### `install.py`
+### `setup.sh`
 
-Jak již bylo zmíněno [výše](#installpy) 
+Instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** a knihoven potřebných pro aplikaci. Jak bylo uvedeno výše.
 
 ### `rq.sh`
 
@@ -258,20 +271,19 @@ utilitku `pipreqs`
 
 Pokud máme např čistý ubuntu server kde je python3, a chceme nainstalovat globálně, kde nefunguje pip kvůli externí správě (apt), tak budeme potřebovat `pipx`
 
-Instalace pip
+Ve virtual env je to jednoduché, stačí mít nainstalovaný pip a pipreqs
+Pokud nemáme nainstalovaný pip tak je potřeba ho nainstalovat, např. na ubuntu serveru:
 
 ```sh
 apt install python3-pip
 ```
 
-a pipx: 
+Pokud nemáme nainstalovaný pipreqs tak je potřeba ho nainstalovat, např. na ubuntu serveru:
 
 ```sh
-apt install pipx
-
 pipx install pipreqs
 
-# čteme info co zobrazí a popřípadě, pokud potřebujeme
+# čteme info co zobrazí a popřípadě, pokud potřebujeme tak nainstalujeme
 
 pipx ensurepath
 
@@ -280,22 +292,6 @@ pipx ensurepath
 **PO TOMTO KROKU je nutné restartovat terminál !!!!**
 
 Pokud chceme instalovat v prostředí venv tak postup je viz. venv prostředí.
-
-### `rq_try_install_requirements.py`
-
-!!! Jen pro globální instalaci knihoven !! a je potřeba mít admin práva !!!
-
-!!! tento soubor spouští instalační script `install.py` !!! [viz výše](#installpy)
-
-Soubor se pokusí instalovat `requirements.txt` přes apt a pak pipx
-
-Pokud je v requirements modul s prefixem 'python_' tak se následně pokusí instalovat bez tohoto prefixu
-
-Pokud chceme instalovat knihovny v rámci prostředí tak stačí
-
-```sh
-pip install -r requirements.txt
-```
 
 ### `update_from_git.sh`
 
@@ -330,5 +326,20 @@ Spustitelné soubor musí mít samozřejmě práva pro spuštění
 Např. pro základní skripty
 
 ```sh
-chmod +x '!run.py' 'sys_apps.sh'
+chmod +x 'run.sh' 'sys_apps.sh'
 ```
+
+## Aktivace venv
+
+Pokud jsme prošli instalací a máme nainstalovaný python3.10 a venv, tak je pro terminál potřeba aktivovat venv
+
+```sh
+source venv310/bin/activate
+```
+
+Zrušení venv je jednouše
+
+```sh
+exit
+```
+

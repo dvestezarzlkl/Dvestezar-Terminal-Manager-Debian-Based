@@ -14,5 +14,5 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 # Přesune se do adresáře, kde je skript
 cd "$SCRIPT_DIR"
 
-# Spustí '!run.py'
-python3 ./!run.py
+# Spustí app
+./run.sh "$@"

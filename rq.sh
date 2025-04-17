@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# vygeneruje requirements.txt ze zdrojového kódu
 # Vyčisti terminál
 clear
 
@@ -11,6 +12,18 @@ LOG_FILE="rq.log"
 
 # Zkontroluj, zda je nainstalován pipreqs
 LOG="\n"
+
+# Detekce aktivního venv
+if [[ -z "$VIRTUAL_ENV" ]]; then
+    LOG+="Skript musí běžet ve virtuálním prostředí (venv).\n"
+    LOG+="Neaktivní venv detekován. Ukončuji...\n"
+    echo -e "$LOG" > "$LOG_FILE"
+    cat "$LOG_FILE"
+    exit 1
+fi
+
+LOG+="Virtuální prostředí aktivní: $VIRTUAL_ENV\n\n"
+
 if ! command -v pipreqs &> /dev/null
 then
     LOG+="pipreqs není nainstalován. Prosím, nainstalujte ho pomocí následujícího příkazu:\n"

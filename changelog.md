@@ -1,5 +1,10 @@
 # Changelog
 
+## v 1.4.0
+
+- dokončování produkce, běh ve venv
+- min verze pythonu 3.10
+
 ## v 1.3.4
 
 - ADD - ssh key user management - add, remove dialout group
