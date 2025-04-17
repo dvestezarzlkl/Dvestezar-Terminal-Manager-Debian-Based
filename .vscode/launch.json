@@ -5,15 +5,17 @@
             "name": "APP",
             "type": "debugpy",
             "request": "launch",
-            "program": "!run.py",
-            "console": "integratedTerminal"
+            "program": "venv_run.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv310/bin/python",            
         },
         {
             "name": "RUN file",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv310/bin/python",
         },
     ]
 }

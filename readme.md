@@ -340,6 +340,6 @@ source venv310/bin/activate
 Zrušení venv je jednouše
 
 ```sh
-exit
+deactivate
 ```
 

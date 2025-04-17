@@ -68,4 +68,5 @@
       "tcsetattr",
       "Tmpl"
    ],
+   "python.defaultInterpreterPath": "venv310/bin/python"
 }
