@@ -65,7 +65,7 @@ TX_INST_MAKE_ERR02  ="Error: User, UserHome or Instance already exists."
 TX_INST_MAKE_ERR03  ="Error creating system user {username}: {e}"
 TX_INST_MAKE_ERR04  ="Error: User home directory does not exist."
 TX_INST_MAKE_ERR05  ="Error: Asset {asset} does not exist."
-TX_INST_MAKE_ERR06  ="Error: Default node archive {pth} does not exist."
+TX_INST_MAKE_ERR06  ="Error: Node archive {pth} does not exist."
 TX_INST_MAKE_ERR07  ="Error extracting default node setup: {e}"
 TX_INST_MAKE_ERR08  ="Error reading {name}: {e}"
 TX_INST_MAKE_ERR09  ="Error writing {name}: {e}"
@@ -137,3 +137,6 @@ TX_UPD_RUN_SRV = "Starting service ..."
 
 TX_POST_INST_ERR01_TX = "Error: Script cannot create log directory for user {name}."
 TX_INST_MAKE_ERR12 = "Script cannot create directory structure"
+
+
+TX_INST_MAKE_ZIPERR02 = "Invalid installation type: {tp}"

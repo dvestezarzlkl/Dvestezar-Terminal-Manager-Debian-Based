@@ -14,7 +14,40 @@ from .c_service_node import c_service_node
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
 
-def print_newInstance(sys_name:str="",pwd:str="",title:str="",port:int="",type:int=None,minWidth:int=0) -> int:
+# Directory holding archived node-red installs
+ZIP_INSTANCES_DIR = '/var/node-red-install-instances'
+
+def checkZipDir():
+    """
+    Lazy-loads and returns list of .7z archive filenames in ZIP_INSTANCES_DIR.
+
+    Returns:
+        (has_any: bool, filenames: List[str])
+    """
+    try:
+        _zip_list = [
+            fname for fname in os.listdir(ZIP_INSTANCES_DIR)
+            if fname.lower().endswith('.7z')
+        ]
+    except FileNotFoundError:
+        _zip_list = []
+    except Exception:
+        _zip_list = []
+    return bool(_zip_list), _zip_list
+
+def checkZip(filename: str):
+    """
+    Checks for a specific .7z archive file in ZIP_INSTANCES_DIR.
+
+    Returns:
+        (exists: bool, full_path: str|None, error: str|None)
+    """
+    path = os.path.join(ZIP_INSTANCES_DIR, filename)
+    if os.path.isfile(path) and path.lower().endswith('.7z'):
+        return True, path, None
+    return False, None, f"File {filename} not found or not a .7z archive"
+
+def print_newInstance(sys_name:str="",pwd:str="",title:str="",port:int="",type=None,minWidth:int=0) -> int:
     """Tiskne záhlaví
     
     Parameters:
@@ -34,10 +67,12 @@ def print_newInstance(sys_name:str="",pwd:str="",title:str="",port:int="",type:i
     tp="error"
     if type==0:
         tp=TX_INST_TYPE_0
-    elif type==1:
-        tp=TX_INST_TYPE_1
+    elif isinstance(type, str):
+        tp=type
     elif type is None:
         tp=TX_INST_TYPE_None    
+    else:
+        type="error"
     
     ln=[
         TX_INST_HD1,
@@ -58,9 +93,12 @@ def install_node_instance(selItem:c_menu_item) -> str:
     Install a new Node instance for the specified user.
     """
     # Step 1.1: Check if default node archive exists
-    zipExists=os.path.exists(cfg.DEFAULT_NODE_ARCHIVE)
+    # zipExists=os.path.exists(cfg.DEFAULT_NODE_ARCHIVE)
     # if not os.path.exists(cfg.DEFAULT_NODE_ARCHIVE):
     #     return TX_INST_ERR00.format(pth=cfg.DEFAULT_NODE_ARCHIVE)
+    
+    # Step 1.1: Check if any archive zips exist
+    zipExists, zip_list = checkZipDir()    
 
     srv=c_service_node('')
     if not srv.serviceFileExists():
@@ -112,19 +150,17 @@ def install_node_instance(selItem:c_menu_item) -> str:
         return TX_ABORT
 
     if zipExists:
-        # pokud existuje archiv, tak vytvoříme volbu pro fresh nebo z archivu
-        x=select(f"{TX_INST_TYPE_INP}\r  {TX_INST_TYPE_Q}",[
-            select_item(TX_INST_TYPE_INP_o1,data=0), # fresh
-            select_item(TX_INST_TYPE_INP_o2,data=1), # from archive
-        ],min_width)
+        items = [select_item(TX_INST_TYPE_INP_o1, data=0)]
+        for fname in zip_list:
+            items.append(select_item(fname, data=fname))
+        x = select(f"{TX_INST_TYPE_INP}\r  {TX_INST_TYPE_Q}", items, min_width)
         if not x.item:
             log.warning("User cancelled the operation")
             return TX_ABORT
-        instType=x.item.data
-        w=max(x.calcWidth,min_width)
+        instType = x.item.data
+        w = max(x.calcWidth, min_width)
     else:
-        # archiv neexistuje, tak jen fresh
-        instType=0
+        instType = 0  # only fresh        
     
     w=max(min_width,print_newInstance(username,password,title,port,instType,minWidth=min_width))
     log.debug(f"Selected:: username={username}, title={title}, port={port}, type={instType}")
@@ -135,7 +171,7 @@ def install_node_instance(selItem:c_menu_item) -> str:
 
     try:
         log.debug("Creating new node instance")
-        ret=__make(username,title,port,password,instType==0)
+        ret=__make(username,title,port,password,instType)
         log.debug("New node instance created")
     except Exception as e:
         log.error("Error creating new node instance", exc_info=True)
@@ -148,22 +184,21 @@ def install_node_instance(selItem:c_menu_item) -> str:
     
     return ""
     
-def __copyNodeFromArchive(destination_path:str,userChown:str=None) -> str:
+def __copyNodeFromArchive(destination_path:str,userChown:str=None,archivePath:str=None) -> str:
     
     if not userExists(userChown):
         return TX_BKG_ERR5_TX.format(name=userChown)
-    
+       
    # Extract the node default setup to temporary directory from '/home/defaultNodeInstance.7z'
-    defPkgPth=cfg.DEFAULT_NODE_ARCHIVE
-    if not os.path.exists(defPkgPth):
-        return TX_INST_MAKE_ERR06.format(pth=defPkgPth)
+    if not os.path.exists(archivePath):
+        return TX_INST_MAKE_ERR06.format(pth=archivePath)
     
     tmpDir=cfg.TEMP_DIRECTORY
     if os.path.exists(tmpDir):
         shutil.rmtree(tmpDir)
     
     print(TX_INST_MAKE01.format(pth=tmpDir))
-    command = ['7z', 'x', '-o'+tmpDir, defPkgPth]
+    command = ['7z', 'x', '-o'+tmpDir, archivePath]
     log.debug(f"Running command: {command}")
     try:
         subprocess.run(command, check=True)
@@ -240,9 +275,18 @@ def _getFreshNodeInstallation(userName:str)->str:
     
     return "" # OK
     
-def __make(username:str,title:str,port:int,pwdPlain:str, fresh:bool=False) -> str:
+def __make(username: str, title: str, port: int, pwdPlain: str, fresh_or_archive=None) -> str:
     """
     Create a new Node instance for the specified user.
+
+    Args:
+        username: system username
+        title: instance title
+        port: port number
+        pwdPlain: plaintext password
+        fresh_or_archive: either 0 for fresh install or full path to .7z archive
+    Returns:
+        Empty string on success, or error message.
     """
     
     log.debug(f"Creating new node instance for user {username}")
@@ -281,18 +325,19 @@ def __make(username:str,title:str,port:int,pwdPlain:str, fresh:bool=False) -> st
         log.error(f"Asset {assetNodeCfg} does not exist")
         return TX_INST_MAKE_ERR05.format(asset=assetNodeCfg)
     
-    if fresh:
+    # Install fresh or from archive
+    if fresh_or_archive == 0:
         log.debug(f"Creating fresh node installation for user {username}")
-        # Create a fresh node installation in the user's home directory to node_instance subdirectory
         if (e := _getFreshNodeInstallation(username)):
-            log.error(f"Error creating fresh node installation for user {username}")
+            return e
+    elif isinstance(fresh_or_archive, str):
+        log.debug(f"Copying node installation from archive {fresh_or_archive}")
+        archive_file = os.path.join(ZIP_INSTANCES_DIR, fresh_or_archive)
+        if (e := __copyNodeFromArchive(userHome, username, archivePath=archive_file)):
             return e
     else:
-        log.debug(f"Copying default node setup for user {username}")
-        # Copy the default node setup to the user's home directory
-        if (e := __copyNodeFromArchive(userHome,username)):
-            log.error(f"Error copying default node setup for user {username}")
-            return e    
+        log.error(f"Invalid installation type: {fresh_or_archive}")
+        return TX_INST_MAKE_ZIPERR02.format(tp=fresh_or_archive)
     
     log.debug(f"Updating scripts in user's home directory")
     # Update scripts in user's home directory

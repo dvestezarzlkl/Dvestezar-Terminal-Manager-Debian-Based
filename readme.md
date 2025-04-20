@@ -46,6 +46,8 @@ Hlavní menu se vytváří tak, že projde `libs/app/menus/<app_dir>` kde `app_d
 
 1. **Nastavení nových instancí a jejich úprava**:
    - Možnost vytvoření nové instance Node-RED pro konkrétního systémového uživatele.
+     - Instalace z čistého Node-Red z aktuální repo verze
+     - Instalace ze 7z archivu, tyto archivy musí být v adresáři `/var/node-red-install-instances`, pokud jsou nalezené 7z soubory tak jsou nabídnuty při nové instalaci, obsah archivu viz níže
    - Úprava stávajících instancí, včetně změny názvu, hesla, portu nebo typu instalace (např. čistá instalace nebo instalace z archivu).
    - Nastavení služby na čtení nebo plný přístup.
 
@@ -65,6 +67,35 @@ Hlavní menu se vytváří tak, že projde `libs/app/menus/<app_dir>` kde `app_d
    - Přidání nového uživatele.
    - Nastavení a úprava uživatelského přístupu do Node-RED Dashboard-u.
    - Možnost nastavit uživatele na režim pouze pro čtení nebo plný přístup.
+  
+#### Archiv pro instalaci
+
+Jak bylo zmíněno, zipy 7z musí být v `/var/node-red-install-instances`, tyto jsou potom nabídnuty při nové instalaci. Podporovány jsou jen přípony `7z`. Zabalené musí být viz níže, jinak není zaručena funkčnost nebo dokonce poškození dat instancí nebo dokonce systému.
+
+Archiv pro instance lze vytvořit tak že zazálohujeme nějakou instanci a tento zip použijeme takto:
+
+1. root adresář zipu přejmenujeme ze jména uživatele, ze kterého byla záloha udělána na `defaultNodeInstance`
+2. promažeme obsah tohoto adresáře, ponecháme jen adresář `.node-red` a `node_instance`, pokud jsou nějaké i skryté soubory v tomto root-u tak je smažeme  
+   Základní vzhled tří úrovní, samozřejmě bude mít více úrovní. Jde hlavně o první a druhou úroveň, tj root `defaultNodeInstance` a jeho podadresáře `.node-red` a `node_instance`.
+
+   ```txt
+   defaultNodeInstance
+    |   
+    +---.node-red
+    |   |   soubory.*
+    |   |   
+    |   +---adresáře
+    |   +---např
+    |   +---lib
+    |   |   \---flows
+    |   +---node_modules
+    |   \---projects
+    \---node_instance
+        |   package-lock.json
+        |   package.json
+        |   
+        \---node_modules
+   ```
 
 #### Menu a ovládání
 
