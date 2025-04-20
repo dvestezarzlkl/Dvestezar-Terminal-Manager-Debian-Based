@@ -134,3 +134,6 @@ TXT_MENU_INSTN_update_ok= "Node-red instance has been successfully updated for u
 
 TX_UPD_RUNNING_UPD = "Updating Node-RED instance..."
 TX_UPD_RUN_SRV = "Starting service ..."
+
+TX_POST_INST_ERR01_TX = "Error: Script cannot create log directory for user {name}."
+TX_INST_MAKE_ERR12 = "Script cannot create directory structure"

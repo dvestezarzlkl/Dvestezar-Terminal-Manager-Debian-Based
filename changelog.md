@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.4.1
+
+- add - node red logs directrory fro instance
+
 ## v 1.4.0
 
 - dokončování produkce, běh ve venv

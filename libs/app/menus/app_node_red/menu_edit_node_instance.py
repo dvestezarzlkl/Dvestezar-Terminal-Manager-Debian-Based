@@ -69,6 +69,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             c_menu_item(TXT_MENU_INSTN_p_ch,'p',self.change_port,atRight=str(self.cfg.port)),
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
             c_menu_item(TXT_MENU_INSTN_set_upd,'cfg',self.updateSettingsFile),
+            c_menu_item(TXT_MENU_PSINSR_REP,'dr',self.updateDirStruct),
         ])        
 
         # ssl
@@ -306,6 +307,23 @@ class menuEdit_edit_nodeInstance(nd_menu):
             else:
                 print(TX_T_001)
             anyKey()
+            
+    def updateDirStruct(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Update directory structure like log dir
+        """
+        from libs.app.install_instance import postInstall
+        if confirm(TX_Q_002.format(id=self.selectedSystemUSer)):
+            try:
+                postInstall(self.selectedSystemUSer)
+            except Exception as e:
+                print(ERR_PI_001.format(id=self.selectedSystemUSer,e=e))
+                anyKey()
+                return onSelReturn(endMenu=True)
+                
+            print(TX_T_001)
+            anyKey()
+        
             
     def onExitMenu(self):
         log.debug("- exit menuEdit_edit_nodeInstance")

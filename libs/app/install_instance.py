@@ -312,6 +312,13 @@ def __make(username:str,title:str,port:int,pwdPlain:str, fresh:bool=False) -> st
     shutil.copy2(assetMujCfg, nodeUserConfig)
     shutil.copy2(assetNodeCfg, nodeAppConfig)
     
+    # update dir structure like logs
+    try:
+        postInstall(username)
+    except Exception as e:
+        log.error(f"Error creating logs directory for user {username}", exc_info=True)
+        return TX_INST_MAKE_ERR12.format(username=username,e=e)
+    
     try:
         log.debug(f"Reading configuration files")
         # upravíme konfig
@@ -394,4 +401,22 @@ def updateSettingsFileForUser(sysUserName:str)->str:
     except Exception as e:
         log.error(f"Error updating settings.js for user {sysUserName}", exc_info=True)
         return TX_BKG_ERR6_TX.format(name=sysUserName)
+    return None
+
+def postInstall(sysUserName:str)->str:
+    """Vytvoří
+    - adresář /home/username/logs/node-red
+    - nastaví práva pro uživatele
+    """
+    # Vytvoření adresáře pro logy
+    log.debug("Creating logs directory for node-red")
+    try:
+        logs_path = os.path.join(getUserHome(sysUserName), 'logs', 'node-red')
+        os.makedirs(logs_path, exist_ok=True)
+        os.system(f'sudo chown -R {sysUserName}:users {logs_path}')
+        os.system(f'sudo chmod 700 {logs_path}')
+    except Exception as e:
+        log.error(f"Error creating logs directory for user {sysUserName}", exc_info=True)
+        return TX_POST_INST_ERR01_TX.format(name=sysUserName)
+    
     return None

@@ -117,3 +117,8 @@ TX_MENU_NDU_TIT2        = "for selected system user"
 
 TX_Q_001                = "Really update node-red instance settings.js file ?"
 TX_T_001                = "settings.js file updated"
+
+TX_Q_002                = "Really create directories for instance {id} ?"
+ERR_PI_001              = "Error creating directories for instance {id}, error: {e}"
+
+TXT_MENU_PSINSR_REP     = "Repair instance directories like logs etc."
