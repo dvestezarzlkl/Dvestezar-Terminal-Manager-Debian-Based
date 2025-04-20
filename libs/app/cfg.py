@@ -3,7 +3,7 @@ from .c_service_node import c_service_node
 from libs.JBLibs.machine_info import c_machine_info
 
 # cspell:ignore fullchain
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -36,7 +36,6 @@ machineInfo: c_machine_info = c_machine_info()
 [globals]
 LANGUAGE                = "cs-CZ"
 SERVER_URL              = "moje.domena.real"
-DEFAULT_NODE_ARCHIVE    = "/home/defaultNodeInstance.7z"
 DEFAULT_JS_CONFIG       = "muj-node-config.default.js"
 TEMP_DIRECTORY          = "/tmp/default_node"
 BACKUP_DIRECTORY        = "/var/backups"
