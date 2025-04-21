@@ -5,3 +5,4 @@ config.ini
 release/
 venv310/
 run.sh
+assets/portInUse.json
