@@ -11,10 +11,11 @@ MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSIO
 MIN_WIDTH: int            = 0
 LANGUAGE: str             = "en-US"                         # jazyk aplikace
 SERVER_URL:str            = "moje.domena.fake"              # jen doména, popř sub path
-DEFAULT_NODE_ARCHIVE: str = '/home/defaultNodeInstance.7z'  # cesta k archivu s instancí např s výchozí instalací plugin, uzlů flow atd.
-DEFAULT_JS_CONFIG: str    = 'muj-node-config.default.js'    # v assets
-TEMP_DIRECTORY: str       = '/tmp/default_node'             # kam se dočasně rozbalí archiv
-BACKUP_DIRECTORY: str     = '/var/backups'                  # kam se budou ukládat zálohy
+DEFAULT_NODE_ARCHIVE: str = "/home/defaultNodeInstance.7z"  # cesta k archivu s instancí např s výchozí instalací plugin, uzlů flow atd.
+DEFAULT_JS_CONFIG: str    = "muj-node-config.default.js"    # v assets
+TEMP_DIRECTORY: str       = "/tmp/default_node"             # kam se dočasně rozbalí archiv
+BACKUP_DIRECTORY: str     = "/var/backups"                  # kam se budou ukládat zálohy
+INSTANCE_INFO: str        = ""                              # kam se budou ukládat informace o instancích, pro vypnutí nastavíme "" nebo null
 
 httpsKey: str = None
 httpsCert: str = None
@@ -40,6 +41,7 @@ DEFAULT_JS_CONFIG       = "muj-node-config.default.js"
 TEMP_DIRECTORY          = "/tmp/default_node"
 BACKUP_DIRECTORY        = "/var/backups"
 MIN_WIDTH               = 60
+INSTANCE_INFO           = ""
 
 # Pokud vynecháme bude ssl vypnuto, viz default hodnoty v cfg.py
 # vynecháme zakomentováním nebo nastavením na null None
