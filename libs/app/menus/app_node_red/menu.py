@@ -33,7 +33,7 @@ class menu (nd_menu):
             c_menu_block_items([
                 (TXT_MENU0_BKG_DIR      ,cfg.BACKUP_DIRECTORY),
                 (TXT_MENU0_TEMP         ,cfg.TEMP_DIRECTORY),
-                (TXT_MENU0_DEFAULT_INSTANCE_FILENAME ,cfg.DEFAULT_NODE_ARCHIVE),
+                (TXT_MENU0_DEFAULT_INSTANCE_FILENAME ,cfg.INSTANCE_INFO if cfg.INSTANCE_INFO else TX_OFF),
             ])
         )
         
@@ -41,6 +41,7 @@ class menu (nd_menu):
             c_menu_title_label(TXT_MENU),
             c_menu_item(TXT_MENU0_EDIT,"e",menuEdit_select_nodeInstance()),
             c_menu_item(TXT_MENU0_BACKUP,"bkg",self.fullBackup),
+            c_menu_item(TXT_MENU0_BACKUP_LIST,"bklst",self.delBackups),
         ]
         
         if not cfg.mainService.serviceFileExists():
@@ -117,3 +118,21 @@ class menu (nd_menu):
             log.error("Error: %s")
             log.error()
             return onSelReturn(TXT_ERROR+": %s" % e)
+        
+    def delBackups(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Delete backups.
+        """
+        from libs.app.backup import selectBackup,deleteBackup
+        
+        ok,p,fnm,errMsg=selectBackup(None,10,TXT_BKG_FOUND)
+        if not ok and errMsg:
+            return onSelReturn(err=errMsg)
+        elif not ok and not errMsg:
+            return
+        elif ok:
+            e=deleteBackup(None,fnm)
+            if not e is None:
+                return onSelReturn(err=e)
+        print(TXT_BKG_DELETED.format(fnm=fnm,usr='.:HOME:.'))
+        anyKey()        

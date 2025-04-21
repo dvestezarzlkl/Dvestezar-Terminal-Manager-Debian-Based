@@ -13,7 +13,14 @@ log = getLogger(__name__)
 
 def getBackupDir(userName:str=None)->Union[str,None]:
     """Vrátí cestu pro zazálohování, pokud cesta z konfigurace neexistuje, vrátí None  
-    pokud existuje tak se v ní pokusí vytvořit adresář pro uživatele nebo fullBackup, pokud neexistuje, pokud se nepovede vrací None    
+    pokud existuje tak se v ní pokusí vytvořit adresář pro uživatele nebo fullBackup, pokud neexistuje, pokud se nepovede vrací None
+
+    Parameters:
+        userName (str): uživatelské jméno pro které se záloha vytváří, pokud je None, vytvoří se ve fullBackup adresáři
+        
+    Returns:
+        str: cesta k adresáři pro zálohu, pokud se podařilo vytvořit, jinak None
+
     """        
     p=cfg.BACKUP_DIRECTORY
     if not os.path.exists(p):
@@ -145,3 +152,150 @@ def backup_node_instance_for(username: str) -> str:
 
     # Step 4: Create backup
     return _create_backup(username)
+
+def checkBackups(username:str=None) -> int:
+    """
+    Otestuje zda existují zálohy pro uživatele nebo fullBackup
+    Vrátí počet záloh
+    
+    Parameters:
+        username (str): uživatelské jméno pro které se testují zálohy nebo None pro fullBackup
+    Returns:
+        int: počet záloh
+    """
+    p=getBackupDir(username)
+    
+    #pokud neexistuje adresář pro zálohy, vrátíme 0
+    if not p:
+        return 0
+    
+    # zkontrolujeme zda existuje adresář
+    if not os.path.exists(p):
+        return 0
+    
+    # zkontrolujeme zda existují soubory
+    try:
+        x=[i for i in os.listdir(p) if i.endswith('.7z')]
+        return len(x)
+    except Exception as e:
+        log.error(f"Error reading backup directory {p}", exc_info=True)
+        return 0
+
+def selectBackup(
+        username:str=None,
+        last:int=15,
+        selMessage:str=f"{TX_BKG_FND}\r  {TX_BKG_USER_SEL}"
+    ) -> tuple[bool,str|None,str|None]:
+    """
+    Vybere zálohu z vytvořených záloh, pro uživatele nebo fullBackup
+    Vybere je posledních max <last> záloh řazených sestupně podle data
+    Vrátí tuple (<ok>(bool),<cesta>|None,<chyba>|None)
+    
+    Pokud se vrátí ok=False a err=None tak nebylo nic vybráno
+    
+    Parameters:
+        username (str): uživatelské jméno pro které se zobrazí výběr záloh nebo None pro fullBackup
+        last (int): maximální počet záloh které se mají zobrazit, default 15, omezeno na číslo 3-50
+        selMessage (str): text který se zobrazí jako hláška pro uživatele, default je f"{TX_BKG_FND}\r  {TX_BKG_USER_SEL}"
+    Returns:
+        tuple: (<ok>,<cesta>,<fileName>,<chyba>)
+            ok (bool): True pokud je cesta platná, jinak False
+            cesta (str): Pokud je ok true tak platná cesta, jinak None - jedná se o fullPath
+            fileName (str): Pokud je ok true tak název souboru, jinak None
+            chyba (str): Pokud je ok false tak chybová hláška, jinak None
+    """
+    p=getBackupDir(username)
+    
+    #pokud neexistuje adresář pro zálohy, vrátíme None
+    if not p:
+        return False, None, TX_NO_DIR
+    
+    # check last - upravíme hranice
+    if last<3:
+        last=3
+    elif last>50:
+        last=50
+    
+    # scan dir a seřazení podle data - jen posledních <last> záloh
+    # vytvoříme List select_item objektů : select_item(zobrText, data=filename)
+    # select_item je class z helperu
+    # zobrText je 'YYYY-MM-DD_HHMMSS - <filename>'
+    # data je filename
+    from libs.JBLibs.input import select_item,select
+    from datetime import datetime
+        
+    items = []
+    try:
+        x=[]
+        for i in os.listdir(p):
+            if i.endswith('.7z'):
+                # get filemtime
+                date_obj = datetime.fromtimestamp(os.path.getmtime(os.path.join(p, i)))
+                x.append([
+                    # zobrazený text
+                    f"{date_obj.strftime('%Y-%m-%d %H:%M:%S')} - {i}",
+                    # filename
+                    i,
+                    # datum souboru
+                    datetime.fromtimestamp(os.path.getmtime(os.path.join(p, i)))
+                ])
+        # sort
+        x.sort(key=lambda x: x[2], reverse=True)
+        # vybereme max <last> položek
+        x=x[:last]
+        # vytvoříme select_item objekty
+        for i in x:
+            items.append(select_item(i[0], data=i[1]))
+        # pokud je prázdný seznam, vrátíme None
+        if not items:
+            return False, None, None, TX_NO_BACKUPS
+    except Exception as e:
+        log.error(f"Error reading backup directory {p}", exc_info=True)
+        return False, None, None, f"{TX_BKG_ERR8}"
+    
+    min_width=cfg.MIN_WIDTH
+    x = select(selMessage, items, min_width)
+    if not x.item:
+        log.warning("User cancelled the operation")
+        return False, None, None, None
+    
+    # pokud je vybraná položka, vrátíme její celou cestu
+    return True, os.path.join(p, x.item.data), x.item.data, None
+
+def deleteBackup(username:str,backupFileName:str) -> str:
+    """
+    Smaže zálohu pro uživatele nebo fullBackup
+    Vrátí True pokud se podařilo smazat, jinak False
+    
+    Parameters:
+        username (str|None): uživatelské jméno pro které se záloha maže nebo None pro fullBackup
+        backupFileName (str): název souboru který se maže
+    Returns:
+        None: pokud je vše ok
+        str: chybová hláška pokud se něco nepodařilo
+    """
+    p=getBackupDir(username)
+    
+    #pokud neexistuje adresář pro zálohy, vrátíme None
+    if not p:
+        return TX_NO_DIR
+    
+    # zkontrolujeme zda existuje soubor
+    if not os.path.exists(os.path.join(p,backupFileName)):
+        return TX_BKG_ERR9
+    
+    # ověříme jestli opravdu smazat
+    from libs.JBLibs.input import confirm
+    x=confirm(TX_BKG_DEL_Q.format(fileName=backupFileName),True,cfg.MIN_WIDTH)
+    if not x:
+        log.warning("User cancelled the operation")
+        return f"{TX_ABORT}"
+    
+    # smažeme soubor
+    try:
+        os.remove(os.path.join(p,backupFileName))
+    except Exception as e:
+        log.error(f"Error deleting backup file {backupFileName}", exc_info=True)
+        return f"{TX_BKG_ERR10}"
+    
+    return None
