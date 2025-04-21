@@ -3,6 +3,7 @@ TX_FND              = "Found"
 TX_DEF              = "Default"
 TX_ABORT            = "Aborted by user."
 TX_ERROR            = "ERROR"
+TX_OFF              = "OFF"
 TX_BKG_START        = "Starting backup process for"
 TX_BKG_ERR0         = "Error creating backup for"
 TX_BKG_ERR1         = "No valid home directories found"
@@ -14,6 +15,18 @@ TX_BKG_ERR5_TX      = "User does not exist {name}"
 TX_BKG_ERR6         = "User home directory does not exist."
 TX_BKG_USER_INCL    = "user(s) to include in full 7z backup."
 TX_BKG_ERR6_TX      = "Error updating settings.js for user {name}"
+TX_BKG_ERR7         ="Error creating or getting backup directory"
+TX_BKG_ERR8         ="Error reading backup directory"
+TX_BKG_ERR9         ="Backup file does not exist"
+TX_BKG_ERR10        = "Backup file could not be deleted - error"
+
+TX_NO_DIR           = "Directory does not exist."
+TX_NO_BACKUPS       = "No backups found."
+
+TX_BKG_DEL_Q        = "Really delete backup {fileName} ?"
+
+TX_BKG_FND          = "Found backups:"
+TX_BKG_USER_SEL     = "Select backup:"
 
 TX_HD_VERSION       = "Config version"
 TX_HD_URL           = "Server URL"
@@ -101,8 +114,6 @@ TX_REM_TXT2         ="Service has been stopped and disabled."
 TX_REM_TXT22        ="Service has been stopped."
 TX_REM_TXT_OK       ="OK:Node instance for {name} has been successfully removed."
 
-TX_BKG_ERR7         ="Error creating or getting backup directory"
-
 TX_BKG_TXT00        ="Creating full 7z backup for {num} users..."
 TX_BKG_TXT00_1      ="Creating 7z backup for sys username: {name}"
 TX_BKG_TXT01        ="To directory: {pth}"
@@ -135,8 +146,10 @@ TXT_MENU_INSTN_update_ok= "Node-red instance has been successfully updated for u
 TX_UPD_RUNNING_UPD = "Updating Node-RED instance..."
 TX_UPD_RUN_SRV = "Starting service ..."
 
-TX_POST_INST_ERR01_TX = "Error: Script cannot create log directory for user {name}."
+TX_POST_INST_ERR01_TX = "Script cannot create log directory for user {name}."
 TX_INST_MAKE_ERR12 = "Script cannot create directory structure"
 
 
 TX_INST_MAKE_ZIPERR02 = "Invalid installation type: {tp}"
+
+TX_INST_ERR03 = "!!! Port {port} is already in use, try another one. !!!"

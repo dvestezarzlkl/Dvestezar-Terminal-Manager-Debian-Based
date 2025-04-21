@@ -6,7 +6,7 @@ TXT_SAVE = "Uložit změny"
 
 TXT_MENU0_BKG_DIR = "Adresář pro zálohy"
 TXT_MENU0_TEMP = "Dočasný adresář"
-TXT_MENU0_DEFAULT_INSTANCE_FILENAME = "Výchozí instance v"
+TXT_MENU0_DEFAULT_INSTANCE_FILENAME = "Instance info do adresáře"
 
 TXT_MENU0_HOME = "HLAVNÍ MENU"
 TXT_MENU0_INSTALL = "Nainstalovat novou instanci Node-Red"
