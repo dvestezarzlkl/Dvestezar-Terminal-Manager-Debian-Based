@@ -92,11 +92,7 @@ def install_node_instance(selItem:c_menu_item) -> str:
     """
     Install a new Node instance for the specified user.
     """
-    # Step 1.1: Check if default node archive exists
-    # zipExists=os.path.exists(cfg.DEFAULT_NODE_ARCHIVE)
-    # if not os.path.exists(cfg.DEFAULT_NODE_ARCHIVE):
-    #     return TX_INST_ERR00.format(pth=cfg.DEFAULT_NODE_ARCHIVE)
-    
+       
     # Step 1.1: Check if any archive zips exist
     zipExists, zip_list = checkZipDir()    
 
@@ -142,12 +138,20 @@ def install_node_instance(selItem:c_menu_item) -> str:
         log.warning("User cancelled the operation")
         return TX_ABORT
 
-    w=max(min_width,print_newInstance(username,password,title,minWidth=min_width))
-    log.debug("Ask for port")
-    port = get_port(minMessageWidth=w)
-    if port == None:
-        log.warning("User cancelled the operation")
-        return TX_ABORT
+    from libs.app.instanceHelper import isPortUsed
+    while True:
+        w=max(min_width,print_newInstance(username,password,title,minWidth=min_width))
+        log.debug("Ask for port")
+        port = get_port(minMessageWidth=w)
+        if port == None:
+            log.warning("User cancelled the operation")
+            return TX_ABORT
+        if isPortUsed(int(port)):
+            log.error(f"Port {port} is already in use, try another one")
+            print(TX_INST_ERR03.format(port=port))
+            anyKey()
+        else:
+            break
 
     if zipExists:
         items = [select_item(TX_INST_TYPE_INP_o1, data=0)]

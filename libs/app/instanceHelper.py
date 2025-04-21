@@ -1,5 +1,5 @@
 import os,subprocess
-from typing import Union
+from typing import Union,List
 from . import cfg
 from .c_service_node import c_service_node  
 from libs.JBLibs.helper import userExists,getLogger,getUserHome
@@ -260,3 +260,64 @@ def instanceVersion(username:str)->str:
     except (subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as e:
         log.error("Chyba při získávání verze Node-RED: %s", e)
         return "N/A"
+
+_ports: List[int] = []
+"""Seznam portů obsazených instancemi - toto se generuje až při použití menu """
+
+def ports(toSet:List[int]=None) -> List[int]:
+    """
+    Vrací nebo nastavuje seznam portů obsazených instancemi
+    """
+    global _ports
+    if not isinstance(toSet, list):
+        raise TypeError("toSet must be a list")
+    if not all(isinstance(i, int) for i in toSet):
+        raise TypeError("all elements in toSet must be int")
+    if toSet is not None:
+        _ports = toSet
+    return _ports
+def isPortUsed(port:int) -> bool:
+    """Otestuje jestli je pour použitý jinou instancí
+
+    Args:
+        port (int): číslo portu
+
+    Returns:
+        bool: true pokud je port použitý jinou instancí
+    """
+    global _ports
+    if not isinstance(port, int):
+        raise TypeError("port must be int")
+    if port in _ports:
+        return True
+    return False
+
+def createPortInUseJson(data:List, sslStatus:int=0):
+    """Vytvoří json soubor do appdir/assets/portInUse.json"""
+    import json
+    from libs.JBLibs.helper import getAssetsPath
+    path=getAssetsPath('portInUse.json')    
+    data = {
+        'instances': data,
+        'url': ( 'http' if sslStatus==0 else 'https' ) + "://" + cfg.SERVER_URL
+    }
+    with open(path, 'w') as f:
+        json.dump(data, f)
+        
+    # set práva read pro všechny a zápis pro root
+    os.chmod(path, 0o644)
+    os.chown(path, 0, 0)  # root:root
+    
+    path2=cfg.INSTANCE_INFO
+    # zkopírujeme do path2, pokud je path 2 existující dir, jinak přeskakujeme
+    if path2 and os.path.exists(path2) and os.path.isdir(path2):
+        path2=os.path.join(path2,'portInUse.json')
+        with open(path2, 'w') as f:
+            json.dump(data, f)
+        os.chmod(path2, 0o644)
+        os.chown(path2, 0, 0)  # root:root
+    else:
+        log.warning("Cíl z configu %s neexistuje nebo není adresář", path2)
+    
+    log.info("Vytvořen soubor %s s porty %s", path, _ports)
+    
