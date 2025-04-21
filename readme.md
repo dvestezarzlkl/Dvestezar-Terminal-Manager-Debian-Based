@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.4.1
+v1.4.2
 
 [ENG](readme_en.md)
 
@@ -67,6 +67,22 @@ Hlavní menu se vytváří tak, že projde `libs/app/menus/<app_dir>` kde `app_d
    - Přidání nového uživatele.
    - Nastavení a úprava uživatelského přístupu do Node-RED Dashboard-u.
    - Možnost nastavit uživatele na režim pouze pro čtení nebo plný přístup.
+
+6. **HTTPS**:
+   - Možnost nastavení HTTPS certifikátu pro zabezpečený přístup k instanci Node-RED
+
+Nová instance automaticky v home vytváří adresář `~/logs/node-red` pro možnost logování do souborů pomocí `node-red-contrib-flogger` nebo jiných knihoven.
+
+**Jak v Node-Red získat home adresář uživatele?:**
+
+Jelikož node red neparsuje `~` tak lze jednoduše použít `env.get('HOME')`, toto získá home adresář uživatele, tzn env proměnnou systému `HOME`. Vrací stejnou hodnotu jako v terminálu příkaz.
+
+```sh
+echo $HOME
+```
+
+V node-red uzlích `Functions` nejde použít `require`
+
   
 #### Archiv pro instalaci
 
@@ -97,6 +113,19 @@ Archiv pro instance lze vytvořit tak že zazálohujeme nějakou instanci a tent
         \---node_modules
    ```
 
+#### Zálohy
+
+Vychází z `BACKUP_DIRECTORY` plus:  
+
+**kde `BACKUP_DIRECTORY` je pevně nastavebo na `/var/backups`**
+
+- Pokud je záloha na jméno tak do cesty přidá uživatelské jméno
+  `<backupDir>/node_red_instances_backups/users/<userName>`
+- Pokud se jedná o fullBackup tak se zálohuje celý home adresář do  
+  `<backupDir>/node_red_instances_backups/fullBackup`
+
+Pokud chceme mít složku jinde tak vytvoříme link do `/var/backups` který bude mít název `node_red_instances_backups` a bude odkazovat na jinou složku.
+
 #### Menu a ovládání
 
 - **Hlavní menu** nabízí přehled o konfiguraci, jako je URL serveru, adresáře pro zálohy, dočasné adresáře a výchozí instance. Můžete zde provést akce, jako je vytváření nebo úprava instancí, zálohování, nebo vytvoření šablony.
@@ -106,13 +135,17 @@ Archiv pro instance lze vytvořit tak že zazálohujeme nějakou instanci a tent
 #### Typ instalace
 
 - **Fresh**: Čistá instalace z repozitáře, vhodná pro nové uživatele nebo vytvoření zcela nové instance.
-- **Copy**: Instalace z existujícího archivu, která umožňuje rychlé obnovení nebo klonování předchozí konfigurace.
+- **7z**: Instalace z existujícího archivu, který vybereme. Toto umožňuje rychlé obnovení nebo klonování předchozí konfigurace. Tyto archivy musí být v adresáři `/var/node-red-install-instances` a musí mít strukturu viz výše.
 
 #### Další vlastnosti
 
 - **Bezpečnost a přístup**: Uživatelé mohou být nastaveni s úrovněmi oprávnění "full" a "pouze pro čtení", což je vhodné pro auditní nebo kontrolní účely.
 
 Tento nástroj zjednodušuje správu více instancí Node-RED v jednom prostředí a nabízí flexibilitu při správě jednotlivých uživatelů, což zajišťuje efektivitu a konzistenci v provozu. 
+
+#### HTTPS
+
+Pro instanci lze vytvořit HTTPS certifikát aby bylo možné přistupovat k instanci pomocí HTTPS.
 
 ### SSH Groups manager
 
@@ -140,39 +173,62 @@ Spravuje přímo soubor uživatelů `authorized_keys`
 
 ### `run.sh`
 
-Spouštíme pomocí `run.sh` - spouští aplikaci
+Spouštíme pomocí `run.sh` - spouští aplikaci, tento soubor ale neexistuje dokud se neprovede `setup.sh`
 
 
 ### `setup.sh`
 
-Je tu ještě jeden soubor a to `setup.py` který se spouští při prvním spuštění a instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** a knihoven potřebných pro aplikaci.
-
-Tento soubor vytváří virtual env pro python 3.10 `venv310` a do něj instaluje potřebné knihovny podle `requirements.txt`
+Hlavní instalační soubor `setup.py` který se spouští při prvním spuštění. Instaluje potřebné programy, knihovny, submoduly a další související věci vč. **node.js**, **zip** plus python knihovny potřebné pro aplikaci - zpracuje `requirements.txt`.
 
 !!! Tento soubor je potřeba spustit jako root nebo se sudo právy.
 
-!!! Pozor node se instaluje globálně do systému a z repo ve verzi 22.x - pokud nechceme tak se musíme postarat o instalaci node ručně aby v době spuštění setup.sh byl node dostupný. !!!
+- !!! POZOR (pokud není detekován py3.10) přidává repo pro python 3.10 do apt, takže pokud NECHCEME použít toto repo, tak si vše musíme obstarat a zajistit ručně  
+    - Používá repo `dd-apt-repository -y ppa:deadsnakes/ppa` pro python 3.10 - nainstaluje python 3.10, pip, venv a dev knihovny.
+- !!! Pozor (pokud není detekováno) node se instaluje globálně do systému z repo ve verzi 22.x - pokud nechceme tak se musíme postarat o instalaci node ručně aby v době spuštění setup.sh byl node dostupný. !!!
+- Tento soubor vytváří virtual env pro python 3.10 `venv310` a do něj instaluje potřebné knihovny podle `requirements.txt`
 
 Nakonec pokud neexistuje tak vytvoří symlink pro `sys_apps.sh` do `bin` adresáře, aby bylo možné spouštět aplikaci z terminálu bez nutnosti přepínat se do adresáře aplikace.
 
 ### `update_from_git.sh`
 
-Poslední 'méně' hlavním souborem je `update_from_git.sh` který aktualizuje lokální repo podle aktuálního stavu na GITu. Pokud tu budeme mít nějaké změny tak budou anulovány.  
+Poslední 'neméně' hlavním souborem je `update_from_git.sh` který aktualizuje lokální repo podle aktuálního stavu na GITu. Pokud tu budeme mít nějaké změny tak budou anulovány.  
 Script kontroluje jestli je repo v módu readonly, pokud není tak se nespustí a zobrazí hlášení o nutnosti přepnutí do readonly.  
 Toto lze provést příkazem z terminálu
 
 ```sh
 git config remote.origin.pushurl no_push
 ```
+### `assets/portInUse.json`
+
+Tento soubor se generuje a updatuje pokaždé když se navštíví menu se seznamem instancí, je to json seznam portů které jsou použity pro instance node-red. Lze ho použít kdekoliv je potřeba, např i pro zobrazení pomocí PHP na stránku pro názvy instancí, jejich porty a url
+
+**Příklad:**
+
+```json
+{
+	"instances": [
+		[
+			55551,
+			"node_instance_1"
+		],
+		[
+			55552,
+			"node_instance_2"
+		],
+      // ...
+	],
+	"url": "http://moje.domena.url"
+}
+```
 
 ## Requires
 
-Co je potřeba ke spuštění
+Co je potřeba ke spuštění ? Hlavně **config.ini** který musíme vytvořit ručně, jinak viz dále ...
 
 ### Soubory
 
 
-**Nutné pro běh:**
+#### Nutné pro běh
 
 - `config.ini` je potřeba vytvořit před prvním spuštěním podle `cfg.py` v root aplikace, tzn kde je `!run.py`  
   Příklad:
@@ -180,11 +236,12 @@ Co je potřeba ke spuštění
    [globals]
    LANGUAGE                = "cs-CZ"
    SERVER_URL              = "moje.domena.real"
-   DEFAULT_NODE_ARCHIVE    = "/home/defaultNodeInstance.7z"
    DEFAULT_JS_CONFIG       = "muj-node-config.default.js"
    TEMP_DIRECTORY          = "/tmp/default_node"
    BACKUP_DIRECTORY        = "/var/backups"
    MIN_WIDTH               = 60
+   INSTANCE_INFO           = "/var"        # kam se budou ukládat informace o instancích, pro vypnutí nastavíme "" nebo null
+
 
    # Pokud vynecháme bude ssl vypnuto, viz default hodnoty v cfg.py
    # vynecháme zakomentováním nebo nastavením na null None
@@ -193,7 +250,7 @@ Co je potřeba ke spuštění
 
   ```
 
-**Doporučené:**
+#### Doporučené
 
 - `/home/defaultNodeInstance.7z` výchozí zabalený adresář s instancí, (není povinné)  
   Tento soubor může obsahovat kompletní instanci node-red v dané verzi, nainstalovanými moduly a základní flow  
@@ -203,16 +260,18 @@ Co je potřeba ke spuštění
 
 ### Systém
 
-Testováno na Ubuntu 22+
+Testováno na Ubuntu 20.04 LTS (s python 3.8) a Ubuntu 22.04 LTS (s python 3.10)
 
 ### Python
 
-Testováno na python 3.10+ - virtual env
+Testováno na python 3.10 - virtual env
 - python3.10-venv
 - python3.10-pip
 - python3.10-dev
 
 ### Python knihovny
+
+Postará se o to `setup.sh`, ale pokud to chceme ručně tak ...
 
 Viz [soubor - requirements.txt](requirements.txt)
 
@@ -222,17 +281,21 @@ Lze instalovat pomocí souboru 'requirements.txt' pomocí příkazu
 pip install -r requirements.txt
 ```
 
-Pozor, musíme být ve virtual env
+!!! Pozor, musíme být ve virtual env
 
 ### Aplikace z apt
 
-**7zip:**
+#### 7zip
+
+Postará se o to `setup.sh`, ale pokud to chceme ručně tak ...
 
 ```sh
 apt install p7zip-full
 ```
 
-**Node.js:**
+#### Node.js
+
+Postará se o to `setup.sh`, ale pokud to chceme ručně tak ...
 
 Pro bezproblémovou funkčnost musí být node.js instalován globálně, pro aktuální LTS 22 je to takto:
 
@@ -245,6 +308,8 @@ sudo apt-get install -y nodejs
 
 
 ### Submoduly
+
+Postará se o to `setup.sh`, ale pokud to chceme ručně tak ...
 
 Tato app používá submodul 'JBLibs-python', takže po naklonování tohoto repo je potřeba:
 
@@ -268,6 +333,8 @@ Tento soubor vytváří soubor `setup.sh` na konci běhu.
 
 ### `sys_apps.sh`
 
+Postará se o to `setup.sh`, ale pokud to chceme ručně tak ...
+
 Soubor kterým lze spustit `run.sh` z linku.
 
 **Př. globální spuštění bez modifikace PATH:**
@@ -280,7 +347,11 @@ např:
 ln -s /cesta/k/tvemu_skriptu/sys_apps.sh /usr/local/bin/sys_apps
 ```
 
-Toto vytvoří symlink pro příkaz `sys_apps` který lze potom odkudkoliv spustit.
+Toto vytvoří symlink pro příkaz `sys_apps` který lze potom odkudkoliv spustit příkazem
+
+```sh
+sudo sys_apps
+``` 
 
 ### `setup.sh`
 
@@ -326,13 +397,15 @@ Pokud chceme instalovat v prostředí venv tak postup je viz. venv prostředí.
 
 ### `update_from_git.sh`
 
+Script pro update, pokud repo používáme jako aplikace a nebudeme nic vyvíjet.
+
 !!! Script má základní ochranu na test přepnutí lokálního repo do readonly, pokud není provedeno, script se nespustí !!!
 
-!!! Script může zrušit nebo přepsat lokální změny v případě ručních změn v readonly módu !!!
+!!! Script může zrušit nebo přepsat lokální změny v případě ručních změn !!!
 
 Aktualizuje lokální repo podle aktuálního stavu na GITu. Pokud tu budeme mít nějaké změny tak budou anulovány.
 
-**Přepnutí do readonly:**
+#### Přepnutí do readonly - mód aplikace
 
 Lokální repo přepneme do readonly pomocí příkazu z terminálu
 
@@ -342,9 +415,9 @@ git config remote.origin.pushurl no_push
 
 ### `makeRelease.py`
 
-Zabalí tento adresář do ZIP jen se soubory a adresáři, které jsou potřeba a výsledný soubor uloží do podadresáře `release`.
+Zabalí tento adresář do ZIP, jen se soubory a adresáře, které jsou potřeba a výsledný soubor uloží do podadresáře `release`.
 
-Adresář `release` nebude součástí ZIP a je v `gitignore`
+Adresář `release` nebude součástí ZIP a je v `gitignore`.
 
 ### logy, __pycache__
 
@@ -352,12 +425,12 @@ Tyto nebudou součástí `release` a  jsou v `gitignore`
 
 ## Práva souborů
 
-Spustitelné soubor musí mít samozřejmě práva pro spuštění
+Spustitelné soubory musí mít samozřejmě práva pro spuštění
 
 Např. pro základní skripty
 
 ```sh
-chmod +x 'run.sh' 'sys_apps.sh'
+chmod +x 'setup.sh' 'sys_apps.sh' 'run.sh' 'update_from_git.sh' 
 ```
 
 ## Aktivace venv
