@@ -9,7 +9,7 @@ from libs.JBLibs.term import text_inverse
 from libs.app.appHelper import getHttps,existsSelfSignedCert
 from libs.app.c_cfg import cfg_data
 from libs.app.remove_instance import remove_node_instance
-from libs.app.backup import backup_node_instance_for
+from libs.app.backup import backup_node_instance_for,checkBackups
 from libs.app.c_service_node import c_service_node
 from libs.app.instanceHelper import instanceCheck,copyKeyToUser,instanceVersion
 from libs.app.install_instance import updateSettingsFileForUser
@@ -62,12 +62,14 @@ class menuEdit_edit_nodeInstance(nd_menu):
         ))
         
         # instance
+        bkgs=checkBackups(self.selectedSystemUSer)
         self.menu.append(c_menu_item(''))
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_GEN))
         self.menu.extend([
             c_menu_item(TXT_MENU_INSTN_tit_ch,'t',self.change_title),
             c_menu_item(TXT_MENU_INSTN_p_ch,'p',self.change_port,atRight=str(self.cfg.port)),
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
+            c_menu_item(TXT_MENU_INSTN_bkg_del,'bs',self.backups,atRight=TXT_MENU_INSTN_bkg_del_c.format(cnt=bkgs)),
             c_menu_item(TXT_MENU_INSTN_set_upd,'cfg',self.updateSettingsFile),
             c_menu_item(TXT_MENU_PSINSR_REP,'dr',self.updateDirStruct),
         ])        
@@ -324,10 +326,28 @@ class menuEdit_edit_nodeInstance(nd_menu):
             print(TX_T_001)
             anyKey()
         
-            
+    def backups(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Show backups for node instance
+        """
+        from libs.app.backup import selectBackup,deleteBackup
+        
+        ok,p,fnm,errMsg=selectBackup(self.selectedSystemUSer,10,TXT_BKG_FOUND)
+        if not ok and errMsg:
+            return onSelReturn(err=errMsg)
+        elif not ok and not errMsg:
+            return
+        elif ok:
+            e=deleteBackup(self.selectedSystemUSer,fnm)
+            if not e is None:
+                return onSelReturn(err=e)
+        print(TXT_BKG_DELETED.format(fnm=fnm,usr=self.selectedSystemUSer))
+        anyKey()
+                    
     def onExitMenu(self):
         log.debug("- exit menuEdit_edit_nodeInstance")
         if self.cfg.changed:
             if confirm(TXT_SAVE, ):
                 self.cfg.save()
                 anyKey()
+                
