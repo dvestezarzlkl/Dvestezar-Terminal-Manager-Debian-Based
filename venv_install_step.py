@@ -129,7 +129,6 @@ def check_and_create_config():
     default_config = """[globals]
 LANGUAGE                = "cs-CZ"
 SERVER_URL              = "moje.domena.real"
-DEFAULT_NODE_ARCHIVE    = "/home/defaultNodeInstance.7z"
 DEFAULT_JS_CONFIG       = "muj-node-config.default.js"
 TEMP_DIRECTORY          = "/tmp/default_node"
 BACKUP_DIRECTORY        = "/var/backups"
