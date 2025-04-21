@@ -21,8 +21,20 @@ if not is_venv():
     print("Nejsi ve virtuálním prostředí")
     sys.exit(1)
 
+# Zajištění spuštění jako root
 check_root_user()
 
+# Zajištění jediného běhu aplikace
+lock_file_path = "/tmp/jb_sys_apps.lock"
+import fcntl
+try:
+    lock_file = open(lock_file_path, 'w')
+    fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    print("App running in another instance - exiting")
+    sys.exit(1)
+
+# začínáme
 log.info("")
 log.info("")
 log.info("***** Start version: %s at %s *****",cfg.VERSION,datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
