@@ -1,5 +1,15 @@
 # Changelog
 
+## v 1.4.2
+
+- ADD - one instance
+- ADD - backups can be listed and deleted, fullBackup and instance backup
+- FIX - readme
+- FIX - přidáno cls mezi menu - vstup a exit - pro identifikaci stisku klávesy. Pokud se menu dlouho inicializovalo, vypadalo to jako že nebylo nic stisknuto - zamrznutí.
+- ADD - new instance - check if port is free
+- Add - do assets adresáře přidáno generování souboru `portsInUse.json`
+- ADD - do konfigu přidána možnost kopie `portsInUse.json` do jiného adresáře
+
 ## v 1.4.1
 
 - add - node red logs directrory fro instance
