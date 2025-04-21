@@ -125,7 +125,6 @@ git config remote.origin.pushurl no_push
 [globals]
 LANGUAGE = "cs-CZ"
 SERVER_URL = "my.domain.com"
-DEFAULT_NODE_ARCHIVE = "/home/defaultNodeInstance.7z"
 DEFAULT_JS_CONFIG = "my-config.js"
 TEMP_DIRECTORY = "/tmp/default_node"
 BACKUP_DIRECTORY = "/var/backups"
