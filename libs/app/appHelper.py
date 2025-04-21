@@ -154,7 +154,7 @@ class menu(c_menu):
             # URL
             s.append((          
                 TX_HD_URL,
-                ( 'http' if self.sslStatus==0 else 'https' ) + "://" + cfg.SERVER_URL+( (":"+str(port)) if port else ":XXXX")                
+                ( 'http' if self.sslStatus==0 else 'https' ) + "://" + cfg.SERVER_URL+( (":"+str(port)) if port else ":XXXX")
             ))
             
         if self.titleShowMyIP:
