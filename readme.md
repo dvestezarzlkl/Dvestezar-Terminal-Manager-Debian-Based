@@ -221,6 +221,8 @@ Tento soubor se generuje a updatuje pokaždé když se navštíví menu se sezna
 }
 ```
 
+Kopie tohoto souboru lze nastavit v config proměnné `INSTANCE_INFO`, pokud do ní nastavíme adresář, tak se bude tento soubor kopírovat do tohoto adresáře. Např pokud chceme na web umístit info o instancích tak nastavíme kopii do web adresáře, ve kterém např pomocí PHP zobrazíme seznam instancí a jejich porty.
+
 ## Requires
 
 Co je potřeba ke spuštění ? Hlavně **config.ini** který musíme vytvořit ručně, jinak viz dále ...
