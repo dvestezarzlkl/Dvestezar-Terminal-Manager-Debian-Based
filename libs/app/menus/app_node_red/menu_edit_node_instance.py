@@ -103,6 +103,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
         last=[]
         if instanceCheck(self.selectedSystemUSer):
             last.append(c_menu_item(TXT_MENU_INSTN_s_upd,'u',self.update_instance))
+            last.append(c_menu_item(TXT_MENU_INSTN_s_upd_lat,'ulatest',self.update_instance_latest))
             last.append(c_menu_item(TXT_MENU_INSTN_s_del,'delete',self.delete_instance))
 
         if self.cfg.changed:
@@ -114,6 +115,13 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_INSTANCE))
             self.menu.extend(last)
             
+    def  update_instance_latest(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Update node instance for selected system user
+        """
+        if confirm(TXT_MENU_INSTN_s_upd_latQ,True):
+            return update_instance_node_red(self.selectedSystemUSer,latest=True)
+    
     def  update_instance(self,selItem:c_menu_item) -> onSelReturn:
         """
         Update node instance for selected system user

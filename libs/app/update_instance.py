@@ -10,7 +10,7 @@ from .c_service_node import c_service_node
 from libs.JBLibs.input import confirm,anyKey
 from libs.JBLibs.term import cls
 
-def update_instance_node_red(username: str, noAnyKey:bool=False) -> str:
+def update_instance_node_red(username: str, noAnyKey:bool=False, latest: bool = False) -> str:
     """
     Odstraní adresář uživatele systému, ale nejdřív jej zazálohuje.
     Primárně je určeno pro odstranění uživatelského adresáře s konfigurací node-red.  
@@ -57,13 +57,18 @@ def update_instance_node_red(username: str, noAnyKey:bool=False) -> str:
     print(TX_UPD_RUNNING_UPD)
     # run update tzn `npm update` pod usereme a path adresářem
     import subprocess
+    if latest:
+        update_cmd = f"cd {path} && npm install node-red@latest"
+    else:
+        update_cmd = f"cd {path} && npm update"
+    
     subprocess.run(
         [
             "su",
             "-",
             username,
             "-c",
-            f"cd {path} && npm update"
+            update_cmd
         ],
         check=True,
     )
