@@ -10,8 +10,12 @@ TXT_TITLE_NDR_USR = "Node-Red Users"
 TXT_PORT = "port"
 TX_OFF = "OFF"
 
-TXT_BKG_FOUND = "Found backups\n  Select backup to delete"
+TXT_BKG_FOUND = "Found backups\n  Select a backup for further actions"
 TXT_BKG_DELETED = "Backup file {fnm} for user {usr} has been deleted"
+TXT_BKG_INV_SEL = "Invalid selection"
+TXT_BKG_INT_OK = "Backup integrity is fine"
+
+TXT_BKG_INT_CHECK = "Check backup integrity for file {fnm}"
 
 TXT_MAIN_NAME = "Node-Red Service Manager"
 
@@ -55,7 +59,7 @@ TXT_MENU_INSTN_u_edit   = "Users Edit"
 TXT_MENU_INSTN_tit_ch   = "Change title"
 TXT_MENU_INSTN_p_ch     = "Change port"
 TXT_MENU_INSTN_bkg      = "Backup node instance"
-TXT_MENU_INSTN_bkg_del  = "Delete node instance backup"
+TXT_MENU_INSTN_bkg_del  = "Manage backup files"
 TXT_MENU_INSTN_bkg_del_c  = "Files: {cnt}"
 
 TXT_MENU_INSTN_sts      = "Node service status"

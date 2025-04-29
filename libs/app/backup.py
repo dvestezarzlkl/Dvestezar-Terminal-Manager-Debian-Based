@@ -299,3 +299,204 @@ def deleteBackup(username:str,backupFileName:str) -> str:
         return f"{TX_BKG_ERR10}"
     
     return None
+
+def checkBackupIntegrity(username:str,backupFileName:str) -> str:
+    """
+    Checks the integrity of a backup file for a given user.
+    This function verifies the integrity of a backup file using the 7z utility.
+    It is assumed that the backup file is located in a user-specific directory.
+    Args:
+        username (str): The username associated with the backup file.
+        backupFileName (str): The name of the backup file to be checked.
+    Returns:
+        str: A message indicating the result of the integrity check.
+        None if the check is successful.
+    """
+    p = getBackupDir(username)
+
+    if not p:
+        return TX_NO_DIR
+
+    backup_path = os.path.join(p, backupFileName)
+
+    if not os.path.exists(backup_path):
+        return TX_BKG_ERR9
+
+    try:
+        result = subprocess.run(["7z", "t", backup_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode == 0:
+            return
+        else:
+            # můžeš si zalogovat chybu: result.stderr nebo result.stdout
+            return TX_BKG_ERR11.format(err=result.stderr)
+    except FileNotFoundError:
+        return TX_BKG_7Z_NOT_FOUND
+    except Exception as e:
+        return TX_BKG_INT_IRR.format(e=e)
+    
+def restoreBackupInstance(username: str, backupFileName: str) -> str | None:
+    """
+    Obnoví Node-RED instanci uživatele ze zálohy .7z (omezeno na instance soubory).
+    Zastaví službu, obnoví data, nastaví oprávnění, spustí službu a zkontroluje výsledek.
+
+    Returns:
+        None při úspěchu, jinak chybová hláška (str)
+    """
+    from libs.JBLibs.input import confirm, get_input
+    import shutil, tempfile
+    from .c_service_node import c_service_node
+
+    backup_dir = getBackupDir(username)
+    if not backup_dir:
+        return TX_NO_DIR
+
+    backup_path = os.path.join(backup_dir, backupFileName)
+    if not os.path.exists(backup_path):
+        return TX_BKG_ERR9
+
+    # 1. Trojitý dotaz
+    if not confirm(TXT_BKG_MNG_RESTORE_Q1, True, cfg.MIN_WIDTH):
+        return TX_ABORT
+    if confirm(TXT_BKG_MNG_RESTORE_Q2, True, cfg.MIN_WIDTH):
+        return TX_ABORT
+    name_check = get_input(TXT_BKG_MNG_RESTORE_Q3)
+    if name_check.strip() != username:
+        return TXT_BKG_MNG_ERR12
+
+    # print restoring begin
+    print(TXT_BKG_MNG_RESTORE_PREPARE.format(usr=username, fnm=backupFileName))
+
+    # 2. Test integrity
+    integrity_result = checkBackupIntegrity(username, backupFileName)
+    if integrity_result:
+        return integrity_result
+
+    # 3. Zjištění prefixu (root adresáře v archivu)
+    prefix = get_archive_root_dir(backup_path)
+    if not prefix:
+        return TXT_BKG_MNG_ERR14
+
+    # 4. Zastavení služby
+    print(TXT_BKG_MNG_STOPPING_SERVICE)
+    srv = c_service_node(username)
+    if srv.running():
+        srv.stop()
+    if srv.running():
+        return TXT_BKG_MNG_ERR_STOP
+
+    # 5. Cílové cesty - pročištění
+    home_path = os.path.join("/home", username)
+    paths_to_clean = [
+        os.path.join(home_path, ".npm"),
+        os.path.join(home_path, ".node-red"),
+        os.path.join(home_path, "node_instance"),
+        os.path.join(home_path, "muj-node-config.js"),
+    ]
+    for target in paths_to_clean:
+        if os.path.isdir(target):
+            shutil.rmtree(target, ignore_errors=True)
+        elif os.path.isfile(target):
+            try:
+                os.remove(target)
+            except:
+                pass
+
+    # 6.1. Extrakce pouze relevantních částí
+    tmp_dir = tempfile.mkdtemp(prefix="restore_", dir="/tmp")
+    
+    # 6.2. Rozbal celý archiv do tmp
+    try:
+        subprocess.run(["7z", "x", backup_path, f"-o{tmp_dir}", "-y"], check=True)
+    except subprocess.CalledProcessError as e:
+        log.error("Chyba při extrakci archivu", exc_info=True)
+        return TXT_BKG_MNG_ERR13.format(err=e)
+    
+    
+    # 6.3. Sestav cílové cesty
+    extract_root = os.path.join(tmp_dir, prefix)
+    source_paths = {
+        ".node-red": os.path.join(extract_root, ".node-red"),
+        "node_instance": os.path.join(extract_root, "node_instance"),
+        "muj-node-config.js": os.path.join(extract_root, "muj-node-config.js")
+    }
+
+    home_path = os.path.join("/home", username)
+    target_paths = {
+        ".node-red": os.path.join(home_path, ".node-red"),
+        "node_instance": os.path.join(home_path, "node_instance"),
+        "muj-node-config.js": os.path.join(home_path, "muj-node-config.js")
+    }
+
+    # 6.4. Kopírování
+    for name, src in source_paths.items():
+        dst = target_paths[name]
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+        elif os.path.isfile(src):
+            shutil.copy2(src, dst)
+
+    # 7. Smazat tmp
+    shutil.rmtree(tmp_dir)
+
+    # 7. Vlastnictví
+    try:
+        subprocess.run(
+            ["chown", "-R", f"{username}:users", home_path],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        log.error(f"Chyba při nastavování oprávnění pro {username}", exc_info=True)
+        return TXT_BKG_MNG_ERR15.format(err=e)
+
+    # 8. Spuštění služby
+    print(TXT_BKG_MNG_STARTING_SERVICE)
+    srv.start()
+    if not srv.running():
+        return TXT_BKG_MNG_ERR_START
+
+    # 9. Hotovo
+    print(TXT_BKG_MNG_OK_RESTORED)
+    return None
+
+
+def get_archive_root_dir(archive_path: str) -> str | None:
+    """
+    Zjistí root adresář uvnitř 7z archivu.
+    Validuje, že kořenový adresář odpovídá názvu instance ve jménu souboru.
+    """
+    try:
+        result = subprocess.run(["7z", "l", archive_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0:
+            return None
+
+        lines = result.stdout.splitlines()
+
+        try:
+            start_idx = lines.index(next(l for l in lines if l.startswith("----------")))
+        except StopIteration:
+            return None
+
+        files = lines[start_idx + 1:]
+        paths = [line.split()[-1] for line in files if "/" in line]
+
+        if not paths:
+            return None
+
+        first_path = paths[0]
+        parts = first_path.split("/")
+
+        if len(parts) < 2:
+            return None
+
+        root_dir = parts[0]
+
+        # Validace – root adresář musí být ve jménu archivu
+        archive_name = os.path.basename(archive_path).lower()
+        if root_dir.lower() not in archive_name:
+            return None
+
+        return root_dir
+
+    except Exception as e:
+        log.error(f"Chyba při získávání root adresáře z archivu {archive_path}", exc_info=True)
+        return None

@@ -119,8 +119,10 @@ class menuEdit_edit_nodeInstance(nd_menu):
         """
         Update node instance for selected system user
         """
+        from libs.JBLibs.term import cls
         if confirm(TXT_MENU_INSTN_s_upd_latQ,True):
             return update_instance_node_red(self.selectedSystemUSer,latest=True)
+        cls()
     
     def  update_instance(self,selItem:c_menu_item) -> onSelReturn:
         """
@@ -338,19 +340,54 @@ class menuEdit_edit_nodeInstance(nd_menu):
         """
         Show backups for node instance
         """
-        from libs.app.backup import selectBackup,deleteBackup
+        from libs.app.backup import selectBackup,deleteBackup,checkBackupIntegrity,restoreBackupInstance
         
-        ok,p,fnm,errMsg=selectBackup(self.selectedSystemUSer,10,TXT_BKG_FOUND)
-        if not ok and errMsg:
-            return onSelReturn(err=errMsg)
-        elif not ok and not errMsg:
-            return
-        elif ok:
-            e=deleteBackup(self.selectedSystemUSer,fnm)
-            if not e is None:
-                return onSelReturn(err=e)
-        print(TXT_BKG_DELETED.format(fnm=fnm,usr=self.selectedSystemUSer))
-        anyKey()
+        while True:
+            ok,p,fnm,errMsg=selectBackup(self.selectedSystemUSer,10,TXT_BKG_FOUND)
+            if not ok and errMsg:
+                return onSelReturn(err=errMsg)
+            elif not ok and not errMsg:
+                return
+            elif ok:
+                from libs.JBLibs.input import select_item,select
+                
+                items = []
+                items.append(select_item('Delete backup', 'd'))
+                items.append(select_item('Check integrity', 'c'))
+                items.append(select_item('Restore backup', 'r'))
+                items.append(select_item('Back', 'q'))
+                
+                any=True
+                x = select('Select ', items)
+                if not x.item:
+                    log.warning("User cancelled the operation")
+                    return False, None, None, None
+                x=x.item.choice
+                if x == 'd':
+                    e=deleteBackup(self.selectedSystemUSer,fnm)
+                    if not e is None:
+                        return onSelReturn(err=e)
+                    print(TXT_BKG_DELETED.format(fnm=fnm,usr=self.selectedSystemUSer))    
+                elif x == 'c':
+                    print(TXT_BKG_INT_CHECK.format(fnm=fnm))
+                    x=checkBackupIntegrity(self.selectedSystemUSer,fnm)
+                    if not x is None:
+                        return onSelReturn(err=x)
+                    print(TXT_BKG_INT_OK)
+                elif x == 'r':
+                    x=restoreBackupInstance(self.selectedSystemUSer,fnm)
+                    # print('Not implemented yet')
+                    if not x is None:
+                        return onSelReturn(err=x)
+                    anyKey()
+                    return                    
+                elif x == 'q':
+                    any=False
+                else:
+                    print(TXT_BKG_INV_SEL)
+                
+                if any:
+                    anyKey()
                     
     def onExitMenu(self):
         log.debug("- exit menuEdit_edit_nodeInstance")

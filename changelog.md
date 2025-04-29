@@ -1,5 +1,13 @@
 # Changelog
 
+## v 1.5.0
+
+- ADD - managing menu (new section for instance and backup control)
+- ADD - instance backups - check archive integrity using 7z
+- ADD - instance backups - interactive restore with service stop/start
+- ADD - restore requires triple confirmation including manual instance name
+- ADD - update instance allows forced update over major version
+
 ## v 1.4.2
 
 - ADD - one instance
