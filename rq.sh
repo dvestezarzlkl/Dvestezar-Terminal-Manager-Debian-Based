@@ -9,17 +9,30 @@ PROJECT_PATH=$(dirname "$(realpath "$0")")
 
 # Název souboru logu
 LOG_FILE="rq.log"
+VENV_DIR="venv310"
 
 # Zkontroluj, zda je nainstalován pipreqs
 LOG="\n"
 
 # Detekce aktivního venv
 if [[ -z "$VIRTUAL_ENV" ]]; then
-    LOG+="Skript musí běžet ve virtuálním prostředí (venv).\n"
-    LOG+="Neaktivní venv detekován. Ukončuji...\n"
-    echo -e "$LOG" > "$LOG_FILE"
-    cat "$LOG_FILE"
-    exit 1
+    if [[ -d "$VENV_DIR" ]]; then
+        LOG+="Virtuální prostředí není aktivní. Pokouším se aktivovat...\n"
+        source "$VENV_DIR/bin/activate"
+        if [[ -z "$VIRTUAL_ENV" ]]; then
+            LOG+="Nepodařilo se aktivovat virtuální prostředí. Ukončuji...\n"
+            echo -e "$LOG" > "$LOG_FILE"
+            cat "$LOG_FILE"
+            exit 1
+        else
+            LOG+="Virtuální prostředí úspěšně aktivováno.\n"
+        fi
+    else
+        LOG+="Virtuální prostředí ($VENV_DIR) neexistuje. Ukončuji...\n"
+        echo -e "$LOG" > "$LOG_FILE"
+        cat "$LOG_FILE"
+        exit 1
+    fi
 fi
 
 LOG+="Virtuální prostředí aktivní: $VIRTUAL_ENV\n\n"
@@ -36,7 +49,8 @@ fi
 PYTHON_VERSION=$(python3 --version 2>&1)
 
 # Použij pipreqs k vygenerování requirements.txt
-pipreqs "$PROJECT_PATH" --force --quiet
+# pipreqs "$PROJECT_PATH" --force --quiet # u starších není --quiet
+pipreqs "$PROJECT_PATH" --force --ignore "$VENV_DIR" 
 
 # Vytvoření logu do proměnné LOG
 if [ -f "$PROJECT_PATH/requirements.txt" ]; then
