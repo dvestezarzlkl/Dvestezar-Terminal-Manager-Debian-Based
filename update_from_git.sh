@@ -27,16 +27,23 @@ fi
 # Stažení posledních změn z remote
 git fetch --all
 
+# Toto aktualizuje lokální soubory na poslední verzi z remote i kdyby na nich byly lokální změny
+git reset --hard origin/main
+
 # Aktualizace submodulů
 if [ -f ".gitmodules" ]; then
     echo "Repozitář obsahuje submoduly, aktualizuji i submoduly..."
     git submodule update --init --recursive
+
+    # Fetch nových commitů do submodulů
+    git submodule foreach git fetch origin
+
+    # Druhý update podle nového commitu superprojektu
+    git submodule update --recursive
 fi
 
 # git pull --rebase , pokud budou lokální změny, může nastat problém,
 # to u readonly nepředpokládádme a lokální změny ani nechceme, tzn provedeme
 
-# Toto aktualizuje lokální soubory na poslední verzi z remote i kdyby na nich byly lokální změny
-git reset --hard origin/main
 
 echo "Repozitář byl úspěšně aktualizován."
