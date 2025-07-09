@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.5.2
+
+- ADD - JBLibs version v main menu
+
 ## v 1.5.1
 
 - FIX - getKey přidáno sleep kvůli zbytečnému přetěžování vlákna a vytížení cpu na 100% při čekání na stisk klávesy

@@ -4,6 +4,7 @@ from typing import List
 from libs.app import cfg
 from libs.JBLibs.input import anyKey
 import os,string
+from libs.JBLibs import __version__ as libsVersion
 
 _items_:List[c_menu_item]=[]
 
@@ -48,6 +49,7 @@ class menuBoss(menu):
                 "Distro: "+cfg.machineInfo.operating_system,
                 "Kernel: "+cfg.machineInfo.kernel,
                 "FQDN: "+cfg.machineInfo.hostname_full,
+                "JBLibs: "+libsVersion,
             ]
         
     def showSystemInfo(self,selItem:c_menu_item) -> onSelReturn:
