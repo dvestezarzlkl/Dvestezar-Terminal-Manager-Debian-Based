@@ -316,8 +316,79 @@ def createPortInUseJson(data:List, sslStatus:int=0):
             json.dump(data, f)
         os.chmod(path2, 0o644)
         os.chown(path2, 0, 0)  # root:root
+        if cfg.INSTANCE_INFO_COPY_PHP==True:
+            x=copyPHPToo(path2)
+            if not x:
+                log.error("Kopírování PHP scriptu do %s selhalo", path2)
+            else:
+                log.info("Zkopírován portInUse.json do %s", path2)
     else:
         log.warning("Cíl z configu %s neexistuje nebo není adresář", path2)
     
-    log.info("Vytvořen soubor %s s porty %s", path, _ports)
+    log.info("Vytvořen soubor %s s porty %s", path, _ports)    
+
+def copyPHPToo(jsonPath):
+    """
+    Zkopíruje portInUse.json do assets/php/node_red_instances.php
+    
+    V PHP scriptu budou nastaveny proměnné: 
+    -   '%site_name%' na cfg.SITE_NAME
+    -   '%appver%' na cfg.VERSION
+    -   '%cidrs% na cfg.PHP_SCRIPT_CIDRS
+    """
+    import shutil
+    from libs.JBLibs.helper import getAssetsPath
+    phpPath=getAssetsPath('node_red_instances.php')
+    if not os.path.exists(phpPath):
+        log.error("PHP script %s neexistuje", phpPath)
+        return False
+    
+    if not os.path.exists(jsonPath):
+        log.error("JSON soubor %s neexistuje", jsonPath)
+        return False
+    # extrahujeme dir z cesty jsonPath
+    phpDir=os.path.dirname(jsonPath)
+    phpName=os.path.basename(phpPath)
+    if cfg.PHP_SCRIPT_RENAME:
+        phpName = f"{cfg.PHP_SCRIPT_RENAME}.php"
+    
+    # načteme source content z disku !!!!!!
+    content = ""
+    with open(phpPath, 'r') as f:
+        content = f.read()
+        
+    # test cidrs, musí být string, dekódujeme json, pokud ok a výsledek je pole, tak sestavíme json a použijeme ho
+    import json,time
+    cidrs= cfg.PHP_SCRIPT_CIDRS
+    if isinstance(cidrs, str):
+        try:
+            cidrs = json.loads(cidrs)
+        except json.JSONDecodeError:
+            log.error("Chyba při dekódování JSON pro CIDRs: %s", cidrs)
+            return False
+    if not isinstance(cidrs, list):
+        log.error("CIDRs musí být seznam, ale je %s", type(cidrs))
+        return False
+    if not all(isinstance(i, str) for i in cidrs):
+        log.error("Všechny položky v CIDRs musí být string, ale jsou %s", [type(i) for i in cidrs])
+        return False
+    # sestavíme json string
+    cidrs_json = json.dumps(cidrs)
+        
+    # nahrazení proměnných
+    content = content.replace('%site_name%', cfg.SITE_NAME)
+    content = content.replace('%appver%', cfg.VERSION)
+    content = content.replace('%cidrs%', cidrs_json)
+    content = content.replace('%genAt%', str(int(time.time())))  # přidáme čas generování, pro případné ladění
+    # zkopírujeme do assets/php/node_red_instances.php
+    phpPath=os.path.join(phpDir, phpName)
+    with open(phpPath, 'w') as f:
+        f.write(content)
+    
+    # nastavíme práva
+    os.chmod(phpPath, 0o644)
+    os.chown(phpPath, 0, 0)  # root:root
+    
+    log.info("Zkopírován portInUse.json do %s", phpPath)
+    return True
     

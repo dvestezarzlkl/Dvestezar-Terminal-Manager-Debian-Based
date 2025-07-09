@@ -1,12 +1,17 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.5.2
+v1.6.0
 
 [ENG](readme_en.md)
 
 [Náhled](preview_v1-3-1.mp4)
 
+## Instalace
+
+Viz níže sekce [Soubory v root adresáři](#soubory-v-root-adresáři) a [Requires](#requires)
+
+**setup.sh**
 
 ## Popis aplikace
 
@@ -205,7 +210,10 @@ Toto lze provést příkazem z terminálu
 ```sh
 git config remote.origin.pushurl no_push
 ```
-### `assets/portInUse.json`
+### `assets/portInUse.json` - Seznam instancí v JSON
+
+- Tento soubor je v adresáři `assets` a obsahuje seznam instancí node-red, které jsou aktuálně spuštěny na serveru.
+- Kopie tohoto souboru lze nastavit v `config.info` v proměnné `INSTANCE_INFO` např: `INSTANCE_INFO = "/var/www/web"`. Kopie je read pro všechny uživatele, a takto ji lze uložit do webu aby k ní mohlo PHP přistupovat protože u PHP bývá omezeno opendir a nemůže číst soubory mimo web adresář.
 
 Tento soubor se generuje a updatuje pokaždé když se navštíví menu se seznamem instancí, je to json seznam portů které jsou použity pro instance node-red. Lze ho použít kdekoliv je potřeba, např i pro zobrazení pomocí PHP na stránku pro názvy instancí, jejich porty a url
 
@@ -229,6 +237,18 @@ Tento soubor se generuje a updatuje pokaždé když se navštíví menu se sezna
 ```
 
 Kopie tohoto souboru lze nastavit v config proměnné `INSTANCE_INFO`, pokud do ní nastavíme adresář, tak se bude tento soubor kopírovat do tohoto adresáře. Např pokud chceme na web umístit info o instancích tak nastavíme kopii do web adresáře, ve kterém např pomocí PHP zobrazíme seznam instancí a jejich porty.
+
+**!!! POZOR !!!** JSON dokáže generovat PHP script pro zobrazení, pro něj jsou v config.ini určeny tyto proměnné:
+
+- **INSTANCE_INFO_COPY_PHP** (bool default `False`) - pokud je `True` tak se bude kopírovat z `assets/php/node_red_instances.php` do adresáře jako je **JSON**
+- **SITE_NAME** (string default `"Dvestezar Terminal Manager"`) - název stránky, pro hlavičku a titulky
+- **PHP_SCRIPT_CIDRS** (string default `"[ "192.168.0.0/24", "127.0.0.1" ]"`) seznam CIDR adres, které budou mít přístup k PHP skriptu, zadáváme jako JSON string pole string-ů !!! Pokud zadáme `"[]"` nebude omezení zapnuto  
+   **V ini souboru zadáváme takto !!! :**
+   ```ini
+   PHP_SCRIPT_CIDRS = "["10.8.88.0/23"]"
+   ```
+   Protože config načítá string od první uvozovky do poslední, uvozovky mezi nimi jsou považovány za string
+- **PHP_SCRIPT_RENAME** (string default None) - pokud není None tak se použije pro přejmenování PHP skriptu, např. 'index' na index.php, zapisuje se jméno bez přípony .php
 
 ## Requires
 

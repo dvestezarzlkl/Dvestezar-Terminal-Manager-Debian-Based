@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.0
+
+- UPD/ADD - přidán PHP script pro zobrazení instancí na webu
+
 ## v 1.5.2
 
 - ADD - JBLibs version v main menu
