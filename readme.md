@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.5.0
+v1.5.1
 
 [ENG](readme_en.md)
 
@@ -25,7 +25,7 @@ Tento nástroj je navržen jako modulární framework, který lze snadno rozši�
    - Vytváření, editace, zálohování a mazání instancí Node-RED.
    - Správa šablon pro rychlé nasazení nových instancí.
    - Automatická kontrola a konfigurace služeb pro každou instanci.
-   - **Novinky v 1.5.0**
+   - **Novinky v 1.5.0+**
       - Přidáno menu pro správu instancí a záloh
       - Možnost obnovení instance ze zálohy se 3násobným potvrzením
       - Kontrola integrity záloh pomocí `7z t`

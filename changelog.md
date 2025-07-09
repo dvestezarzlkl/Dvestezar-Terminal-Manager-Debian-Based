@@ -1,5 +1,11 @@
 # Changelog
 
+## v 1.5.1
+
+- FIX - getKey přidáno sleep kvůli zbytečnému přetěžování vlákna a vytížení cpu na 100% při čekání na stisk klávesy
+- FIX - opreveno nastavení ESC_is_quit v init
+- FIX - menuBoss exit - souvisí s ESC_is_quit opravou
+
 ## v 1.5.0
 
 - ADD - managing menu (new section for instance and backup control)
