@@ -110,8 +110,9 @@ def init() -> bool:
             import traceback
             traceback.print_exc()                        
     
-    if choice_counter:    
-        x=menuBoss().run()
+    if choice_counter:
+        m=menuBoss()   
+        x=m.run()
         if x:
             if isinstance(x,str):
                 print(f"Returned error: {x}")
