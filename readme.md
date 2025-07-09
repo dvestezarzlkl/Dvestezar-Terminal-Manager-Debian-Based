@@ -210,8 +210,9 @@ Toto lze provést příkazem z terminálu
 ```sh
 git config remote.origin.pushurl no_push
 ```
-### `assets/portInUse.json` - Seznam instancí v JSON
+### `assets/portInUse.json` - Seznam instancí v JSON a PHP site
 
+- Pokud je nastaveno tak se soubor JSON a PHP generují vždy při vstupu do menu `Nová/úprava instance`
 - Tento soubor je v adresáři `assets` a obsahuje seznam instancí node-red, které jsou aktuálně spuštěny na serveru.
 - Kopie tohoto souboru lze nastavit v `config.info` v proměnné `INSTANCE_INFO` např: `INSTANCE_INFO = "/var/www/web"`. Kopie je read pro všechny uživatele, a takto ji lze uložit do webu aby k ní mohlo PHP přistupovat protože u PHP bývá omezeno opendir a nemůže číst soubory mimo web adresář.
 
