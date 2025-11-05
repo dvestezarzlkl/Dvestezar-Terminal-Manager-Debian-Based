@@ -1,9 +1,8 @@
-from ..JBLibs.helper import load_config
-from .c_service_node import c_service_node
+# from .c_service_node import c_service_node
 from libs.JBLibs.machine_info import c_machine_info
 
 # cspell:ignore fullchain
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -18,6 +17,7 @@ BACKUP_DIRECTORY: str     = "/var/backups"                  # kam se budou uklá
 INSTANCE_INFO: str        = ""                              # kam se budou ukládat informace o instancích, pro vypnutí nastavíme "" nebo null
 INSTANCE_INFO_COPY_PHP:bool = False                # pokud je True tak se bude kopírovat do assets/php/node_red_instances.php do adresáře jako je JSON
 SITE_NAME: str            = "Dvestezar Terminal Manager"  # název webu, pro hlavičku a titulky
+LOG_DIR:str               = "/var/log/jb_sys_apps"         # adresář pro logy
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu
 # zadáváme jako JSON string pole string-ů !!!
@@ -31,15 +31,17 @@ httpsKey: str = None
 httpsCert: str = None
 """Nastavením na None vypneme podporu https"""
 
-load_config()
-
 # Runtime proměnné
-mainService: c_service_node = None
+mainService = None
 """Instance služby pro práci s systemd nad šablonou node-red instancí
 inicializuje se v menu0.py
 """
 
 machineInfo: c_machine_info = c_machine_info()
+
+def load():
+    from libs.JBLibs.helper import load_config
+    load_config()
 
 # příklad ini souboru
 """

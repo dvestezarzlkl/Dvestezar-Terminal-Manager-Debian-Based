@@ -1,7 +1,9 @@
 #!/usr/bin/env python3.10
+import libs.app.cfg as cfg
+cfg.load()
+
 from libs.JBLibs.helper import setLng,check_root_user
 from time import sleep
-import libs.app.cfg as cfg
 setLng(cfg.LANGUAGE)
 from libs.JBLibs.term import reset,cls
 from datetime import datetime
