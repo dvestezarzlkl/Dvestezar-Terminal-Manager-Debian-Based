@@ -1,4 +1,4 @@
-// version: 1.0.2
+// version: 1.0.3
 const fs = require('fs');
 const path = require('path');
 
@@ -136,7 +136,14 @@ function loadFns(libs) {
         for (const l of lines) {
             const trimmed = l.trim();
             if (!trimmed || trimmed.startsWith('#')) continue;
-            const [name, file] = trimmed.split('=');
+
+            const idx = trimmed.indexOf('=');
+            if (idx < 0) {
+                console.warn(`  -- Invalid entry in libs.list (no '='): "${trimmed}"`);
+                continue;
+            }
+            let name = trimmed.slice(0, idx).trim();
+            let file = trimmed.slice(idx + 1).trim();
             if (!name || !file) {
                 console.warn(`  -- Invalid entry in libs.list: "${trimmed}"`);
                 continue;

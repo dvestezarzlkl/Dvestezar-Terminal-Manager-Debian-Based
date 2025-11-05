@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.3
+
+- FIX - opraveno načítání libs pokud je v listu u rovnítka mezera
+
 ## v 1.6.2
 
 - FIX - opraveno načítání libs c node-red
