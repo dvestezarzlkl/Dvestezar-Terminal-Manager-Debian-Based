@@ -17,6 +17,11 @@ log = getLogger(__name__)
 # Directory holding archived node-red installs
 ZIP_INSTANCES_DIR = '/var/node-red-install-instances'
 
+# další soubory pro kopírován z assets do adr kde je settings.js pro nodered
+add_js_assets = [
+    "settings_helper.js"
+]
+
 def checkZipDir():
     """
     Lazy-loads and returns list of .7z archive filenames in ZIP_INSTANCES_DIR.
@@ -360,6 +365,7 @@ def __make(username: str, title: str, port: int, pwdPlain: str, fresh_or_archive
     # kopírujeme s assets
     shutil.copy2(assetMujCfg, nodeUserConfig)
     shutil.copy2(assetNodeCfg, nodeAppConfig)
+    copyAddFilesToUser(username)
     
     # update dir structure like logs
     try:
@@ -420,6 +426,39 @@ def __make(username: str, title: str, port: int, pwdPlain: str, fresh_or_archive
     print(TX_INST_MAKE_OK.format(name=username))
     return ""
 
+def copyAddFilesToUser(sysUserName:str)->str:
+    """Zkopíruje další js soubory z assets do .node-red adresáře uživatele
+    
+    Properties:
+        sysUserName (str): jméno systémového uživatele
+        
+    Returns:
+        Union[str,None]: None pokud vše proběhlo v pořádku, jinak chybovou hlášku
+    """
+    if not userExists(sysUserName):
+        return TX_BKG_ERR5_TX.format(name=sysUserName)
+    basePath=os.path.join(
+        getUserHome(sysUserName),
+        '.node-red'
+    )
+    try:
+        for f in add_js_assets:
+            shutil.copy2(
+                getAssetsPath(f),
+                os.path.join(
+                    basePath,
+                    f
+                )
+            )
+            os.system(f'chown {sysUserName}:users {os.path.join(basePath,f)}')
+            os.system(f'chmod 600 {os.path.join(basePath,f)}')
+            log.debug(f"Copied additional JS file {f} for user {sysUserName}")
+            print(TX_BKG_COPY_ADDFILE_OK.format(file=f,name=sysUserName))
+    except Exception as e:
+        log.error(f"Error copying additional JS files for user {sysUserName}", exc_info=True)
+        return TX_BKG_ERR6_TX.format(name=sysUserName)
+    return None
+
 def updateSettingsFileForUser(sysUserName:str)->str:
     """Provede update settings.js souboru pro uživatele
     z assets/settings.default.js
@@ -447,6 +486,8 @@ def updateSettingsFileForUser(sysUserName:str)->str:
         )
         os.system(f'chown {sysUserName}:users {path}')
         os.system(f'chmod 600 {path}')
+        
+        copyAddFilesToUser(sysUserName)        
     except Exception as e:
         log.error(f"Error updating settings.js for user {sysUserName}", exc_info=True)
         return TX_BKG_ERR6_TX.format(name=sysUserName)

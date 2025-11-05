@@ -1,8 +1,13 @@
 # Changelog
 
+## v 1.6.1
+
+- FIX - opraveno načítání konfigurace z config.json - cirkularní reference
+- UPD - aktualizace JBLibs na verzi 1.2.8
+
 ## v 1.6.0
 
-- UPD/ADD - přidán PHP script pro zobrazení instancí na webu
+- UPD/ADD - přidán PHP script pro zobrazení instancí na
 
 ## v 1.5.2
 

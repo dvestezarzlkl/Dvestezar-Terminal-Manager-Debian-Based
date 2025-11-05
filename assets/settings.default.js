@@ -1,23 +1,9 @@
-var jb_cfg=require('../muj-node-config.js');
-
-function getHttps(){
-    if(!jb_cfg.https){
-        return null;
-    }
-    if(!jb_cfg.https.key){
-        return null;
-    }
-    if(!jb_cfg.https.cert){
-        return null;
-    }
-    return {
-        key: require("fs").readFileSync(jb_cfg.https.key),
-        cert: require("fs").readFileSync(jb_cfg.https.cert)
-    }
-}
+// version: 2.0.3
+const hlp = require('./settings_helper.js');
+const jb_cfg=hlp.loadMyCFG();
 
 module.exports = {
-    https: getHttps(),
+    https: hlp.getHttps(jb_cfg),
     flowFile: 'flows.json',
     flowFilePretty: true,
     adminAuth: {
@@ -69,6 +55,7 @@ module.exports = {
     },
     functionExternalModules: true,
     functionGlobalContext: {
+        libs: hlp.loadMyLoader(),
         jb_cfg:jb_cfg.runtime,
     },
     debugMaxLength: 1000,

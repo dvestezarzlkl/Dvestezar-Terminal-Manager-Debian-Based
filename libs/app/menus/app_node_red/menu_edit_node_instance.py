@@ -71,6 +71,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
             c_menu_item(TXT_MENU_INSTN_bkg_del,'bs',self.backups,atRight=TXT_MENU_INSTN_bkg_del_c.format(cnt=bkgs)),
             c_menu_item(TXT_MENU_INSTN_set_upd,'cfg',self.updateSettingsFile),
+            c_menu_item(TXT_MENU_INSTN_show_help,'cfgh',self.showCfgHelpFile),
             c_menu_item(TXT_MENU_PSINSR_REP,'dr',self.updateDirStruct),
         ])        
 
@@ -389,6 +390,22 @@ class menuEdit_edit_nodeInstance(nd_menu):
                 if any:
                     anyKey()
                     
+    def showCfgHelpFile(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Show configuration help file
+        """
+        from libs.JBLibs.term import cls
+        from libs.JBLibs.helper import getAssetsPath
+        pth=getAssetsPath(TXT_MENU_INSTN_cfg_help_fileName)
+        if os.path.exists(pth):
+            with open(pth,'r',encoding='utf-8') as f:
+                cls()
+                print(f.read())
+                anyKey()
+        else:
+            print(TXT_MENU_INSTN_cfg_help_Err)
+            anyKey()
+                
     def onExitMenu(self):
         log.debug("- exit menuEdit_edit_nodeInstance")
         if self.cfg.changed:

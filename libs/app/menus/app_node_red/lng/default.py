@@ -138,3 +138,6 @@ TX_Q_002                = "Really create directories for instance {id} ?"
 ERR_PI_001              = "Error creating directories for instance {id}, error: {e}"
 
 TXT_MENU_PSINSR_REP     = "Repair instance directories like logs etc."
+TXT_MENU_INSTN_show_help = "Show CFG help & info"
+TXT_MENU_INSTN_cfg_help_Err = "Error reading help file"
+TXT_MENU_INSTN_cfg_help_fileName = "setting_help.txt"

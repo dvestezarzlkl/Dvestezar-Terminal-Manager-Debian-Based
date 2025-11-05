@@ -1,0 +1,49 @@
+------------------------------------------------------------
+HLAVNÍ KONFIGURACE
+------------------------------------------------------------
+- hlavní `muj-node-config.js` je v /home/instanceName adresáři uživatele pod kterým běží instance.
+    property `runtime` je použita pro global.get('jb_cfg')
+- node-red `settings.js` je standardně v /home/instanceName/.node-red
+
+------------------------------------------------------------
+CO UMOŽŇUJE SETTINGS
+------------------------------------------------------------
+- načíst vlastní konfigurační property pro global('jb_cfg')
+- načíst vlastní libs – knihovny do global.get('libs')
+
+------------------------------------------------------------
+KONFIGURAČNÍ ADRESÁŘ
+------------------------------------------------------------
+Se nachází v adresáři `.nodered_my_cfg` uživatele pod kterým běží node-red instance  
+(tzn v /home/instanceName/.nodered_my_cfg)
+
+  SOUBOR `my_loader.js`
+      – Nemusí existovat. Pokud existuje, musí vrátit exporty přímo s knihovnami, tzn např:
+        {
+          lib1,
+          lib2,
+          …
+        }
+
+  SOUBOR `my_cfg.json`
+      - Nemusí existovat
+      – Obsahuje JSON objekt, kde každé property se přepíše nebo doplní do global.get('jb_cfg').
+        Příklad:
+          {
+            prop1: 'neco',
+            prop2: 'ono'
+          }
+      – Pokud v `muj-node-config.js` v runtime neexistuje 'prop1', bude vytvořena.
+      – Pokud existuje, bude hodnota aktualizována.
+
+  SOUBOR `libs.list`
+      – Je textový soubor, kde každý řádek má formát:
+            jmenoDoLibs= cesta_k_souboru
+      – Jméno „jmenoDoLibs“ je použito jako property v global.get('libs').{jmenoDoLibs}
+      – Cesta musí ukazovat na *.js nebo *.ts soubor, který exportuje objekt – ten je přiřazen do
+        libs pod "jmenoDoLibs"
+
+------------------------------------------------------------
+VERZE
+    2.0.3
+------------------------------------------------------------
