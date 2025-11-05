@@ -4,6 +4,8 @@
 
 - FIX - opraveno načítání konfigurace z config.json - cirkularní reference
 - UPD - aktualizace JBLibs na verzi 1.2.8
+- UPD - aktualizace možností načítání nastavení a knihoven node-red instancí
+- UPD - přidána volba nápovědy pro cfg files v menu
 
 ## v 1.6.0
 
