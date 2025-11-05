@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.2
+
+- FIX - opraveno načítání libs c node-red
+
 ## v 1.6.1
 
 - FIX - opraveno načítání konfigurace z config.json - cirkularní reference

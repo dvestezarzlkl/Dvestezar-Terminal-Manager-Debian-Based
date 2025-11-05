@@ -1,4 +1,4 @@
-// version: 1.0.1
+// version: 1.0.2
 const fs = require('fs');
 const path = require('path');
 
@@ -143,8 +143,13 @@ function loadFns(libs) {
             }
 
             try {
-                console.log(`  ++ Loading module ${name} from ${file}`);
-                const moduleExport = require(path.resolve(home, file));
+                console.log(`  ++ Loading module "${name}" from: ${file}`);
+                // pokud je to relativní tak přidáme home
+                let modulePath = file;
+                if (!path.isAbsolute(file)) {
+                    modulePath = path.join(home, file);
+                }
+                const moduleExport = require(modulePath);
                 tempLibs[name] = moduleExport;
 
                 // pokud modul má jméno „root“ (např. očekávané) nebo podle tvého pravidla
