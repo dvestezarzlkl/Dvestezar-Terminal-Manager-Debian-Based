@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.5
+
+- FIX - oprvaven spuštění safe mode node instance, protože pi verze špatně interpertuje safe, safe se spouští přímo přes red.js
+
 ## v 1.6.4
 
 - ADD - instance run in safe mode - flow stooped

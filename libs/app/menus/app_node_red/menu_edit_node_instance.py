@@ -299,11 +299,15 @@ class menuEdit_edit_nodeInstance(nd_menu):
             path=getUserHome(self.selectedSystemUSer)
             # cmd sd to user home
             cmd=f'cd {path}'
-            path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
-            cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
             if safe:
-                cmd=cmd + ' --safe'
+                path = os.path.join(path,'node_instance/node_modules/node-red')
+                # kvůli problémům se scriptem pi spouštíme přímo: /usr/bin/env node "${SCRIPT_PATH}"/../red.js --safe
+                cmd=cmd + f' && sudo -u {self.selectedSystemUSer} /usr/bin/env node "{path}/red.js" --safe'
+            else:
+                path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
+                cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
             log.info(f"run as application: {cmd}")
+            print(f"cmd: {cmd}")
             
             # run as user as application
             try:
