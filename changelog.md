@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.6
+
+- UPD - safe mód se po schybě nebo ukončení node-red (CRT+C) zeptá jestli znovu restartovat do safe módu
+
 ## v 1.6.5
 
 - FIX - oprvaven spuštění safe mode node instance, protože pi verze špatně interpertuje safe, safe se spouští přímo přes red.js

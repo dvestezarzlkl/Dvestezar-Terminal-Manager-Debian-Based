@@ -294,30 +294,42 @@ class menuEdit_edit_nodeInstance(nd_menu):
             active=self.cfg.service.running()
             if active:
                 self.cfg.service.stop()
+
+            while safe: # safe opakujem dokud potvrdíme volbou y
+                    
+                # sudo -u user /home/user/node-red/node_modules/.bin/node-red
+                path=getUserHome(self.selectedSystemUSer)
+                # cmd sd to user home
+                cmd=f'cd {path}'
+                if safe:
+                    path = os.path.join(path,'node_instance/node_modules/node-red')
+                    # kvůli problémům se scriptem pi spouštíme přímo: /usr/bin/env node "${SCRIPT_PATH}"/../red.js --safe
+                    cmd=cmd + f' && sudo -u {self.selectedSystemUSer} /usr/bin/env node "{path}/red.js" --safe'
+                else:
+                    path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
+                    cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
+                log.info(f"run as application: {cmd}")
+                print(f"cmd: {cmd}")
                 
-            # sudo -u user /home/user/node-red/node_modules/.bin/node-red
-            path=getUserHome(self.selectedSystemUSer)
-            # cmd sd to user home
-            cmd=f'cd {path}'
-            if safe:
-                path = os.path.join(path,'node_instance/node_modules/node-red')
-                # kvůli problémům se scriptem pi spouštíme přímo: /usr/bin/env node "${SCRIPT_PATH}"/../red.js --safe
-                cmd=cmd + f' && sudo -u {self.selectedSystemUSer} /usr/bin/env node "{path}/red.js" --safe'
-            else:
-                path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
-                cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
-            log.info(f"run as application: {cmd}")
-            print(f"cmd: {cmd}")
-            
-            # run as user as application
-            try:
-                os.system(cmd)
-            except:
-                pass
-            
+                # run as user as application
+                try:
+                    os.system(cmd)
+                except:
+                    pass
+                
+                if safe:
+                    if confirm("Do you want to restart in SAFE MODE again ?",False):
+                        # clear screen
+                        from libs.JBLibs.term import cls
+                        cls()
+                    else:
+                        safe=False
+                        print("Exiting SAFE MODE.")
+                else:
+                    anyKey()
+                
             if active:
                 self.cfg.service.start()
-            anyKey()
             
     def updateSettingsFile(self,selItem:c_menu_item) -> onSelReturn:
         """
