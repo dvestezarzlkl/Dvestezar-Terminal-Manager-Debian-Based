@@ -97,6 +97,7 @@ TXT_MENU_INSTN_ssl_u    = "HTTPS updated from config"
 TXT_MENU_INSTN_ssl_uSelf = "HTTPS updated from self-signed certificate"
 TXT_MENU_INSTN_ssl_uEr  = "Error updating HTTPS"
 TXT_MENU_INSTN_app_run  = "Run as application"
+TXT_MENU_INSTN_app_run_safe  = "Run as application - SAFE MODE (flow stopped)"
 TXT_MENU_INSTN_set_upd  = "Update settings.js file"
 
 TXT_MENU_INSTN_U_noInit = "Service not initialized for user"

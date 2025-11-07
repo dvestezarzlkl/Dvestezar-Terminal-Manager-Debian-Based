@@ -100,6 +100,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.menu.append(c_menu_item(TXT_MENU_INSTN_s_dis,'dis',self.disableNodeService))
             
         self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsApp))
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsAppSafe))
         
         last=[]
         if instanceCheck(self.selectedSystemUSer):
@@ -282,7 +283,10 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.cfg.save(True)
             anyKey()
             
-    def runAsApp(self,selItem:c_menu_item) -> onSelReturn:
+    def runAsAppSafe(self,selItem:c_menu_item) -> onSelReturn:
+        self.runAsAppSafe(selItem,safe=True)
+            
+    def runAsApp(self,selItem:c_menu_item,safe:bool=False) -> onSelReturn:
         """
         Run node instance as application
         """
@@ -297,6 +301,8 @@ class menuEdit_edit_nodeInstance(nd_menu):
             cmd=f'cd {path}'
             path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
             cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
+            if safe:
+                cmd=cmd + ' --safe'
             log.info(f"run as application: {cmd}")
             
             # run as user as application

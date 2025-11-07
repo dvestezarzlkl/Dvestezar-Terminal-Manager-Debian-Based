@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.6.4
+
+- ADD - instance run in safe mode - flow stooped
+
 ## v 1.6.3
 
 - FIX - opraveno načítání libs pokud je v listu u rovnítka mezera
