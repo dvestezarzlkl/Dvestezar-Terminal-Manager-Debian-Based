@@ -100,7 +100,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.menu.append(c_menu_item(TXT_MENU_INSTN_s_dis,'dis',self.disableNodeService))
             
         self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsApp))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsAppSafe))
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'appsf',self.runAsAppSafe))
         
         last=[]
         if instanceCheck(self.selectedSystemUSer):
