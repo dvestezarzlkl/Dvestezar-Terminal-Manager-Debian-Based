@@ -284,7 +284,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             anyKey()
             
     def runAsAppSafe(self,selItem:c_menu_item) -> onSelReturn:
-        self.runAsAppSafe(selItem,safe=True)
+        self.runAsApp(selItem,True)
             
     def runAsApp(self,selItem:c_menu_item,safe:bool=False) -> onSelReturn:
         """
