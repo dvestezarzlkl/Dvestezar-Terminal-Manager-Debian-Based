@@ -1,5 +1,11 @@
 # Changelog
 
+## v 1.6.7
+
+- FIX - text menu pro safe mode
+- UPD - opakování run instance jako app i v safe mode
+- UPD - zkrácení zkratky pro safe mode
+
 ## v 1.6.6
 
 - UPD - safe mód se po schybě nebo ukončení node-red (CRT+C) zeptá jestli znovu restartovat do safe módu

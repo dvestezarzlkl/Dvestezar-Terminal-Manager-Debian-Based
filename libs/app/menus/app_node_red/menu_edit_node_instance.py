@@ -100,7 +100,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             self.menu.append(c_menu_item(TXT_MENU_INSTN_s_dis,'dis',self.disableNodeService))
             
         self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsApp))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'appsf',self.runAsAppSafe))
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run_safe,'sf',self.runAsAppSafe))
         
         last=[]
         if instanceCheck(self.selectedSystemUSer):
@@ -295,8 +295,10 @@ class menuEdit_edit_nodeInstance(nd_menu):
             if active:
                 self.cfg.service.stop()
 
-            while safe: # safe opakujem dokud potvrdíme volbou y
-                    
+            opak:bool=True
+            txMode="SAFE MODE" if safe else "NORMAL MODE"
+            while opak: # safe opakujem dokud potvrdíme volbou y
+                
                 # sudo -u user /home/user/node-red/node_modules/.bin/node-red
                 path=getUserHome(self.selectedSystemUSer)
                 # cmd sd to user home
@@ -308,8 +310,8 @@ class menuEdit_edit_nodeInstance(nd_menu):
                 else:
                     path = os.path.join(path,'node_instance/node_modules/node-red/bin/node-red-pi')
                     cmd=cmd + f' && sudo -u {self.selectedSystemUSer} {path}'
-                log.info(f"run as application: {cmd}")
-                print(f"cmd: {cmd}")
+                log.info(f"run as application in {txMode}: {cmd}")
+                print(f"run in {txMode} cmd: {cmd}")
                 
                 # run as user as application
                 try:
@@ -317,16 +319,13 @@ class menuEdit_edit_nodeInstance(nd_menu):
                 except:
                     pass
                 
-                if safe:
-                    if confirm("Do you want to restart in SAFE MODE again ?",False):
-                        # clear screen
-                        from libs.JBLibs.term import cls
-                        cls()
-                    else:
-                        safe=False
-                        print("Exiting SAFE MODE.")
+                if confirm(f"Do you want to restart in {txMode} again ?",False):
+                    # clear screen
+                    from libs.JBLibs.term import cls
+                    cls()
                 else:
-                    anyKey()
+                    opak=False
+                    print(f"Exiting {txMode}.")
                 
             if active:
                 self.cfg.service.start()
