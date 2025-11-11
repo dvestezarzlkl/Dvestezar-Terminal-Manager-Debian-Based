@@ -77,6 +77,7 @@ TXT_MENU_INSTN_s_ena    = "Enable node service"
 TXT_MENU_INSTN_s_dis    = "Disable node service"
 TXT_MENU_INSTN_s_del    = "Delete node instance"
 TXT_MENU_INSTN_s_upd    = "Update Node-Red instance"
+TXT_MENU_INSTN_log      = "Show journalctl log - live"
 
 TXT_MENU_INSTN_s_upd_lat = "Force update to the latest version of Node-RED"
 TXT_MENU_INSTN_s_upd_latQ = "Really update to the latest version of Node-RED? This may include a major version upgrade."

@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.7.3
+
+- ADD - přidáno zobrazení logu journalctl pro instance
+
 ## v 1.7.2
 
 - UPD - po updatu app se app ukončí a je potřeba ji znovu spustit

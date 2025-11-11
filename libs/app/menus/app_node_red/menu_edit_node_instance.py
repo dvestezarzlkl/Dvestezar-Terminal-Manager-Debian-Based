@@ -87,7 +87,8 @@ class menuEdit_edit_nodeInstance(nd_menu):
         
         # service
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_SERVICE))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_sts,'x',self.service_status, atRight= self.cfg.service_status_tx()))        
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_sts,'x',self.service_status, atRight= self.cfg.service_status_tx()))
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_log,'l',self.show_log))
         if service.running(status):
             self.menu.append(c_menu_item(TXT_MENU_INSTN_s_stop,'o',self.service_stop))
             self.menu.append(c_menu_item(TXT_MENU_INSTN_s_res,'r',self.service_restart))
@@ -434,3 +435,10 @@ class menuEdit_edit_nodeInstance(nd_menu):
                 self.cfg.save()
                 anyKey()
                 
+    def show_log(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Show node service log for selected system user
+        """
+        cmd=f'sudo journalctl -f -u {self.cfg.service.fullName} -n 50'
+        os.system(cmd)
+        anyKey()
