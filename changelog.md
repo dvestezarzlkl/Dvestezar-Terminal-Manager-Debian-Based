@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.7.2
+
+- UPD - po updatu app se app ukončí a je potřeba ji znovu spustit
+
 ## v 1.7.1
 
 - FIX - opraveno generování sudoers souboru, nejdřív se detekuje cesta k systemctl

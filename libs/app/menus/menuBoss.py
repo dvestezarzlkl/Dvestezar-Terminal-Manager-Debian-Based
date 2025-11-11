@@ -77,11 +77,12 @@ class menuBoss(menu):
             if err:
                 print(f"Error updating: {err}")
             else:
-                print("Update successful, please restart application")
+                print("Update completed, application will exit now.")
         else:
             print("No update available")
         anyKey()
-            
+        # ukončíme program - aplikaci
+        exit(0)    
 
 def init() -> bool:
     """
