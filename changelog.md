@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.7.1
+
+- FIX - opraveno generování sudoers souboru, nejdřív se detekuje cesta k systemctl
+
 ## v 1.7.0
 
 - ADD - možnost generovat/updatovat sudoer soubor pro restart node-red instance sama sebe

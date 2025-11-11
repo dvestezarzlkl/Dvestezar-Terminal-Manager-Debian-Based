@@ -6,17 +6,29 @@ Pokud použijeme položku menu "Update sudoers file for node-red instances"
 tak bude vygenerován nebo znovu vygenerován sudoer soubor pro všechny instance
 node-red
 
-Každá instance pak bude schopná volat CLI "/bin/systemctl restart node-red-userInstance@system_user.service"
+místo kde je příkaz "systemctl" zjistíme pomocí příkazu v terminálu
+
+: which systemctl
+
+vrátí např:
+  /bin/systemctl
+
+--------------
+
+Každá instance pak bude schopná volat CLI "sudo systemctl_cesta restart node-red-userInstance@system_user.service"
+!! Příkaz sudo je důležitý, nevynechávat
 Přesně takto musí být exec zapsán
 
 JS BOF
     const = '/bin/systemctl restart node-red-userInstance@curren_user.service'
     childProcess.exec(cmd, { timeout: 10_000 }, (error, stdout, stderr) => {
         ...
-    }
+    });
 JE EOF
 
-Kde "system_user" je uživatel systému pod kterým běží instance node-red a je vždy stejný jako název instance
+Kde
+ - "systemctl_cesta" je cesta kterou jsme si ověřili viz. výše
+ - "system_user" je uživatel systému pod kterým běží instance node-red a je vždy stejný jako název instance
 
 Takže každá instance bude schopná sebe sama vyrestartovat, samozřejmě nebude schopná
 se vypnout nebo zapnout

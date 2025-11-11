@@ -425,6 +425,19 @@ def update_sudoers_file() -> Union[str,None]:
     
     """
     from libs.app.appHelper import getSysUsers
+    
+    # zjistíme kde je systemctl
+    ctlPath=subprocess.run(['which','systemctl'],capture_output=True,text=True)
+    if ctlPath.returncode!=0:
+        m="Nelze najít systemctl"
+        log.error(m)
+        return m
+    ctlPath=ctlPath.stdout.strip()
+    if not os.path.exists(ctlPath):
+        m="Cesta k systemctl neexistuje"
+        log.error(m)
+        return m
+    
     services=[]
     for item in getSysUsers():
         u=item[1]
@@ -438,7 +451,7 @@ def update_sudoers_file() -> Union[str,None]:
     content=""
     for uItm in services:
         u, srvName = uItm
-        content+=f"{u} ALL=(ALL) NOPASSWD: /bin/systemctl restart {srvName}\n"
+        content+=f"{u} ALL=(ALL) NOPASSWD: {ctlPath} restart {srvName}\n"
     x=writeSudoersFile('node-red-instances',content)
     if not x:
         m="Chyba při zápisu sudoers souboru pro node-red instance"
