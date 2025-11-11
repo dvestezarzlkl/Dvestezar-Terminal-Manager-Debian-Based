@@ -1,5 +1,11 @@
 # Changelog
 
+## v 1.7.0
+
+- ADD - možnost generovat/updatovat sudoer soubor pro restart node-red instance sama sebe
+- ADD - nápověda k sudoer souboru
+- ADD - update sebe sama
+
 ## v 1.6.7
 
 - FIX - text menu pro safe mode

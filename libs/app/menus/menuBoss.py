@@ -5,6 +5,7 @@ from libs.app import cfg
 from libs.JBLibs.input import anyKey
 import os,string
 from libs.JBLibs import __version__ as libsVersion
+from libs.JBLibs.term import cls
 
 _items_:List[c_menu_item]=[]
 
@@ -23,12 +24,13 @@ class menuBoss(menu):
         Show menu
         """
         self.menu=[
-            c_menu_title_label('Nalezené aplikace')
+            c_menu_title_label('Available Applications')
         ]
         self.menu.extend(_items_)
         self.menu.extend([
             None,
             c_menu_item('System info','i',self.showSystemInfo),
+            c_menu_item('Update me','u',self.updateMe),
         ])
         
         # return onSelReturn(err="test err",ok="ok test")
@@ -57,6 +59,27 @@ class menuBoss(menu):
         Show system info
         """
         print(cfg.machineInfo)
+        anyKey()
+
+    def updateMe(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Update me
+        """
+        from libs.JBLibs.git import git
+        from libs.JBLibs.helper import getMainScriptDir
+        cls()
+        print("Checking for updates ...")
+        myPath=getMainScriptDir()
+        g=git(None)
+        if g.check(myPath,'root'):
+            print("Update available, updating ...")
+            err=g.update(myPath,'root')
+            if err:
+                print(f"Error updating: {err}")
+            else:
+                print("Update successful, please restart application")
+        else:
+            print("No update available")
         anyKey()
             
 

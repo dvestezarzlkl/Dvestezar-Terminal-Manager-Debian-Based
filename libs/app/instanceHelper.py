@@ -392,3 +392,58 @@ def copyPHPToo(jsonPath):
     log.info("Zkopírován portInUse.json do %s", phpPath)
     return True
     
+def writeSudoersFile(filename:str, content:str) -> bool:
+    """Vytvoří nebo přepíše sudoers soubor s daným názvem a obsahem
+    
+    Parameters:
+        filename (str): jméno sudoers souboru bez cesty
+        content (str): obsah sudoers souboru
+        
+    Returns:
+        bool: True soubor byl vytvořen nebo přepsán
+    """
+    path=f'/etc/sudoers.d/{filename}'
+    try:
+        with open(path, 'w') as f:
+            f.write(content)
+        os.chmod(path, 0o440)  # nastavíme práva 440
+        return True
+    except Exception as e:
+        log.error("Chyba při zápisu sudoers souboru %s: %s", path, e)
+        return False
+    
+def update_sudoers_file() -> Union[str,None]:
+    """Zjistí list instancí, vytvoří seznam userů pro instance a nakonec vytvoří
+    soubor v sudoers `node-red-instances` s právy pro restart služby bez zadání hesla.
+    
+    Samozřejmostí je jen právo na restart, protože když nepoběží tak se sám nespustí a obráceně
+    je nežádoucí se vypnout
+    
+    Returns:
+        str: Pokud nastala chyba
+        None: pokud je vše OK
+    
+    """
+    from libs.app.appHelper import getSysUsers
+    services=[]
+    for item in getSysUsers():
+        u=item[1]
+        try:
+            serv=c_service_node(u)
+            if serv.exists():
+                services.append((u,serv.fullName)) # username,fullServiceNameWithTemplate
+        except Exception as e:
+            log.error("Chyba při získávání služby pro uživatele %s: %s", u, e)
+            continue
+    content=""
+    for uItm in services:
+        u, srvName = uItm
+        content+=f"{u} ALL=(ALL) NOPASSWD: /bin/systemctl restart {srvName}\n"
+    x=writeSudoersFile('node-red-instances',content)
+    if not x:
+        m="Chyba při zápisu sudoers souboru pro node-red instance"
+        log.error(m)
+        return m
+    else:
+        log.info("Aktualizován sudoers soubor pro node-red instance")
+    return None

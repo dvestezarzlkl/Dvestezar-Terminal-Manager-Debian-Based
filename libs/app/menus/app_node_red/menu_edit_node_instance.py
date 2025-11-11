@@ -71,7 +71,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
             c_menu_item(TXT_MENU_INSTN_bkg_del,'bs',self.backups,atRight=TXT_MENU_INSTN_bkg_del_c.format(cnt=bkgs)),
             c_menu_item(TXT_MENU_INSTN_set_upd,'cfg',self.updateSettingsFile),
-            c_menu_item(TXT_MENU_INSTN_show_help,'cfgh',self.showCfgHelpFile),
+            c_menu_item(TXT_MENU_INSTN_show_help,'hcfg',self.showCfgHelpFile),
             c_menu_item(TXT_MENU_PSINSR_REP,'dr',self.updateDirStruct),
         ])        
 

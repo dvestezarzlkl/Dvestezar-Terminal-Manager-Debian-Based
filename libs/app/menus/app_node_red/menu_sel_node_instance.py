@@ -10,6 +10,8 @@ from libs.app.install_instance import install_node_instance
 from .nd_menu import nd_menu
 from libs.app.c_cfg import cfg_data
 from libs.app.instanceHelper import ports,createPortInUseJson
+from libs.JBLibs.input import anyKey,confirm
+from libs.JBLibs.c_menu import onSelReturn
 
 class menuEdit_select_nodeInstance(nd_menu):
     sysUsers:list[int,str]=[]
@@ -51,5 +53,37 @@ class menuEdit_select_nodeInstance(nd_menu):
             
         self.menu.extend([
             c_menu_title_label(TXT_OPT),
-            c_menu_item(TXT_MENU0_INSTALL,"i",install_node_instance)            
+            c_menu_item(TXT_MENU0_INSTALL,"i",install_node_instance),
+            c_menu_item(TXT_MENU0_UPD_SUDO_FL,"usd",self.mn_update_sudoers_file),
+            c_menu_item(TXT_MENU0_UPD_SUDO_FL,"hu",self.mn_show_sudoer_help),
         ])
+        
+    def mn_update_sudoers_file(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Update sudoers file for node-red instances
+        """
+        from libs.app.instanceHelper import update_sudoers_file
+        if confirm(TXT_UPDATE_SUDOERS_SURE_QUESTION):
+            r = update_sudoers_file()
+            if r:
+                print(TXT_UPDATE_SUDOERS_FILE_ERROR.format(err=r))
+            else:
+                print(TXT_UPDATE_SUDOERS_FILE_OK)
+            anyKey()
+        
+    def mn_show_sudoer_help(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Show configuration help file
+        """
+        import os
+        from libs.JBLibs.term import cls
+        from libs.JBLibs.helper import getAssetsPath
+        pth=getAssetsPath(TXT_MENU_SUDOER_HELP_FILE)
+        if os.path.exists(pth):
+            with open(pth,'r',encoding='utf-8') as f:
+                cls()
+                print(f.read())
+                anyKey()
+        else:
+            print(TXT_MENU_INSTN_cfg_help_Err)
+            anyKey()
