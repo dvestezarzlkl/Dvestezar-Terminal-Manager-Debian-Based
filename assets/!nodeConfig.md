@@ -23,6 +23,8 @@ je json objekt ze kterého se aktuálně zpracovává property:
 }
 ```
 
+Samozřejmě musí mít práva a ownering pro instanci node-red, jinak to z instance nezměníme
+
 ### `my_cfg.json`
 
 je json objekt který se přímo parsuje do **jb_cfg** a přepíše jeho hodnoty/property, příklad
