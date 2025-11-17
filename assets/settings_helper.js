@@ -1,6 +1,7 @@
 // version: 1.0.3
 const fs = require('fs');
 const path = require('path');
+const version = '1.0.4';
 
 /**
  * Získá konfiguraci HTTPS pokud je nastavena v jb_cfg
@@ -77,6 +78,24 @@ function loadMyLoader(){
     return myLoader;
 }
 
+
+function getJson(fullPath){
+    fullPath=String(fullPath??'').trim();
+    if(!fullPath){
+        throw new Error('getJson: fullPath is empty');
+    }
+    fullPath=path.resolve(fullPath);
+    if(!fs.existsSync(fullPath)){
+        throw new Error(`getJson: File does not exist: ${fullPath}`);
+    }
+    try{
+        const data = fs.readFileSync(fullPath, 'utf8');
+        return JSON.parse(data);
+    }catch(err){
+        throw new Error(`getJson: Error reading or parsing JSON from ${fullPath}: ${err.message}`);
+    }
+}
+
 /**
  * vrací objekt jb_cfg a je obohacený o data z my_cfg.json pokud existuje
  * @returns {object} jb_cfg
@@ -85,27 +104,43 @@ function loadMyLoader(){
  * @author dvestezar
  */
 function loadMyCFG(){
-    console.log('* Loading configuration from muj-node-config.js and my_cfg.json if exists...');
+    const file='my_cfg.json';
+    const fileInit='my_cfg_init.json';
+
+    console.log(`* Loading configuration from muj-node-config.js and ${file} if exists...`);
     const homeMain=getPath(true);
     const home=getPath();
     const main=path.join(homeMain,'muj-node-config.js');
-    const myCfgPath=path.join(home,'my_cfg.json');
+    const myCfgPath=path.join(home,file);
+    const initCdgPath=path.join(home,fileInit);
+
     console.log('  - Main configuration file path:', main);
     let jb_cfg=require(main); // toto neodchytáváme, toto je hlavní a důležitý soubor
     // pokud neexistuje runtime, vytvoříme prázdný objekt
     jb_cfg.runtime=jb_cfg.runtime || {};
 
+    // načteme init pokud existuje
+    if (fs.existsSync(initCdgPath)) {
+        console.log(`  - Found ${fileInit} at ${initCdgPath}, loading initial configuration...`);
+        // načtení a parse neodchytáváme, pokud existuje musí být vše v pořádku, jinak se musí opravit a nesmí se node spustit
+        const initCfg=getJson(initCdgPath);
+        try{
+            if(initCfg.title){
+                jb_cfg.webTitle=initCfg.title;
+                jb_cfg.runtime.title=initCfg.title;
+                console.log(`  - Title set to: ${initCfg.title}`);
+            }
+        }catch(err){
+            throw new Error(`  - Error loading or parsing ${fileInit}: ${err.message}`);
+        }
+    }
     if (fs.existsSync(myCfgPath)) {
         console.log(`  - Found my_cfg.json at ${myCfgPath}, loading configuration...`);        
         // načtení a parse neodchytáváme, pokud existuje musí být vše v pořádku, jinak se musí opravit a nesmí se node spustit
+        const myCfg=getJson(myCfgPath);
         try{
-            const myCfgData = fs.readFileSync(myCfgPath, 'utf8');
-            const myCfg = JSON.parse(myCfgData);
-            // sloučíme do jb_cfg, tzn co je myCfg přepíše původní property v jb_cfg
-            console.log('  : '+JSON.stringify(myCfg));
             jb_cfg.runtime ??= {};
             jb_cfg.runtime= { ...jb_cfg.runtime, ...myCfg };
-            console.log('  : '+JSON.stringify(jb_cfg));
             console.log('  - Configuration from my_cfg.json loaded and merged successfully.');
         }catch(err){
             throw new Error(`  - Error loading or parsing my_cfg.json: ${err.message}`);
@@ -190,6 +225,7 @@ function loadFns(libs) {
 }
 
 module.exports = {
+    version,
     loadMyCFG,
     getHttps,
     loadMyLoader,
