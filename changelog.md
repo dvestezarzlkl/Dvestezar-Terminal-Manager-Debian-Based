@@ -4,6 +4,8 @@
 
 - FIX - menu loading info
 - FIX - keyboard timing
+- UPD - přes setting json lze ovlivnit title instance i z node-red instance
+- UPD - oddělení service manager instance
 
 ## v 1.7.3
 
