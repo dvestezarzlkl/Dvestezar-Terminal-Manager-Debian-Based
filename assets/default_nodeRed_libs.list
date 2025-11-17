@@ -1,0 +1,13 @@
+@flowfuse/node-red-dashboard-2-ui-led
+@flowfuse/node-red-dashboard
+@flowfuse/node-red-function-gpt
+@moryoav/node-red-plugin-file-browser
+@ralphwetzel/node-red-systeminformation
+node-red-contrib-crypto-utils
+node-red-contrib-flogger
+node-red-contrib-ts
+node-red-node-email
+node-red-node-serialport
+node-red-node-smooth
+systeminformation
+serialport
