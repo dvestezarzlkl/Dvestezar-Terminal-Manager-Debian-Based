@@ -1,4 +1,4 @@
-import os,subprocess
+import os,subprocess,json
 from typing import Union,List
 from . import cfg
 from .c_service_node import c_service_node  
@@ -231,8 +231,10 @@ def deleteSelfSignedCert(userName:str)->bool:
     except FileNotFoundError:
         return False
     
-def instanceVersion(username:str)->str:
-    """Získá verzi Node-RED z npm list --json."""
+def instanceVersionNpm(username:str)->str:
+    """Získá verzi Node-RED z npm list --json.
+    hodně pomalé
+    """
     
     if not instanceCheck(username):
         return "N/A"
@@ -260,6 +262,33 @@ def instanceVersion(username:str)->str:
     except (subprocess.CalledProcessError, KeyError, json.JSONDecodeError) as e:
         log.error("Chyba při získávání verze Node-RED: %s", e)
         return "N/A"
+
+def instanceVersion(username: str) -> str:
+    """Získá verzi Node-RED přímo z red.js
+    
+    Parameters:
+        username (str): jméno uživatele
+    Returns:
+        str: verze Node-RED nebo "N/A" při chybě
+    """
+    
+    if not instanceCheck(username):
+        return "N/A"
+    user_home = getUserHome(username)    
+    path = os.path.join(user_home, 'node_instance','node_modules','node-red')
+    try:
+        result = subprocess.run(
+            ["su", "-", username, "-c", f"cd {path} && node red.js --version"],
+            check=True, capture_output=True, text=True
+        )
+        # pak z result.stdout vyparsovat řetězec „Node-RED v4.1.1“ → extrahovat „4.1.1“
+        if result.stdout:
+            for line in result.stdout.splitlines():
+                if line.strip().startswith("Node-RED"):
+                    return line.split("v")[1].strip()
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        log.error("Chyba při čtení package.json: %s", e)
+    return "N/A"
 
 _ports: List[int] = []
 """Seznam portů obsazených instancemi - toto se generuje až při použití menu """
