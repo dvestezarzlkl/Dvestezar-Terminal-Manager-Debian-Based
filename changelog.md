@@ -1,5 +1,10 @@
 # Changelog
 
+## v 1.7.4
+
+- FIX - menu loading info
+- FIX - keyboard timing
+
 ## v 1.7.3
 
 - ADD - přidáno zobrazení logu journalctl pro instance
