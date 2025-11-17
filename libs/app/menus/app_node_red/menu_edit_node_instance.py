@@ -15,6 +15,7 @@ from libs.app.instanceHelper import instanceCheck,copyKeyToUser,instanceVersion
 from libs.app.install_instance import updateSettingsFileForUser
 from .menu_data_classes import menu_data
 from .menu_edit_node_instance_user import menuEdit_edit_nodeInstance_user
+from .menu_edit_node_instance_service import menuEdit_edit_nodeInstance_service
 from .nd_menu import nd_menu
 from libs.app.update_instance import update_instance_node_red
 
@@ -87,21 +88,12 @@ class menuEdit_edit_nodeInstance(nd_menu):
         
         # service
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_SERVICE))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_sts,'x',self.service_status, atRight= self.cfg.service_status_tx()))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_log,'l',self.show_log))
-        if service.running(status):
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_stop,'o',self.service_stop))
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_res,'r',self.service_restart))
-        else:
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_start,'o',self.service_start))
-            
-        if not service.enabled(status):
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_ena,'ena',self.enableNodeService))
-        else:
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_dis,'dis',self.disableNodeService))
-            
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsApp))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run_safe,'sf',self.runAsAppSafe))
+        self.menu.append(c_menu_item(
+            "Managing Instance Service",
+            "mg",
+            menuEdit_edit_nodeInstance_service(),
+            data=self.selectedSystemUSer
+        ))
         
         last=[]
         if instanceCheck(self.selectedSystemUSer):
