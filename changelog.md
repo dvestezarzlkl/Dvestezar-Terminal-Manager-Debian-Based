@@ -1,5 +1,9 @@
 # Changelog
 
+## v 1.7.5
+
+- FIX - canInstall vyhodnocení
+
 ## v 1.7.4
 
 - FIX - menu loading info

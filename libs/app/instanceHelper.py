@@ -52,10 +52,11 @@ def canInstall(username: str, clean:bool=True) -> bool:
     ch=userExists(username)
     if ch is None:
         return False
+    pth=getUserHome(username) or ""
     if clean:
-        return ch is False and not os.path.exists(getUserHome(username)) and not instanceCheck(username)
+        return ch is False and not os.path.exists(pth) and not instanceCheck(username)
     else:
-        return ch is True and os.path.exists(getUserHome(username)) and instanceCheck(username)
+        return ch is True and os.path.exists(pth) and instanceCheck(username)
 
 def copyKeyToUser(username: str) -> bool:
     """zkopíruje klíč do domovského adresáře uživatele a nastavíme práva pro čtení jen pro uživatele
