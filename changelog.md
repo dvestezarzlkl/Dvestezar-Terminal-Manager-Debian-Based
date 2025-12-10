@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.7.6
+
+- FIX JBLibs init prop pro dědičnost
+
 ## v 1.7.5
 
 - FIX - canInstall vyhodnocení
