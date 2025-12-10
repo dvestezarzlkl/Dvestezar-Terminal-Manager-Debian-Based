@@ -17,8 +17,15 @@ log = getLogger(__name__)
 class menuEdit_edit_nodeInstance_user(nd_menu):
     """ edituje instanci nudou podle vybraného systémového uživatele """
         
+    # own
     _mData:menu_data=None
+    
+    # protected c_menu
     choiceQuit=None
+    
+    def __init__(self):
+        super().__init__()
+        self._mData=self._mData
     
     def onShowMenu(self):        
         self._setAppHeader(TXT_MENU_INSTN_tit1,

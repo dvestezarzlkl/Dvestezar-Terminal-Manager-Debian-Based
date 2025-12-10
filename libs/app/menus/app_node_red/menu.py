@@ -18,9 +18,16 @@ log = getLogger(__name__)
 _MENU_NAME_:str = TXT_MAIN_NAME
 
 class menu (nd_menu):
+    # own
     serviceVersion="1.1.1"
+    
+    # protected c_menu
     choiceBack=None
-    ESC_is_quit=True      
+    ESC_is_quit=True  
+    
+    def __init__(self):
+        super().__init__()
+        self.serviceVersion=self.serviceVersion
         
     def onShowMenu(self):
         """

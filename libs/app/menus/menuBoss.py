@@ -13,12 +13,16 @@ class menuBoss(menu):
     """
     Main APPs menu
     """
+    
+    # override protected
     choiceBack=None
     ESC_is_quit=False
+    
+    # apphelper menu props protected
     titleShowMyIP=True
     titleShowTime=True
     appTitle="Apps Menu"
-        
+            
     def onEnterMenu(self):
         """
         Show menu
@@ -88,6 +92,7 @@ def init() -> bool:
     """
     Initialize menu
     """
+    global _items_
     
     # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři
     root=os.path.dirname(__file__)

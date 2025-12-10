@@ -34,11 +34,20 @@ def getSysUsers()->list[int,str]:
     return getUserList(_userListFilter,True)
 
 class menu(c_menu):
+    
+    # protected
     minMenuWidth:int = cfg.MIN_WIDTH
+    afterMenu:List[str]=[
+        "F5 - Refresh menu",
+    ]
+    
+    
+    # own
     sslStatus:int=0
     """0=not set, 1=cfg, 2=self"""
     
     appTitle:str="App Title"
+    """Application title"""
     
     titleDisableSSLStatus:bool=False
     titleDisableURL:bool=False
@@ -48,10 +57,16 @@ class menu(c_menu):
     
     _interfaces:List[c_interface]=None
     
-    afterMenu:List[str]=[
-        "F5 - Refresh menu",
-    ]
-    
+    def __init__(self):
+        super().__init__()
+        self.sslStatus=self.sslStatus
+        self.appTitle=self.appTitle
+        self.titleDisableSSLStatus=self.titleDisableSSLStatus
+        self.titleDisableURL=self.titleDisableURL
+        self.titleShowMyIP=self.titleShowMyIP
+        self.titleShowTime=self.titleShowTime
+        self._interfaces=self._interfaces
+        
     def _setAppHeader(
         self,
         menuName:str="",

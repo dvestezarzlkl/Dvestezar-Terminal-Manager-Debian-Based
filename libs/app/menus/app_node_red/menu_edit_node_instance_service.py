@@ -23,10 +23,18 @@ log = getLogger(__name__)
 class menuEdit_edit_nodeInstance_service(nd_menu):
     """ edituje instanci nudou podle vybraného systémového uživatele """
     
+    # own
     cfg:cfg_data=None
     selectedSystemUSer:str=""    
+    
+    # protected c_menu
     choiceQuit=None    
     afterMenu=TXT_MENU_INSTN_afterMenu
+
+    def __init__(self):
+        super().__init__()
+        self.cfg=self.cfg
+        self.selectedSystemUSer=self.selectedSystemUSer
 
     def onEnterMenu(self):
         log.debug("- enter menuEdit_edit_nodeInstance")

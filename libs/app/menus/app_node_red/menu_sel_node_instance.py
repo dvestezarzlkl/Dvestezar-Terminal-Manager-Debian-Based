@@ -14,9 +14,16 @@ from libs.JBLibs.input import anyKey,confirm
 from libs.JBLibs.c_menu import onSelReturn
 
 class menuEdit_select_nodeInstance(nd_menu):
+    # own
     sysUsers:list[int,str]=[]
+    
+    # protected c_menu
     afterMenu=TXT_MENUSEL_AFTERMN
     choiceQuit=False
+    
+    def __init__(self):
+        super().__init__()
+        self.sysUsers=self.sysUsers
                     
     def onShowMenu(self):
         self._setAppHeader(TXT_MENUSEL_TIT)

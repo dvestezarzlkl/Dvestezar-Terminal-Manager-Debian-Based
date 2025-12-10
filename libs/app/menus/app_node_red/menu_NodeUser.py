@@ -12,8 +12,15 @@ log = getLogger(__name__)
 
 class menuEdit_nodeUser(nd_menu):
     
+    # own
     _mData:menu_data=None
+    
+    # protected c_menu
     choiceQuit=False
+    
+    def __init__(self):
+        super().__init__()
+        self._mData=self._mData
     
     def onShowMenu(self):
         self._setAppHeader(TX_MENU_NDU_TIT1,
