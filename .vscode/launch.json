@@ -10,6 +10,14 @@
             "python": "${workspaceFolder}/venv310/bin/python",            
         },
         {
+            "name": "install",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "venv_install_step.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv310/bin/python",
+        },
+        {
             "name": "RUN file",
             "type": "debugpy",
             "request": "launch",
