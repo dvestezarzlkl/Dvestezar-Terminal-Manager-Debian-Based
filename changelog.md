@@ -5,6 +5,7 @@
 - ADD - diska  swap manager
 - FIX barvy
 - ADD Disk a swap manager
+- UPD Přechod na ETC pro config cesty
 
 ## v1.7.6
 
