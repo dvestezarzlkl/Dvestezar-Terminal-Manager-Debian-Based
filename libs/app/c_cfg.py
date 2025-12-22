@@ -142,7 +142,7 @@ class cfg_data:
         """
         return self.service.running()
 
-    def service_status_tx(self, asInt:bool=False) -> Union[str,int]:
+    def service_status_tx(self, asInt:bool=False, coloring:bool=False) -> Union[str,int]:
         """
         Otestuje stav služby, vrací textové označení stavu nebo pokud asInt=True tak číslo
         
@@ -154,7 +154,7 @@ class cfg_data:
         
         :see: c_service.fullStatus    
         """
-        return self.service.fullStatus(asInt)
+        return self.service.fullStatus(asInt,coloring=coloring)
 
     def save(self,force:bool=False) -> None:
         """
