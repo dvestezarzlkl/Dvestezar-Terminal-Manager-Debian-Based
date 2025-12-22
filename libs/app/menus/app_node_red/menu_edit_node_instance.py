@@ -5,7 +5,7 @@ loadLng()
 import os
 from libs.JBLibs.c_menu import c_menu_item,onSelReturn,c_menu_title_label
 from libs.JBLibs.input import confirm,anyKey,get_port,get_input
-from libs.JBLibs.term import text_inverse
+from libs.JBLibs.term import text_inverse,text_color,en_color
 from libs.app.appHelper import getHttps,existsSelfSignedCert
 from libs.app.c_cfg import cfg_data
 from libs.app.remove_instance import remove_node_instance
@@ -79,7 +79,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
             c_menu_item(TXT_MENU_INSTN_p_ch,'p',self.change_port,atRight=str(self.cfg.port)),
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
             c_menu_item(TXT_MENU_INSTN_bkg_del,'bs',self.backups,atRight=TXT_MENU_INSTN_bkg_del_c.format(cnt=bkgs)),
-            c_menu_item(TXT_MENU_INSTN_set_upd,'cfg',self.updateSettingsFile),
+            c_menu_item(text_color(TXT_MENU_INSTN_set_upd, en_color.BRIGHT_CYAN),'cfg',self.updateSettingsFile),
             c_menu_item(TXT_MENU_INSTN_show_help,'hcfg',self.showCfgHelpFile),
             c_menu_item(TXT_MENU_PSINSR_REP,'dr',self.updateDirStruct),
         ])        
@@ -97,7 +97,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
         # service
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_SERVICE))
         self.menu.append(c_menu_item(
-            "Managing Instance Service",
+            text_color(TXT_MENU_INSTN_MNG, en_color.BRIGHT_MAGENTA),
             "mg",
             menuEdit_edit_nodeInstance_service(),
             data=self.selectedSystemUSer
@@ -107,7 +107,7 @@ class menuEdit_edit_nodeInstance(nd_menu):
         if instanceCheck(self.selectedSystemUSer):
             last.append(c_menu_item(TXT_MENU_INSTN_s_upd,'u',self.update_instance))
             last.append(c_menu_item(TXT_MENU_INSTN_s_upd_lat,'ulatest',self.update_instance_latest))
-            last.append(c_menu_item(TXT_MENU_INSTN_s_del,'delete',self.delete_instance))
+            last.append(c_menu_item(text_color(TXT_MENU_INSTN_s_del, en_color.BRIGHT_RED),'delete',self.delete_instance))
 
         if self.cfg.changed:
             last.append(c_menu_item("!!!!  "+ text_inverse(TXT_SAVE),'s',self.save))

@@ -4,18 +4,12 @@ loadLng()
 
 import os
 from libs.JBLibs.c_menu import c_menu_item,onSelReturn,c_menu_title_label
-from libs.JBLibs.input import confirm,anyKey,get_port,get_input
-from libs.app.appHelper import getHttps,existsSelfSignedCert
+from libs.JBLibs.input import confirm,anyKey
+from libs.JBLibs.term import text_color,en_color
 from libs.app.c_cfg import cfg_data
-from libs.app.remove_instance import remove_node_instance
-from libs.app.backup import backup_node_instance_for
 from libs.app.c_service_node import c_service_node
-from libs.app.instanceHelper import copyKeyToUser,instanceVersion
-from libs.app.install_instance import updateSettingsFileForUser
-from .menu_data_classes import menu_data
-from .menu_edit_node_instance_user import menuEdit_edit_nodeInstance_user
+from libs.app.instanceHelper import instanceVersion
 from .nd_menu import nd_menu
-from libs.app.update_instance import update_instance_node_red
 
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
@@ -61,18 +55,18 @@ class menuEdit_edit_nodeInstance_service(nd_menu):
                                
         # service
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_SERVICE))
-        self.menu.append(c_menu_item(TXT_MENU_INSTN_sts,'x',self.service_status, atRight= self.cfg.service_status_tx()))
+        self.menu.append(c_menu_item(TXT_MENU_INSTN_sts,'x',self.service_status, atRight= self.cfg.service_status_tx(coloring=True)))
         self.menu.append(c_menu_item(TXT_MENU_INSTN_log,'l',self.show_log))
         if service.running(status):
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_stop,'o',self.service_stop))
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_res,'r',self.service_restart))
+            self.menu.append(c_menu_item(text_color(TXT_MENU_INSTN_s_stop, en_color.BRIGHT_YELLOW,bold=True),'o',self.service_stop))
+            self.menu.append(c_menu_item(text_color(TXT_MENU_INSTN_s_res, en_color.YELLOW),'r',self.service_restart))
         else:
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_start,'o',self.service_start))
+            self.menu.append(c_menu_item(text_color(TXT_MENU_INSTN_s_start, en_color.BRIGHT_YELLOW,bold=True),'o',self.service_start))
             
         if not service.enabled(status):
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_ena,'ena',self.enableNodeService))
+            self.menu.append(c_menu_item(text_color(TXT_MENU_INSTN_s_ena, en_color.BRIGHT_GREEN),'ena',self.enableNodeService))
         else:
-            self.menu.append(c_menu_item(TXT_MENU_INSTN_s_dis,'dis',self.disableNodeService))
+            self.menu.append(c_menu_item(text_color(TXT_MENU_INSTN_s_dis, en_color.BRIGHT_RED),'dis',self.disableNodeService))
             
         self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run,'app',self.runAsApp))
         self.menu.append(c_menu_item(TXT_MENU_INSTN_app_run_safe,'sf',self.runAsAppSafe))        

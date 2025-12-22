@@ -7,6 +7,7 @@ from .ssh_menu import ssh_menu,sshMenu_data
 from .menu_user_key_edit import menu_user_key_edit
 from libs.JBLibs.input import confirm,anyKey
 from libs.JBLibs.term import cls
+from libs.JBLibs.term import text_color,en_color
 
 from libs.JBLibs.helper import getLogger,loadLng
 log = getLogger(__name__)
@@ -36,7 +37,7 @@ class menu_user_edit (ssh_menu):
         )
         
         self.menu=[
-            c_menu_title_label(TXT_TITLE_05),
+            c_menu_title_label(TXT_TITLE_055),
         ]
         
         c=0
@@ -54,25 +55,27 @@ class menu_user_edit (ssh_menu):
             ))
             c+=1
             
+        
+        self.menu.append(c_menu_title_label(TXT_TITLE_05))
         if self._mData.selectedUser.hasSudo:
             # delete sudo
-            self.menu.append(c_menu_item(TXT_MENU2_TITLE_12,"srm",self.removeSudo))
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_12,color=en_color.RED),"srm",self.removeSudo))
         else:
             # add sudo
-            self.menu.append(c_menu_item(TXT_MENU2_TITLE_13,"sudo",self.addSudo))
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_13,color=en_color.GREEN),"sudo",self.addSudo))
             
         # přidáme tty test a menu
         if self.checkUserTty():
-            self.menu.append(c_menu_item(TXT_MENU2_TITLE_19,"tty",self.removeUserDialout))
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_19,color=en_color.RED),"tty",self.removeUserDialout))
         else:
-            self.menu.append(c_menu_item(TXT_MENU2_TITLE_22,"tty",self.addUserDialout))
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_22,color=en_color.GREEN),"tty",self.addUserDialout))
         
         self.menu.extend([
             None,
-            c_menu_item(TXT_MENU2_TITLE_03,"a",self.createKey),
-            c_menu_item(TXT_MENU2_TITLE_08,"d",self.deleteUser),
+            c_menu_item(text_color(TXT_MENU2_TITLE_03,color=en_color.GREEN),"a",self.createKey),
+            c_menu_item(text_color(TXT_MENU2_TITLE_08,en_color.RED),"d",self.deleteUser),
             c_menu_item(TXT_MENU2_TITLE_09,"p",self.pwdUser),
-            c_menu_item(TXT_MENU2_TITLE_10,"u",self.updateUserSSH),
+            c_menu_item(text_color(TXT_MENU2_TITLE_10,color=en_color.YELLOW),"u",self.updateUserSSH),
         ])
     
     def checkUserTty(self) -> bool:

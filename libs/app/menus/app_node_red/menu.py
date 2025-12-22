@@ -4,6 +4,7 @@ loadLng()
 
 from libs.JBLibs.c_menu import c_menu_item,onSelReturn,c_menu_block_items,c_menu_title_label
 from libs.JBLibs.input import confirm,anyKey
+from libs.JBLibs.term import text_color,en_color
 from libs.JBLibs.systemdService import c_header
 from libs.app.backup import create_full_backup_for_all_users_7z
 from .menu_sel_node_instance import menuEdit_select_nodeInstance
@@ -46,17 +47,17 @@ class menu (nd_menu):
         
         self.menu=[
             c_menu_title_label(TXT_MENU),
-            c_menu_item(TXT_MENU0_EDIT,"e",menuEdit_select_nodeInstance()),
+            c_menu_item(text_color(TXT_MENU0_EDIT,color=en_color.BRIGHT_CYAN),"e",menuEdit_select_nodeInstance()),
             c_menu_item(TXT_MENU0_BACKUP,"bkg",self.fullBackup),
             c_menu_item(TXT_MENU0_BACKUP_LIST,"bklst",self.delBackups),
         ]
         
         if not cfg.mainService.serviceFileExists():
-            self.menu.append(c_menu_item(TXT_MENU0_SERVICE,"inst",self.makeServiceTemplate))
+            self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE,color=en_color.BRIGHT_YELLOW),"inst",self.makeServiceTemplate))
         else:
             if header.checkVersion(self.serviceVersion):
-                self.menu.append(c_menu_item(TXT_MENU0_SERVICE_UPD,"upd",self.updateServiceTemplate))            
-            self.menu.append(c_menu_item(TXT_MENU0_SERVICE_REM,"remove",self.removeServiceFile))
+                self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_UPD,color=en_color.BRIGHT_YELLOW),"upd",self.updateServiceTemplate))            
+            self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_REM,color=en_color.RED),"remove",self.removeServiceFile))
         
     def fullBackup(self,selItem:c_menu_item) -> onSelReturn:
         """

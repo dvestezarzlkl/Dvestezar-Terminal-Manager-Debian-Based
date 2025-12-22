@@ -3,6 +3,7 @@ from libs.JBLibs.helper import loadLng
 loadLng()
 
 from libs.JBLibs.c_menu import c_menu_item,c_menu_title_label
+from libs.JBLibs.term import text_color,en_color
 from libs.app.appHelper import getSysUsers
 from .menu_edit_node_instance import menuEdit_edit_nodeInstance
 from libs.app.c_service_node import c_service_node
@@ -44,7 +45,7 @@ class menuEdit_select_nodeInstance(nd_menu):
             ])
             i.append(
                 c_menu_item(
-                    item[1],
+                    text_color(item[1], (en_color.BRIGHT_GREEN if d.service.running() else en_color.BRIGHT_BLACK) ),
                     item[0],
                     menuEdit_edit_nodeInstance(),
                     None,
@@ -60,7 +61,7 @@ class menuEdit_select_nodeInstance(nd_menu):
             
         self.menu.extend([
             c_menu_title_label(TXT_OPT),
-            c_menu_item(TXT_MENU0_INSTALL,"i",install_node_instance),
+            c_menu_item(text_color(TXT_MENU0_INSTALL, en_color.BRIGHT_CYAN),"i",install_node_instance),
             c_menu_item(TXT_MENU0_UPD_SUDO_FL,"usd",self.mn_update_sudoers_file),
             c_menu_item(TXT_MENU0_UPD_SUDO_FL,"hu",self.mn_show_sudoer_help),
         ])
