@@ -5,7 +5,7 @@ from libs.app import cfg
 from libs.JBLibs.input import anyKey
 import os,string
 from libs.JBLibs import __version__ as libsVersion
-from libs.JBLibs.term import cls
+from libs.JBLibs.term import cls, text_color,en_color
 
 _items_:List[c_menu_item]=[]
 
@@ -28,9 +28,10 @@ class menuBoss(menu):
         Show menu
         """
         self.menu=[
-            c_menu_title_label('Available Applications')
+            c_menu_title_label(text_color('Available Applications',color=en_color.BRIGHT_CYAN,bold=True))
         ]
         self.menu.extend(_items_)
+        self.menu.append(c_menu_title_label(text_color('Other options',color=en_color.CYAN)))
         self.menu.extend([
             None,
             c_menu_item('System info','i',self.showSystemInfo),
