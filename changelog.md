@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.8.0
+
+- ADD - diska  swap manager
+- FIX barvy
+- ADD Disk a swap manager
+
 ## v1.7.6
 
 - FIX JBLibs init prop pro dědičnost
