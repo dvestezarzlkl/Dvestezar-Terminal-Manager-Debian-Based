@@ -3,9 +3,13 @@
 
 # run as : sudo python3 install.py
 
+CONFIG_FILE_PATH = "/etc/jb_sys_apps/config.ini"
+
 import os
 import sys
 import subprocess
+from pathlib import Path
+import libs.app.g_def as defs
 
 def check_venv():
     """Ověří, že skript běží ve virtuálním prostředí (venv)."""
@@ -98,7 +102,7 @@ def update_submodules():
         subprocess.run(cmd, check=True)
         print("Submoduly úspěšně inicializovány/aktualizovány.")
     except subprocess.CalledProcessError as e:
-        print("Chyba při inicializaci/aktualizaci submodulů:\n", e)
+        print("Chyba při inicializaci/aktualizaci submodulů:\n", e,file=sys.stderr)
         sys.exit(1)
 
 
@@ -119,10 +123,24 @@ def run_requirements_install():
 
 def check_and_create_config():
     """Ověří, zda existuje soubor config.ini, a pokud ne, vytvoří ho s výchozím obsahem."""
-    config_file = "config.ini"
-    if os.path.exists(config_file):
+    from libs.JBLibs.helper import getConfigPath
+    
+    config_file = Path(getConfigPath(
+        configName=defs.CONFIG_NAME,
+        fromEtc=defs.CONFIG_ETC,
+        appName=defs.APP_NAME,
+        createIfNotExist=True
+    ))
+    if not config_file.parent.is_dir():
+        print(f"Chyba: Cesta '{config_file.parent}' není adresář. Ukončuji.")
+        sys.exit(1)
+    
+    if config_file.exists():
         print(f"Soubor '{config_file}' existuje, není nutné vytvářet.")
         return
+    elif config_file.exists() and not config_file.is_file():
+        print(f"Chyba: Cesta '{config_file}' existuje, ale není to soubor. Ukončuji.")
+        sys.exit(1)
 
     print(f"Soubor '{config_file}' neexistuje. Vytvářím defaultní config.ini...")
     # Zde dejte výchozí nastavení, jaké potřebujete:

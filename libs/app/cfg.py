@@ -1,5 +1,6 @@
 # from .c_service_node import c_service_node
 from libs.JBLibs.machine_info import c_machine_info
+from ..app import g_def as defs
 
 # cspell:ignore fullchain
 VERSION = "1.7.6"
@@ -41,7 +42,11 @@ machineInfo: c_machine_info = c_machine_info()
 
 def load():
     from libs.JBLibs.helper import load_config
-    load_config()
+    load_config(
+        configName=defs.CONFIG_NAME,
+        fromEtc=defs.CONFIG_ETC,
+        appName=defs.APP_NAME
+    )
 
 # příklad ini souboru
 """
