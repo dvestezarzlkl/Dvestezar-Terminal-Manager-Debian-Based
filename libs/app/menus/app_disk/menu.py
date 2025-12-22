@@ -16,6 +16,7 @@ from ....app import g_def as defs
 _MENU_NAME_:str = "Disk a Swap manager"
 DISK_CFG:str = "settings.conf"
 
+__isINIT__:bool=False
 class disk_settings:
     MNT_DIR:str=Path("/mnt").resolve()
     BKP_DIR:str=Path("/var/backups").resolve()
@@ -267,6 +268,23 @@ class c_other:
         # vrátéme jen relativní cestu k BKP_DIR
         return str(n.relative_to(base))
         
+    @staticmethod
+    def getDiskDisplayName(disk:lsblkDiskInfo)->str|None:
+        """Vrátí uživatelské jméno disku podle jeho PUUID.
+        
+        Parameters:
+            disk (lsblkDiskInfo): objekt disku
+            
+        Returns:
+            str : name + Uživatelské jméno disku nebo None pokud není nalezeno    
+        """
+        disk_name_display = disk.name + " "
+        user_name=disk_settings.find_disk_name(disk.ptuuid)
+        if user_name:
+            disk_name_display += text_color(user_name,color=en_color.BRIGHT_CYAN)
+        else:
+            disk_name_display += text_color("-unnamed-",color=en_color.BRIGHT_BLACK)
+        return disk_name_display        
 
 class c_mountpointSelector:    
     def __init__(self, curDir:Path, minMenuWidth:int=80) -> None:
@@ -402,7 +420,7 @@ class c_partOper:
         
         ret.ok=f"Partition {devPath} umountnuta."
         return ret
-     
+        
 
 # ****************************************************
 # ******************* MAIN MENU **********************
@@ -422,6 +440,11 @@ class menu(c_menu):
     curDir:Path|None
     
     def onEnterMenu(self) -> None:
+        global __isINIT__
+        if not __isINIT__:
+            disk_settings.load()
+            __isINIT__=True
+        
         self.curDir=disk_settings.BKP_DIR
     
     def onShowMenu(self) -> None:
@@ -438,7 +461,7 @@ class menu(c_menu):
         ls=lsblk_list_disks(True)
         choice=0
         self.menu.append( c_menu_title_label( text_color("Select Disk", color=en_color.BRIGHT_CYAN)) )
-        tit=f"{'Name':<15} | {'Size':>10} | {'Type':>8} | {'Partitions':>12} | {'Mountpoints':>12}"
+        tit=f"{'Name':<30} | {'Size':>10} | {'Type':>8} | {'Partitions':>12} | {'Mountpoints':>12}"
         self.menu.append( c_menu_item(text_color(tit, color=en_color.BRIGHT_BLACK)) )
         self.menu.append( c_menu_item(text_color("-" * len(tit), color=en_color.BRIGHT_BLACK)) )
         for d in ls:
@@ -446,6 +469,7 @@ class menu(c_menu):
             if di.type=="disk" and not di.children:
                 continue
             
+            disk_name_display = c_other.getDiskDisplayName(di)
             part=len(di.children)
             if di.type=="loop" and di.mountpoints:
                 # pokud je loop device a má mountpointy, tak se jedná o připojený image jako partition
@@ -457,7 +481,7 @@ class menu(c_menu):
                     if p.mountpoints:
                         mps+=len(p.mountpoints)
             self.menu.append( c_menu_item(
-                f"{di.name:<15} | {bytesTx(di.size):>10} | {di.type:>8} | {part:>12} | {mps if mps>0 else '-':>12}",
+                f"{disk_name_display:<30} | {bytesTx(di.size):>10} | {di.type:>8} | {part:>12} | {mps if mps>0 else '-':>12}",
                 f"{choice:02}",
                 m_disk_oper(),
                 data=di
@@ -557,11 +581,13 @@ class m_disk_oper(c_menu):
         loopIsPartAndMounted=loopDev and disk.mountpoints
 
         self.title=c_other.basicTitle()
+        disk_name_display = c_other.getDiskDisplayName(disk)
         self.subTitle=c_menu_block_items([
-            (f"Disk",f"{disk.name}"),
-            (f"Size",f"{bytesTx(disk.size)}"),
-            (f"Type",f"{disk.type}"),
-            (f"Image Path",f"{str(self.__loopPath) if self.__loopPath else '-'}"),
+            ("Disk",f"{disk.name}"),
+            ("Size",f"{bytesTx(disk.size)}"),
+            ("Type",f"{disk.type}"),
+            ("Image Path",f"{str(self.__loopPath) if self.__loopPath else '-'}"),
+            ("Disk",f"{disk_name_display}"),
         ])
         self.menu=[]
                 
@@ -577,6 +603,7 @@ class m_disk_oper(c_menu):
         if not loopDev or (loopDev and not loopIsPartAndMounted):
             self.menu.append( c_menu_item("Zálohovat disk", "b", self.backup_disk) )
             self.menu.append( c_menu_item("Obnovit disk ze zálohy", "r", self.restore_disk) )
+            self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )
         
         if disk.children:
             self.menu.append( c_menu_title_label(text_color("Partitions", color=en_color.BRIGHT_CYAN)) )
@@ -658,6 +685,34 @@ class m_disk_oper(c_menu):
         
         anyKey()
         return onSelReturn(endMenu=True) # je odpojen není možná další akce
+    
+    def rename_disk(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Přejmenuje disk podle jeho PUUID na uživatelské jméno.
+        """
+        ret = onSelReturn()
+        
+        disk=self.diskInfo
+        if disk is None:
+            return ret.errRet("Neznámý disk.")
+        ptuuid=disk.ptuuid
+        if ptuuid is None:
+            return ret.errRet("Nelze zjistit PUUID disku.")
+        curName=disk_settings.find_disk_name(ptuuid)
+        print(text_color(f"Aktuální jméno disku: {curName if curName else '<žádné>'}", color=en_color.YELLOW))
+        print(text_color("Poznámka: Jméno disku může obsahovat pouze znaky a-Z, 0-9, podtržítko a pomlčku.", color=en_color.CYAN))
+        newName=get_input(
+            f"Zadejte nové jméno disku (PUUID: {ptuuid}): ",
+            rgx=r'^[a-zA-Z0-9_-]{1,25}$',
+            maxLen=25,
+            accept_empty=False,
+            minMessageWidth=self.minMenuWidth,
+            errTx="Jméno disku může obsahovat pouze znaky a-Z, 0-9, podtržítko a pomlčku v rozsahu 1-16 znaků."
+        )
+        if newName is None:
+            return ret.errRet("Zrušeno uživatelem.")        
+        # povolené znaky, musí být safe pro filename, takže jen a-Z 0-9 a podtržítko
+        disk_settings.set_disk_name(ptuuid, newName)
+        return ret.okRet(f"Disk přejmenován na: {newName}")
     
     def backup_disk(self,selItem:c_menu_item) -> None|onSelReturn:
         """Zálohuje celý disk.
