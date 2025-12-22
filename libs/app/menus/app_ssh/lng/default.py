@@ -7,6 +7,7 @@ TXT_TITLE_01 = "System users"
 TXT_TITLE_02 = "Number of users"
 TXT_TITLE_03 = "Select user"
 TXT_TITLE_04 = "Create system user"
+TXT_TITLE_055 = "Key list"
 TXT_TITLE_05 = "Select user action"
 TXT_TITLE_06 = "Select key action"
 
