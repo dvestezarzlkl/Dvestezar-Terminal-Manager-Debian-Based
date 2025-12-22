@@ -10,10 +10,11 @@ from ....JBLibs.term import text_color, en_color,reset
 from libs.JBLibs import fs_smart_bkp as bkp
 from datetime import datetime
 from libs.JBLibs import fs_swap
-
+from ....JBLibs.helper import getConfigPath
+from ....app import g_def as defs
 
 _MENU_NAME_:str = "Disk a Swap manager"
-DISK_CFG:str="/etc/jb_sys_apps/settings.conf"
+DISK_CFG:str = "settings.conf"
 
 class disk_settings:
     MNT_DIR:str=Path("/mnt").resolve()
@@ -25,7 +26,13 @@ class disk_settings:
     # uloží komplet toto nastavení do souboru
     @staticmethod
     def save() -> None:
-        fl=Path(DISK_CFG)
+        fl=getConfigPath(
+            configName=DISK_CFG,
+            appName=defs.APP_NAME,
+            fromEtc=defs.CONFIG_ETC,
+            createIfNotExist=True
+        )
+        
         # pokud neexistuje adresář vytvoříme jej
         if not fl.parent.is_dir():
             fl.parent.mkdir(parents=True, exist_ok=True)
@@ -42,8 +49,14 @@ class disk_settings:
             
     # načte komplet toto nastavení ze souboru
     @staticmethod
-    def load() -> None:
-        fl=Path(DISK_CFG)
+    def load() -> None:        
+        fl=getConfigPath(
+            configName=DISK_CFG,
+            appName=defs.APP_NAME,
+            fromEtc=defs.CONFIG_ETC,
+            createIfNotExist=True
+        )
+        
         if not fl.is_file():
             return
         import json
@@ -100,7 +113,8 @@ class c_other:
         header.append("-")
         header.append(f"Verze: {menu._VERSION_}")
         if dir is not None:
-            header.append( ("Aktuální cesta", f"{str(dir)}") )
+            header.append( ("Aktuální backup dir", f"{str(disk_settings.BKP_DIR)}") )
+            header.append( ("Aktuální mount dir", f"{str(disk_settings.MNT_DIR)}") )
         
         if isinstance(add, str):
             header.append( add )
@@ -416,7 +430,8 @@ class menu(c_menu):
 
         self.menu=[]
         self.menu.append( c_menu_title_label("Image Menu") )        
-        self.menu.append( c_menu_item("Změň aktuální adresář", "*", self.chngDir) )
+        self.menu.append( c_menu_item("Změň backup adresář", "b", self.changeBkpDir) )
+        self.menu.append( c_menu_item("Změň mount adresář", "m", self.changeMntDir) )
         self.menu.append( c_menu_item("Connect .img file as loop device", "+", self.addImg) )
         self.menu.append( c_menu_item("SWAP manager", "-", m_swap_manager()) )
         
@@ -449,17 +464,33 @@ class menu(c_menu):
             ))
             choice+=1
         
-    def chngDir(self,selItem:c_menu_item) -> None|onSelReturn:
+    def changeBkpDir(self,selItem:c_menu_item) -> None|onSelReturn:
         ret = onSelReturn()
         p=selectDir(
-            str(self.curDir) if self.curDir else None,
+            disk_settings.BKP_DIR,
             minMenuWidth=self.minMenuWidth,
         )
         if p is None:
             ret.err="Zrušeno uživatelem."
             return ret
         self.curDir=p.resolve()
+        disk_settings.BKP_DIR=self.curDir
+        disk_settings.save()
         ret.ok=f"Aktuální adresář změněn na: {str(self.curDir)}"
+        return ret
+    
+    def changeMntDir(self,selItem:c_menu_item) -> None|onSelReturn:
+        ret = onSelReturn()
+        p=selectDir(
+            disk_settings.MNT_DIR,
+            minMenuWidth=self.minMenuWidth,
+        )
+        if p is None:
+            ret.err="Zrušeno uživatelem."
+            return ret
+        disk_settings.MNT_DIR=Path(p).resolve()
+        disk_settings.save()
+        ret.ok=f"Mount adresář změněn na: {str(disk_settings.MNT_DIR)}"
         return ret
     
     def addImg(self,selItem:c_menu_item) -> None|onSelReturn:
