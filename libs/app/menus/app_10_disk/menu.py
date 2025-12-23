@@ -9,6 +9,8 @@ from libs.JBLibs.fs_helper import c_fs_itm
 from libs.JBLibs.helper import run
 from libs.JBLibs.input import anyKey,selectDir,selectFile,text_color,en_color,get_input,confirm
 from libs.app.disk_hlp import disk_settings,c_other
+from libs.JBLibs.helper import getLogger
+log = getLogger("disk_mng")
 
 _MENU_NAME_:str = "Disk manager"
 
@@ -174,52 +176,61 @@ class menu(c_menu):
     curDir:Path|None
     
     def onEnterMenu(self) -> None:
-        disk_settings.init()
-        self.curDir=disk_settings.BKP_DIR
+        try:
+            disk_settings.init()
+            self.curDir=disk_settings.BKP_DIR
+        except Exception as e:
+            log.error(f"Chyba při inicializaci disk settings: {e}")
+            log.exception(e)
+            raise e
     
     def onShowMenu(self) -> None:
+        try:
+            self.title=basicTitle(dir=self.curDir)
 
-        self.title=basicTitle(dir=self.curDir)
-
-        self.menu=[]
-        self.menu.append( c_menu_title_label("Image Menu") )        
-        self.menu.append( c_menu_item("Změň backup adresář", "b", self.changeBkpDir) )
-        self.menu.append( c_menu_item("Změň mount adresář", "m", self.changeMntDir) )
-        self.menu.append( c_menu_item("Connect .img file as loop device", "+", self.addImg) )
-        # self.menu.append( c_menu_item("SWAP manager", "-", m_swap_manager()) )
-        
-        ls=lsblk_list_disks(True)
-        if ls:
-            choice=0
-            self.menu.append( c_menu_title_label( text_color("Select Disk", color=en_color.BRIGHT_CYAN)) )
-            tit=f"{'Name':<30} | {'Size':>10} | {'Type':>8} | {'Partitions':>12} | {'Mountpoints':>12}"
-            self.menu.append( c_menu_item(text_color(tit, color=en_color.BRIGHT_BLACK)) )
-            self.menu.append( c_menu_item(text_color("-" * len(tit), color=en_color.BRIGHT_BLACK)) )
-            for d in ls:
-                di=ls[d]
-                if di.type=="disk" and not di.children:
-                    continue
-                
-                disk_name_display = c_other.getDiskDisplayName(di)
-                part=len(di.children)
-                if di.type=="loop" and di.mountpoints:
-                    # pokud je loop device a má mountpointy, tak se jedná o připojený image jako partition
-                    part="<img:>" + di.mountpoints[0] # stačí jen první mountpoint
-                
-                mps=len(di.mountpoints)
-                if di.children:
-                    for p in di.children:
-                        if p.mountpoints:
-                            mps+=len(p.mountpoints)
-                self.menu.append( c_menu_item(
-                    f"{disk_name_display:<30} | {bytesTx(di.size):>10} | {di.type:>8} | {part:>12} | {mps if mps>0 else '-':>12}",
-                    f"{choice:02}",
-                    m_disk_oper(),
-                    data=di
-                ))
-                choice+=1
-        else:
-            self.menu.append( c_menu_item("Žádné použitelné disky k manažování.") )
+            self.menu=[]
+            self.menu.append( c_menu_title_label("Image Menu") )        
+            self.menu.append( c_menu_item("Změň backup adresář", "b", self.changeBkpDir) )
+            self.menu.append( c_menu_item("Změň mount adresář", "m", self.changeMntDir) )
+            self.menu.append( c_menu_item("Connect .img file as loop device", "+", self.addImg) )
+            # self.menu.append( c_menu_item("SWAP manager", "-", m_swap_manager()) )
+            
+            ls=lsblk_list_disks(True)
+            if ls:
+                choice=0
+                self.menu.append( c_menu_title_label( text_color("Select Disk", color=en_color.BRIGHT_CYAN)) )
+                tit=f"{'Name':<30} | {'Size':>10} | {'Type':>8} | {'Partitions':>12} | {'Mountpoints':>12}"
+                self.menu.append( c_menu_item(text_color(tit, color=en_color.BRIGHT_BLACK)) )
+                self.menu.append( c_menu_item(text_color("-" * len(tit), color=en_color.BRIGHT_BLACK)) )
+                for d in ls:
+                    di=ls[d]
+                    if di.type=="disk" and not di.children:
+                        continue
+                    
+                    disk_name_display = c_other.getDiskDisplayName(di)
+                    part=len(di.children)
+                    if di.type=="loop" and di.mountpoints:
+                        # pokud je loop device a má mountpointy, tak se jedná o připojený image jako partition
+                        part="<img:>" + di.mountpoints[0] # stačí jen první mountpoint
+                    
+                    mps=len(di.mountpoints)
+                    if di.children:
+                        for p in di.children:
+                            if p.mountpoints:
+                                mps+=len(p.mountpoints)
+                    self.menu.append( c_menu_item(
+                        f"{disk_name_display:<30} | {bytesTx(di.size):>10} | {di.type:>8} | {part:>12} | {mps if mps>0 else '-':>12}",
+                        f"{choice:02}",
+                        m_disk_oper(),
+                        data=di
+                    ))
+                    choice+=1
+            else:
+                self.menu.append( c_menu_item("Žádné použitelné disky k manažování.") )
+        except Exception as e:
+            log.error(f"Chyba při zobrazení menu disk manager: {e}")
+            log.exception(e)
+            raise e
         
     def changeBkpDir(self,selItem:c_menu_item) -> None|onSelReturn:
         ret = onSelReturn()

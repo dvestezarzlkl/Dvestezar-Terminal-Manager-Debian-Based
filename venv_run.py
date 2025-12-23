@@ -8,8 +8,8 @@ setLng(cfg.LANGUAGE)
 from libs.JBLibs.term import reset,cls
 from datetime import datetime
 from libs.JBLibs.helper import getLogger
-import libs.app.menus.menuBoss as menuBoss
 log = getLogger(__name__)
+import libs.app.menus.menuBoss as menuBoss
 
 import sys
 
