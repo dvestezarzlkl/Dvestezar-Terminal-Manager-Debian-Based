@@ -100,7 +100,10 @@ def init() -> bool:
     app_dirs = os.listdir(root)
     app_dirs = [d for d in app_dirs if os.path.isdir(os.path.join(root,d)) and d.startswith('app_')]
     app_dirs = [d for d in app_dirs if os.path.isfile(os.path.join(root,d,'menu.py')) ]
-        
+    
+    # sort app_dirs alphabetically
+    app_dirs.sort()
+    
     choice_counter = 0  # Inicializujeme počítadlo pro volby
     
     for app_dir in app_dirs:        
