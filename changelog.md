@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.8.2
+
+- FIX - opraveno lsblk pro starší verze
+
 ## v1.8.1
 
 - ADD - disk name - uživatelský popis disků podle PTUUID
