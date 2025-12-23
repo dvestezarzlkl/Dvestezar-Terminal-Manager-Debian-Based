@@ -226,7 +226,7 @@ class menu(c_menu):
                     ))
                     choice+=1
             else:
-                self.menu.append("")
+                self.menu.append( c_menu_item() )
                 self.menu.append( c_menu_item(text_color("Žádné použitelné disky k manažování.", color=en_color.BRIGHT_YELLOW)) )
         except Exception as e:
             log.error(f"Chyba při zobrazení menu disk manager: {e}")
