@@ -1,4 +1,4 @@
 json5==0.9.27
 psutil==6.1.0
-bcrypt>=4.0.0
+python_bcrypt==0.3.2
 python_dateutil==2.9.0.post0
