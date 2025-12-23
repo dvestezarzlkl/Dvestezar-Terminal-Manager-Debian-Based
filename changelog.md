@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.8.1
+
+- ADD - disk name - uživatelský popis disků podle PTUUID
+- UPD - barvy v menu
+- FIX - řazení app menu + přejmenování pro správné řazení
+- FIX zadávání do inputů - nefungovalo regex
+
 ## v1.8.0
 
 - ADD - diska  swap manager
