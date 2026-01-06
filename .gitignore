@@ -7,4 +7,5 @@ venv310/
 run.sh
 assets/portInUse.json
 assets/tokens/*.cd
-libs/app/menus/app_50_zlkl/*
+libs/app/menus/app_50_zlkl*
+
