@@ -1,0 +1,56 @@
+// příklad sftp uživatele v JSONC formátu
+{
+    "users": [
+        {
+            "sftpuser": "testovaci_test", // systémový uživatel
+            "sambaVault" : true, // zda vytvořit mountpointy přes sambu nebo přímo bindem
+            "sftpmounts": { // mount pointy pro SFTP uživatele se skutenou cílovou cestou - musí existovat
+                "img": "/mnt/img/OrangePi/3b/rw",
+                "opis": "/home/dvestezar/pro_opis",
+                "bkg": "/var/backups"
+            },
+            "sftpcerts": [ // seznam SSH klíčů pro přístup k SFTP serveru, buď RAW nebo přidáme na začátek 'b64:' a zakódujeme do base64
+                "b64:c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFERS8rU1N3SU9acURXa1MwWkNxakgxQ0xRanFlSU8xZnlnT0lzWnVRZ1BueW5tM2NMNHV1REdqMXp3UjVzcG5adWMvN2RmN216cFl1bjRnWTBwcUx1SkRpY2dESlkyNUNzOTJlMWR2VkZ5V0s5Z3hOaW0rUzk4SW5QNGZJdi9KOFRJSkJDRzM2Sk5QSElIR3UwenVpYktDeHhLZGNXdXA0c05EcU9xV3gyLzk2Z1FDT3VuVUYyZWcvdk0xVTIrcnRycy9LNE1iMXg0LzRCdXdZazYvVk5vblAvUmVTdDVoaGVvRjhNeDJBSmJUT04zVXJibDk2bTNaeS9USkpQOXN1QWFBSDNSL3lTS3N6NWZYMk9VT0x5bCtMK0licGEwTlYrdEhwQTV4Ni94SmlOUE91N3A2VmhWdC9kQTc0eFpLVjkyclNhbGJldFpPdS9NazFEVTV4Rmogcm9vdEB3b3Jrc3RhdGlvbi1oZWxwZXItdWJ1bnR1MjQ="
+            ],
+            "pointsSet":{ // optional, pokud uvedeme na property je název mountpointu jako v sftpmounts
+                "img":{ // jsou jen property 'my' a 'perm' a nejsou povinné - toto platí jen pro samaba mounty
+                    // "my":true, // (optional default false) pokud je true, tak se tento sftp uživatel nastavuje jako vlastník
+                    // jinak je vlastní z daného adresáře                    
+
+                    // "rw":false // default je true, pokud je false, tak je mount readonly
+                },
+                "opis":{
+                    // jen readonly
+                    "rw":true
+                }
+            }
+        },
+        {
+            "sftpuser": "testovaci_test_2", // systémový uživatel
+            "sambaVault" : true, // zda vytvořit mountpointy přes sambu nebo přímo bindem
+            "sftpmounts": { // mount pointy pro SFTP uživatele se skutenou cílovou cestou - musí existovat
+                "img": "/mnt/img/OrangePi/3b/rw",
+                "opis": "/home/dvestezar/pro_opis",
+                "bkg": "/var/backups"
+            },
+            "sftpcerts": [ // seznam SSH klíčů pro přístup k SFTP serveru, buď RAW nebo přidáme na začátek 'b64:' a zakódujeme do base64
+                "b64:c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFERS8rU1N3SU9acURXa1MwWkNxakgxQ0xRanFlSU8xZnlnT0lzWnVRZ1BueW5tM2NMNHV1REdqMXp3UjVzcG5adWMvN2RmN216cFl1bjRnWTBwcUx1SkRpY2dESlkyNUNzOTJlMWR2VkZ5V0s5Z3hOaW0rUzk4SW5QNGZJdi9KOFRJSkJDRzM2Sk5QSElIR3UwenVpYktDeHhLZGNXdXA0c05EcU9xV3gyLzk2Z1FDT3VuVUYyZWcvdk0xVTIrcnRycy9LNE1iMXg0LzRCdXdZazYvVk5vblAvUmVTdDVoaGVvRjhNeDJBSmJUT04zVXJibDk2bTNaeS9USkpQOXN1QWFBSDNSL3lTS3N6NWZYMk9VT0x5bCtMK0licGEwTlYrdEhwQTV4Ni94SmlOUE91N3A2VmhWdC9kQTc0eFpLVjkyclNhbGJldFpPdS9NazFEVTV4Rmogcm9vdEB3b3Jrc3RhdGlvbi1oZWxwZXItdWJ1bnR1MjQ="
+            ]
+        }
+    ]   
+}
+// sambaVault: (bool) není povinný, default je false
+//      pokud je true, vytvoří se mountpointy přes sambu (CIFS), kde je zajištěno správné vlastnictví a oprávnění
+//      cílového adresáře mountpointu 
+// sftpmounts: (object) povinný, seznam mountpointů pro SFTP uživatele
+//      klíč je název mountpointu, hodnota je skutečná cesta na systému
+// sftpcerts: (array) povinný, seznam SSH klíčů pro přístup k SFTP serveru
+//      každý klíč může být buď RAW formát nebo base64 zakódovaný s prefixem 'b64:'
+// pointsSet: (object) není povinný, pokud je uveden, tak se nastaví vlastnictví a oprávnění mountpointů
+//      klíč je název mountpointu jako v sftpmounts
+//      hodnota je objekt s property:
+//          my: (bool) není povinný, default je false
+//              pokud je true, tak se tento sftp uživatel nastavuje jako vlastník
+//              jinak je vlastní z daného adresáře
+//          rw: (bool) není povinný, default je true
+//              pokud je false, tak je mount readonly

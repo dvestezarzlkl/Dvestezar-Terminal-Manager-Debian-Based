@@ -25,5 +25,28 @@
             "console": "integratedTerminal",
             "python": "${workspaceFolder}/venv310/bin/python",
         },
+        {
+            "name": "SFTP install",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sftpmng.py",
+            "args": [
+                "install",
+                "--file",
+                "${workspaceFolder}/assets/sftpManagerExampleConfig.jsonc"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SFTP UN install",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sftpmng.py",
+            "args": [
+                "uninstall",
+                "--all"
+            ],
+            "console": "integratedTerminal"
+        },
     ]
 }
