@@ -29,11 +29,9 @@
             "name": "SFTP install",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/sftpmng.py",
+            "program": "${workspaceFolder}/sftpmanager.py",
             "args": [
                 "install",
-                "--file",
-                "${workspaceFolder}/assets/sftpManagerExampleConfig.jsonc"
             ],
             "console": "integratedTerminal"
         },
@@ -41,10 +39,19 @@
             "name": "SFTP UN install",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/sftpmng.py",
+            "program": "${workspaceFolder}/sftpmanager.py",
             "args": [
                 "uninstall",
-                "--all"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "SFTP LIST",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/sftpmanager.py",
+            "args": [
+                "list",
             ],
             "console": "integratedTerminal"
         },
