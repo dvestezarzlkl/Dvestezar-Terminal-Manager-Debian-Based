@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.8.3
+
+- ADD - recovery sftpmanager
+
 ## v1.8.2
 
 - FIX - opraveno lsblk pro starší verze
