@@ -63,7 +63,8 @@ class menuEdit_select_nodeInstance(nd_menu):
                     menuEdit_edit_nodeInstance(),
                     None,
                     item[1], # data systemUserName/service-instance-template
-                    atRight=d.service.fullStatus() + f" | {TXT_PORT}: "+str(d.port)
+                    # str(d.port) přidat mezery zleva aby to hezky vypadalo
+                    atRight=d.service.fullStatus() + f" | {TXT_PORT}: {str(d.port):<5}"
                 )
             )
         ports(p)
