@@ -64,7 +64,7 @@ class menuEdit_select_nodeInstance(nd_menu):
                     None,
                     item[1], # data systemUserName/service-instance-template
                     # str(d.port) přidat mezery zleva aby to hezky vypadalo
-                    atRight=d.service.fullStatus() + f" | {TXT_PORT}: {str(d.port):<5}"
+                    atRight=d.service.fullStatus() + f" | {TXT_PORT}: {str(d.port):>5}"
                 )
             )
         ports(p)
