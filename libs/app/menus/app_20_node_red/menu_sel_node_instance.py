@@ -37,7 +37,12 @@ class menuEdit_select_nodeInstance(nd_menu):
         
         
         # tabulka oddělená |, 8 nzaků mezera | nazev max 50 znaků doplněno na 500 - zeleně | system user 30 znakový
-        i.append(c_menu_item(text_color(f"| {'Name':<40} | {'System User':<25} |", en_color.BRIGHT_BLACK),atRight=text_color("  Status  ", en_color.BRIGHT_BLACK)))
+        i.append(
+            c_menu_item(
+                text_color(f"| {'Name':<40} | {'System User':<25} |", en_color.BRIGHT_BLACK),
+                atRight=text_color("  -- Status --  ", en_color.BRIGHT_BLACK)
+            )
+        )
         for item in getSysUsers():
             # service = c_service_node(item[1])
             d=cfg_data(item[1])
@@ -56,6 +61,7 @@ class menuEdit_select_nodeInstance(nd_menu):
             line = f"{t:<40}"
             line = text_color(line, en_color.BRIGHT_GREEN if d.service.running() else en_color.BRIGHT_BLACK)
             line = f"| {line} | {ss:<25} |"
+            status=f"{d.service.fullStatus():<20}"
             i.append(
                 c_menu_item(
                     line,
@@ -63,8 +69,7 @@ class menuEdit_select_nodeInstance(nd_menu):
                     menuEdit_edit_nodeInstance(),
                     None,
                     item[1], # data systemUserName/service-instance-template
-                    # str(d.port) přidat mezery zleva aby to hezky vypadalo
-                    atRight=d.service.fullStatus() + f" | {TXT_PORT}: {str(d.port):>5}"
+                    atRight=f"{status} | {TXT_PORT}: {str(d.port):>5}"
                 )
             )
         ports(p)
