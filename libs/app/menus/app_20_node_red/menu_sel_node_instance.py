@@ -34,6 +34,10 @@ class menuEdit_select_nodeInstance(nd_menu):
 
         i=[]
         lst_json=[] # obsahuje pole polí [ [<int_port>,<name_instance>],... ]
+        
+        
+        # tabulka oddělená |, 8 nzaků mezera | nazev max 50 znaků doplněno na 500 - zeleně | system user 30 znakový
+        i.append(c_menu_item(text_color(f"| {'Name':<40} | {'System User':<25} |", en_color.BRIGHT_BLACK),atRight=text_color("  Status  ", en_color.BRIGHT_BLACK)))
         for item in getSysUsers():
             # service = c_service_node(item[1])
             d=cfg_data(item[1])
@@ -43,9 +47,18 @@ class menuEdit_select_nodeInstance(nd_menu):
                 item[1],
                 d.service.fullStatus()
             ])
+            t:str=str(d.title)
+            if len(t) > 40:
+                t = t[:36] + " ..."
+            ss:str=str(d.system_user)
+            if len(ss) > 25:
+                ss=ss[:22] + " ..."
+            line = f"{t:<40}"
+            line = text_color(line, en_color.BRIGHT_GREEN if d.service.running() else en_color.BRIGHT_BLACK)
+            line = f"| {line} | {ss:<25} |"
             i.append(
                 c_menu_item(
-                    text_color(item[1], (en_color.BRIGHT_GREEN if d.service.running() else en_color.BRIGHT_BLACK) ),
+                    line,
                     item[0],
                     menuEdit_edit_nodeInstance(),
                     None,
