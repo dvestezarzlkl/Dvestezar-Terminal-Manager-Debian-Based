@@ -6,7 +6,7 @@ from libs.JBLibs.disk_shrink import shrink_disk,extend_disk_part_max as expand_d
 from libs.JBLibs.format import bytesTx
 from libs.JBLibs.fs_utils import *
 from libs.JBLibs.fs_helper import c_fs_itm
-from libs.JBLibs.helper import run
+from libs.JBLibs.helper import run,sanitizeFileName
 from libs.JBLibs.input import anyKey,selectDir,selectFile,text_color,en_color,get_input,confirm
 from libs.app.disk_hlp import disk_settings,c_other
 from libs.JBLibs.helper import getLogger
@@ -469,13 +469,19 @@ class m_disk_oper(c_menu):
             return onSelReturn(err="Zrušeno uživatelem.")
         typ, zkratka, popis, detail = x
         
+        # získáme název disku z našeho pojmenování
+        realName = disk_settings.find_disk_name(self.diskInfo.ptuuid) if self.diskInfo else None
+        realName = sanitizeFileName(realName, 30)        
+        
         o_dir=c_other.get_bkp_dir(
             self.diskName,
             typZalohyChoice=zkratka,
             create=True,
             relative=False,
-            addTimestamp=False
+            addTimestamp=False,
+            realName=realName
         )        
+        
         print(f"Zálohuji disk {self.diskName} typem zálohy: {popis}")
         if zkratka=="s":
             return bkp.smart_backup(
@@ -840,15 +846,21 @@ class m_disk_part(c_menu):
         if l is None:
             return onSelReturn(err="Zrušeno uživatelem.")
         
+        # získáme název disku z našeho pojmenování
+        realName = disk_settings.find_disk_name(self.diskInfo.ptuuid) if self.diskInfo else None
+        realName = sanitizeFileName(realName, 30)
+        realName += "_" + self.selectedPartition
+        
         typ, zkratka, popis, detail = x
         o_dir=Path(c_other.get_bkp_dir(
             self.selectedPartition,
             typZalohyChoice=zkratka,
             create=True,
             relative=False,
-            addTimestamp=False
+            addTimestamp=False,
+            realName=realName
         ))
-        prefix=datetime.now().strftime("%Y-%m-%d_%H%M%S_bkptp-{}")
+        prefix=datetime.now().strftime("%Y-%m-%d_%H%M%S_bkptp-")
         print(text_color(f"Zálohuji partition {self.selectedPartition} typem zálohy: {popis}", color=en_color.BRIGHT_CYAN))
         if zkratka=="s":
             bkp.c_bkp.backup_partition_image(

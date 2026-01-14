@@ -219,7 +219,8 @@ class c_other:
         typZalohyChoice:str,
         create:bool=True,
         relative:bool=True,
-        addTimestamp:bool=False
+        addTimestamp:bool=False,
+        realName:str|None=None        
     )->str:
         """Vrátí název adresáře pro zálohu disku nebo partition relativně k BKP_DIR
         
@@ -234,6 +235,10 @@ class c_other:
             str: cesta k adresáři pro zálohu, relativní k BKP_DIR        
         """        
         dev=getDiskyByName(_dev)
+        
+        if realName is None or not isinstance(realName, str):
+            realName = _dev
+        
         isDisk=False
         if dev:
             if dev.type=="disk" or dev.type=="loop":
@@ -257,13 +262,13 @@ class c_other:
             timestamp=datetime.now().strftime("%Y%m%d_%H%M%S")
             tp=Path(tp) / timestamp
         
-        n = base / ("disk" if isDisk else "partition") / f"{dev.name}" / f"{tp}"
+        n = base / ("disk" if isDisk else "partition") / f"{realName}" / f"{tp}"
         if create and not n.is_dir():
             n.mkdir(parents=True, exist_ok=True)
             
         if not relative:
             return str(n)
-        # vrátéme jen relativní cestu k BKP_DIR
+        # vrátíme jen relativní cestu k BKP_DIR
         return str(n.relative_to(base))
         
     @staticmethod
