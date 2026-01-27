@@ -11,6 +11,11 @@ import subprocess
 from pathlib import Path
 import libs.app.g_def as defs
 
+allow_paths:list[str] = [
+    "libs/JBLibs",
+    # "libs/app/menus/app_50_zlkl", # privat, standartně ne, jen pokud dostane přístup
+]
+
 def check_venv():
     """Ověří, že skript běží ve virtuálním prostředí (venv)."""
     if sys.prefix == sys.base_prefix:
@@ -94,17 +99,28 @@ def install_nodejs():
         sys.exit(1)
 
 
-def update_submodules():
-    """Provede init a update všech git submodulů včetně rekurzivních."""
-    print("Provádím git submodule update --init --recursive...")
-    cmd = ["git", "submodule", "update", "--init", "--recursive"]
+def update_submodules(recursive:bool=True):
+    """
+    Inicializuje/aktualizuje jen vybrané submoduly (whitelist).
+    allow_paths: seznam cest (path z .gitmodules), např. ["libs/JBLibs"]
+    """
+    if not allow_paths:
+        print("Nejsou zadané žádné submoduly k inicializaci, přeskakuji.")
+        return
+
+    base = ["git", "submodule", "update", "--init"]
+    if recursive:
+        base.append("--recursive")
+
+    print("Provádím init/update submodulů:", ", ".join(allow_paths))
+    cmd = base + allow_paths
+
     try:
         subprocess.run(cmd, check=True)
         print("Submoduly úspěšně inicializovány/aktualizovány.")
     except subprocess.CalledProcessError as e:
-        print("Chyba při inicializaci/aktualizaci submodulů:\n", e,file=sys.stderr)
+        print("Chyba při inicializaci/aktualizovány submodulů:\n", e, file=sys.stderr)
         sys.exit(1)
-
 
 def run_requirements_install():
     """Spustí pip install -r requirements.txt, pokud soubor existuje."""
