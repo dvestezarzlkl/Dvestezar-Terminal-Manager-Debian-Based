@@ -29,9 +29,10 @@ class menu_user_edit (ssh_menu):
         self._mData.selectedUser.refresh()
         
         t=TXT_MENU2_TITLE_01 + " (" + ( TXT_MENU_01 if self._mData.selectedUser.hasSudo else TXT_MENU_00 ) + ")"
+        cl=en_color.GREEN if self._mData.selectedUser.keyCount>0 else en_color.BRIGHT_BLACK
         self._setAppHeader(t,"",
             c_menu_block_items([
-                (TXT_MENU2_TITLE_02      ,str( self._mData.selectedUser.keyCount ) ),
+                ( text_color(TXT_MENU2_TITLE_02,color=cl)      ,text_color(str( self._mData.selectedUser.keyCount ),color=cl) ),
             ]),
             self._mData.selectedUser.userName
         )
@@ -51,13 +52,13 @@ class menu_user_edit (ssh_menu):
                     self._mData.selectedUser,
                     k
                 ),
-                atRight=TXT_INCLUDED if k.included else TXT_NOT_INCLUDED
+                atRight= text_color(TXT_INCLUDED, color=en_color.GREEN) if k.included else text_color(TXT_NOT_INCLUDED, color=en_color.BRIGHT_RED)
             ))
             c+=1
             
         
         self.menu.append(c_menu_title_label(TXT_TITLE_05))
-        if self._mData.selectedUser.hasSudo:
+        if self._mData.selectedUser.isSudoer:
             # delete sudo
             self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_12,color=en_color.RED),"srm",self.removeSudo))
         else:
@@ -69,6 +70,26 @@ class menu_user_edit (ssh_menu):
             self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_19,color=en_color.RED),"tty",self.removeUserDialout))
         else:
             self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_22,color=en_color.GREEN),"tty",self.addUserDialout))
+        
+        if self._mData.selectedUser.hasSudoNoPasswd:
+            # vypnout přepnutí sudo bez hesla
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_28,color=en_color.YELLOW),"spwd",self.removeSudoNoPasswd))
+        else:
+            if self._mData.selectedUser.isSudoer:
+                # zapnout možnost sudo bez hesla
+                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_29,color=en_color.GREEN),"spwd",self.addSudoNoPasswd))
+            else:
+                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_29_not_available,color=en_color.BRIGHT_BLACK)))
+        
+        if self._mData.selectedUser.passwordLoginDisabled:
+            # povolit přihlášení heslem
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_30,color=en_color.YELLOW),"plogin",self.enablePasswordLogin))
+        else:
+            # zakázat přihlášení heslem
+            if self._mData.selectedUser.keyCount>0:
+                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31,color=en_color.RED),"plogin",self.disablePasswordLogin))
+            else:
+                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31_not_available,color=en_color.BRIGHT_BLACK)))
         
         self.menu.extend([
             None,
@@ -206,6 +227,7 @@ class menu_user_edit (ssh_menu):
         if (e:=sshMng.remove_sudo_privileges(self._mData.selectedUser.userName)):
             print(e)
         else:
+            self._mData.selectedUser.enforceSudoNoPasswd(enable=False)
             print(TXT_MENU2_TITLE_15)
         anyKey()
         return None
@@ -221,5 +243,57 @@ class menu_user_edit (ssh_menu):
             print(e)
         else:
             print(TXT_MENU2_TITLE_18)
+        anyKey()
+        return None
+    
+    def removeSudoNoPasswd(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Disable sudo without password for user.
+        """
+        cls()
+        print(f"{TXT_MENU2_TITLE_32} {self._mData.selectedUser.userName} (NOPASSWD)")
+        if(e:=self._mData.selectedUser.enforceSudoNoPasswd(enable=False)):
+            print(e)
+        else:
+            print(TXT_MENU2_TITLE_33)        
+        anyKey()
+        return None
+    
+    def addSudoNoPasswd(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Enable sudo without password for user.
+        """
+        cls()
+        print(f"{TXT_MENU2_TITLE_34} {self._mData.selectedUser.userName} (NOPASSWD)")
+        if(e:=self._mData.selectedUser.enforceSudoNoPasswd(enable=True)):
+            print(e)
+        else:
+            print(TXT_MENU2_TITLE_35)
+        anyKey()
+        return None
+    
+    def disablePasswordLogin(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Disable SSH password login for user.
+        """
+        cls()
+        print(f"{TXT_MENU2_TITLE_36} {self._mData.selectedUser.userName}")
+        if(e:=self._mData.selectedUser.setPasswordLogin(enable=False)):
+            print(e)
+        else:
+            print(TXT_MENU2_TITLE_37)
+        anyKey()
+        return None
+    
+    def enablePasswordLogin(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Enable SSH password login for user.
+        """
+        cls()
+        print(f"{TXT_MENU2_TITLE_38} {self._mData.selectedUser.userName}")
+        if(e:=self._mData.selectedUser.setPasswordLogin(enable=True)):
+            print(e)
+        else:
+            print(TXT_MENU2_TITLE_39)
         anyKey()
         return None

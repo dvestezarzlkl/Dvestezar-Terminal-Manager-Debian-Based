@@ -48,3 +48,19 @@ TXT_MENU2_TITLE_27 = "Dialout is the primary group of user {user}. Changing prim
 TXT_MENU3_TITLE_01 = "Edit selected user key"
 TXT_MENU3_TITLE_02 = "Key"
 
+TXT_MENU2_TITLE_28 = "Disable sudo without password for user"
+TXT_MENU2_TITLE_29 = "Enable sudo without password for user"
+TXT_MENU2_TITLE_29_not_available = "Enable sudo without password for user (not available, user is not a sudoer)"
+TXT_MENU2_TITLE_30 = "Enable SSH password login for user"
+TXT_MENU2_TITLE_31 = "Disable SSH password login for user"
+TXT_MENU2_TITLE_31_not_available = "Disable SSH password login for user (not available, user has no keys)"
+
+TXT_MENU2_TITLE_32 = "Enable sudo with password for user"
+TXT_MENU2_TITLE_33 = "Now switching to sudo with password will be required for user"
+TXT_MENU2_TITLE_34 = "Enable sudo without password for user"
+TXT_MENU2_TITLE_35 = "Now switching to sudo without password will not be required for user"
+
+TXT_MENU2_TITLE_36 = "Disable SSH password login for user"
+TXT_MENU2_TITLE_37 = "Now SSH password login is disabled for user"
+TXT_MENU2_TITLE_38 = "Enable SSH password login for user"
+TXT_MENU2_TITLE_39 = "Now SSH password login is enabled for user"
