@@ -83,11 +83,11 @@ class menu_user_edit (ssh_menu):
         
         if self._mData.selectedUser.passwordLoginDisabled:
             # povolit přihlášení heslem
-            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_30,color=en_color.YELLOW),"plogin",self.enablePasswordLogin))
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_30,color=en_color.YELLOW),"plg",self.enablePasswordLogin))
         else:
             # zakázat přihlášení heslem
-            if self._mData.selectedUser.keyCount>0:
-                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31,color=en_color.RED),"plogin",self.disablePasswordLogin))
+            if self._mData.selectedUser.enabledKeysCount>0:
+                self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31,color=en_color.RED),"plg",self.disablePasswordLogin))
             else:
                 self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31_not_available,color=en_color.BRIGHT_BLACK)))
         
