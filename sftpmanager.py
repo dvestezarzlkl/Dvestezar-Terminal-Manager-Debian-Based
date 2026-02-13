@@ -7,12 +7,14 @@ log = hlp.getLogger("sftpManager")
 import argparse
 from libs.JBLibs.sftp import parser
 from libs.JBLibs.sftp import ssh
+from libs.JBLibs.term import en_color, text_color
 
+__VERSION__ = "2.0.0"
 CONFIG_FILE_PATH:str="/etc/jb_sftpmanager"
 CONFIG_FILE:str="config.jsonc"
 
 def main():
-    log.info("\n"+"*"*20 + " SFTP Jail Manager Started " + "*"*20)
+    log.info("\n"+"*"*20 + f" SFTP Jail Manager Started (v{__VERSION__}) " + "*"*20)
     
     ap = argparse.ArgumentParser(description="SFTP jail manager")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -103,11 +105,13 @@ def main():
         log.info("Listing all SFTP users:")
         users = parser.listActiveUsers()
         if not users:
-            print("\nNo SFTP users found.\n")
+            print(text_color("\nNo SFTP users found.\n",en_color.BRIGHT_RED))
         else:
-            print("\nSFTP Users:")
+            print(text_color("\nSFTP Users:\n", en_color.BRIGHT_GREEN))
             for u in users:
-                print(f"- {u.username} (Home: {u.homeDir}")
+                uCl=text_color(u.username, en_color.BRIGHT_CYAN)
+                dir=text_color(u.homeDir, en_color.YELLOW)
+                print(f"- {uCl} (Home: {dir})")
             print("")
     try:
         if rst is True:
