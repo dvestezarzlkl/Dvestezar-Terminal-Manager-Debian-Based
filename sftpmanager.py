@@ -1,5 +1,40 @@
 #!/usr/bin/env python3
-import os
+import os,sys
+
+def _reexec_into_venv310_if_needed(min_ver=(3, 10), venv_dir_name="venv310"):
+    """
+    Pokud neběžíme na min_ver a existuje venv_dir_name vedle skriptu,
+    re-execneme se do venv interpreteru a zachováme argv.
+    """
+    cur = sys.version_info[:2]
+
+    # už běžíme na 3.10+ -> není co řešit
+    if cur >= min_ver:
+        return
+
+    # pokud už jsme ve venv, nepřepínej (aby to nespadlo do smyčky)
+    if sys.prefix != sys.base_prefix:
+        return
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    venv_dir = os.path.join(script_dir, venv_dir_name)
+
+    # najdi python ve venv (linux)
+    vpy = os.path.join(venv_dir, "bin", "python")
+    if not os.path.isfile(vpy):
+        vpy = os.path.join(venv_dir, "bin", "python3")
+
+    if not os.path.isfile(vpy):
+        # venv310 neexistuje / není kompletní -> pokračuj v aktuálním pythonu
+        return
+
+    # spustíme znovu sami sebe přes venv interpreter
+    # zachovej env a argv (včetně subcommandů)
+    print('Re-execing into venv Python 3.10+ at:', vpy)
+    os.execv(vpy, [vpy, os.path.abspath(__file__), *sys.argv[1:]])
+
+_reexec_into_venv310_if_needed()
+
 import libs.JBLibs.helper as hlp
 hlp.initLogging(toConsole=True,log_level=hlp.logging.INFO)
 log = hlp.getLogger("sftpManager")
@@ -9,7 +44,7 @@ from libs.JBLibs.sftp import parser
 from libs.JBLibs.sftp import ssh
 from libs.JBLibs.term import en_color, text_color
 
-__VERSION__ = "2.0.0"
+__VERSION__ = "2.1.0"
 CONFIG_FILE_PATH:str="/etc/jb_sftpmanager"
 CONFIG_FILE:str="config.jsonc"
 

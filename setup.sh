@@ -55,7 +55,7 @@ if [ ! -x "$RUN_WRAPPER" ]; then
     cat > "$RUN_WRAPPER" <<EOF
 #!/bin/bash
 source "\$(dirname "\$0")/$VENV_DIR/bin/activate"
-python ./$PY_ENTRY "\$@"
+python3 ./$PY_ENTRY "\$@"
 EOF
     chmod +x "$RUN_WRAPPER"
     echo "$RUN_WRAPPER byl vytvořen."
