@@ -2,6 +2,8 @@
 import os
 import sys
 
+__VERSION__ = "1.1.0"
+
 def _reexec_into_venv310_if_needed(min_ver=(3, 10), venv_dir_name="venv310"):
     """
     Pokud neběžíme na min_ver a existuje venv_dir_name vedle skriptu,
@@ -66,7 +68,7 @@ def main() -> None:
     # bezpečné práva na adresář
     os.chmod(base_dir, 0o700)
 
-    priv_path = os.path.join(base_dir, "key.priv")
+    priv_path = os.path.join(base_dir, "key.pem")
     pub_path  = os.path.join(base_dir, "key.pub")
     b64_path  = os.path.join(base_dir, "key.base64")
 
