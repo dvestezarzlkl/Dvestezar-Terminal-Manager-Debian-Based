@@ -187,6 +187,7 @@ class menu(c_menu):
     def onShowMenu(self) -> None:
         try:
             self.title=basicTitle(dir=self.curDir)
+            self.title.append( "Press F5 to refresh" )
 
             self.menu=[]
             self.menu.append( c_menu_title_label("Image Menu") )        
@@ -205,7 +206,8 @@ class menu(c_menu):
                 for d in ls:
                     di=ls[d]
                     if di.type=="disk" and not di.children:
-                        continue
+                        if di.size==0: # pokud je to nový disk tak nemá partition, pokud je to jen prázdná čtečka tak má size 0
+                            continue
                     
                     disk_name_display = c_other.getDiskDisplayName(di)
                     part=len(di.children)
@@ -227,7 +229,7 @@ class menu(c_menu):
                     choice+=1
             else:
                 self.menu.append( c_menu_item() )
-                self.menu.append( c_menu_item(text_color("Žádné použitelné disky k manažování.", color=en_color.BRIGHT_YELLOW)) )
+                self.menu.append( c_menu_item(text_color("Žádné použitelné disky k manažování.", color=en_color.BRIGHT_YELLOW)) )                
         except Exception as e:
             log.error(f"Chyba při zobrazení menu disk manager: {e}")
             log.exception(e)
@@ -348,6 +350,10 @@ class m_disk_oper(c_menu):
             self.menu.append( c_menu_item("Zálohovat disk", "b", self.backup_disk) )
             self.menu.append( c_menu_item("Obnovit disk ze zálohy", "r", self.restore_disk) )
             self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )
+            if not disk.isSystemDisk:
+                self.menu.append( c_menu_item("Vygeneruj nové ID disku", "i", self.generate_new_disk_id) )
+            else:
+                self.menu.append( c_menu_item(text_color("Pro systémové disky nelze generovat nové ID", color=en_color.BRIGHT_RED)) )
         
         if disk.children:
             self.menu.append( c_menu_title_label(text_color("Partitions", color=en_color.BRIGHT_CYAN)) )
@@ -555,6 +561,29 @@ class m_disk_oper(c_menu):
             print(text_color(f"Chyba při obnově disku: {x.err}", color=en_color.BRIGHT_RED))
             anyKey()
         return x
+    
+    def generate_new_disk_id(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Vygeneruje nové ID disku (PUUID) a aktualizuje ho v systému.
+        """
+        ret = onSelReturn()
+        if self.diskInfo.isSystemDisk:
+            return ret.errRet("Nelze vygenerovat nové ID pro systémový disk.")
+        
+        disk=self.diskInfo
+        if disk is None:
+            return ret.errRet("Neznámý disk.")
+        
+        if not confirm(f"Jste si jisti, že chcete vygenerovat nové ID pro disk {disk.name}? Toto může způsobit problémy s připojením disku, pokud je používán v současné době."):
+            return ret.errRet("Zrušeno uživatelem.")
+        
+        try:
+            from libs.JBLibs.fs_smart_bkp import c_bkp_hlp
+            c_bkp_hlp.generateNewDiskId(disk.name)
+            
+            # pokud ok tak se musíme vrátit zpět ven aby se obnovilo info o disku, jinak nepůjde editovat partitiony
+            return ret.okRet(f"Nové ID disku vygenerováno.", endMenu=True)
+        except Exception as e:
+            return ret.errRet(f"Chyba při generování nového ID disku: {e}")
 
 # ****************************************************
 # ******************* IMAGE MENU *********************
