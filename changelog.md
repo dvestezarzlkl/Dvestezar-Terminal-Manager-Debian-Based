@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.4
+
+- UPD - převedené některých seznamů na tabulky
+- FIX - Zobrazení portu
+- FIX - vytvoření názvu backup dir
+- FIX - setup, instalace jen free modulů
+- ADD - ssh manager operace s heslem
+- ADD - readme pro SFTP managera
+- FIX - sftp manager run under python 3.10
+- ADD - keygen script pro ssh managera
+- FIX - zobrazené textů v disk manageru + text pro F5
+- ADD - UART tester script pro testování komunikace přes UART převodníky (RS-485, RS-232) - viz uart_tester.md
+
 ## v1.8.3
 
 - ADD - recovery sftpmanager
