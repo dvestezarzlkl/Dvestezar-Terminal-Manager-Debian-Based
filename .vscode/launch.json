@@ -55,5 +55,15 @@
             ],
             "console": "integratedTerminal"
         },
+        {
+            "name": "Run transmitter UAERT on COM3",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/uart_tester.py",
+            "console": "integratedTerminal",
+            "args": [
+                "COM3"
+            ]
+        }        
     ]
 }
