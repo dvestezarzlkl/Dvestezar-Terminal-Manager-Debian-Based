@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.8.5
+
+- ADD - reset machine id pro RPi a OPi na připojené partition, pokud je platný a není již resetován 
+
 ## v1.8.4
 
 - UPD - převedené některých seznamů na tabulky

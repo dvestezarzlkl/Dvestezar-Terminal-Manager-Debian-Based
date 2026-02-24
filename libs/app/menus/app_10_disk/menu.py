@@ -349,7 +349,8 @@ class m_disk_oper(c_menu):
         if not loopDev or (loopDev and not loopIsPartAndMounted):
             self.menu.append( c_menu_item("Zálohovat disk", "b", self.backup_disk) )
             self.menu.append( c_menu_item("Obnovit disk ze zálohy", "r", self.restore_disk) )
-            self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )
+            self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )            
+                
             if not disk.isSystemDisk:
                 self.menu.append( c_menu_item("Vygeneruj nové ID disku", "i", self.generate_new_disk_id) )
             else:
@@ -382,7 +383,7 @@ class m_disk_oper(c_menu):
                 self.menu.append( imn )
         else:
             self.menu.append( c_menu_item("Disk neobsahuje žádné použitelné partitiony.") )
-                         
+
     def umonunt_partition(self,selItem:c_menu_item) -> None|onSelReturn:
         """Umountne připojený image jako partition.
         """
@@ -756,9 +757,9 @@ class m_disk_part(c_menu):
         
         self.menu.append( c_menu_title_label(f"Partition Menu: {partNfo.name}") )
         if isMounted:        
-            self.menu.append( c_menu_item("Umount Partition", "u", self.umonunt_partition) )
+            self.menu.append( c_menu_item(text_color("Umount Partition", color=en_color.RED), "u", self.umonunt_partition) )
         else:
-            self.menu.append( c_menu_item("Mount Partition", "m", self.mount_partition) )
+            self.menu.append( c_menu_item(text_color("Mount Partition", color=en_color.GREEN), "m", self.mount_partition) )
         
         self.menu.append( c_menu_title_label("Disk Utilities") )
         if not isMounted:
@@ -768,11 +769,16 @@ class m_disk_part(c_menu):
                 self.menu.append( c_menu_item("Kontrola disku není podporována pro tento filesystem.",atRight=f"{partNfo.fstype}") )
             self.menu.append( c_menu_item("Shrink Disk", "s", self.shrink_disk) )
             self.menu.append( c_menu_item("Expand Disk", "e", self.expand_disk) )
-            self.menu.append( c_menu_item("-" ) )
             self.menu.append( c_menu_item("Zálohovat partition", "b", self.backup_partition) )
-            self.menu.append( c_menu_item("Obnovit partition ze zálohy", "r", self.restore_partition) )
+            self.menu.append( c_menu_item("Obnovit partition ze zálohy", "r", self.restore_partition) )            
         else:
-            self.menu.append( c_menu_item("Nelze provést operaci na připojené partition.") )
+            self.menu.append( c_menu_item("-" ) )
+            if self.checkMachineID():
+                self.menu.append( c_menu_item(text_color("Resetovat MachineID (RPi OPi)", color=en_color.RED), "m", self.reset_machine_id) )
+            else:
+                self.menu.append( c_menu_item(text_color("MachineID není platné nebo je již resetováno.", color=en_color.BRIGHT_BLACK), atRight="nelze resetovat") )            
+            
+            self.menu.append( c_menu_item(text_color("Nelze provést jinou operaci na připojené partition.", color=en_color.YELLOW) ) )
             
         partIsLAst:bool=False
         if self.diskInfo and self.diskInfo.children:
@@ -793,6 +799,27 @@ class m_disk_part(c_menu):
                 aTit.append( (f"- {mp}", "") )
             aTit.append( "." )
         self.afterTitle=aTit
+    
+    def checkMachineID(self) -> bool:
+        """Zkontroluje zda partition obsahuje platný MachineID (pro RPi a OPi).
+        """
+        if self.fsInfo is None or self.fsInfo.fsType not in ["ext4","ext3","ext2"]:
+            return False
+        if len(self.partInfo.mountpoints) != 1:
+            return False
+        mnt=self.partInfo.mountpoints[0]
+        
+        
+        machineIdPath=Path(mnt) / "etc/machine-id"
+        if not machineIdPath.is_file():
+            return False
+        try:
+            content=machineIdPath.read_text().strip()
+            valid=bool(re.match(r'^[a-f0-9]{32}$', content))
+            return valid
+        except Exception as e:
+            log.error(f"Chyba při čtení machine-id: {e}")
+            return False
     
     def mount_partition(self,selItem:c_menu_item) -> None|onSelReturn:
         """Mountne partition disku nebo loop
@@ -954,3 +981,21 @@ class m_disk_part(c_menu):
         except Exception as e:
             return onSelReturn(err=f"Chyba při obnově partition {self.selectedPartition}: {e}")
         return onSelReturn(ok=f"Partition {self.selectedPartition} byla úspěšně obnovena ze zálohy.")
+
+    def reset_machine_id(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Resetuje MachineID pro RPi a OPi, což může být užitečné při klonování SD karet pro RPi/OPi.
+        """
+        ret = onSelReturn()
+        if not confirm("Jste si jisti, že chcete resetovat MachineID pro tento disk? Toto je užitečné pouze pro RPi a OPi a může pomoci při klonování SD karet."):
+            ret.err="Zrušeno uživatelem."
+            return ret
+        try:
+            x=c_other.reset_machine_id(self.partInfo)
+            if x:
+                ret.err=x
+            else:
+                ret.ok="MachineID bylo resetováno."
+        except Exception as e:
+            ret.err=f"Chyba při resetování MachineID: {e}"
+        return ret
+                         

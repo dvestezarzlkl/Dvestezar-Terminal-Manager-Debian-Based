@@ -288,3 +288,82 @@ class c_other:
         else:
             disk_name_display += text_color("-unnamed-",color=en_color.BRIGHT_BLACK)
         return disk_name_display 
+
+    @staticmethod
+    def reset_machine_id(partInfo: lsblkDiskInfo) -> str|None:
+        """Zkontroluje jestli je disk mountlý, pokud ano a má jen jeden mount tak se pokusí resetovat jeho machine-id,
+        což je užitečné pro klony RPi a OPi, které mají stejné machine-id a tím pádem stejné UUID disků, a tprotože se
+        MAC generuje z UUID disku, tak mají všechny klony stejné MAC adresy, což může způsobovat problémy při připojování k síti
+        Reset se provede smazáním machineid souborů, provede se touch v etc/machine-id, následně je vytvořena služba,
+        která díky nulovému obsahu vygeneruje nové machine-id, tzn
+        v `mountPoint.../etc/systemd/system` vytvoří `reset-machine-id-firstboot.service` s obsahem:
+        ```
+        [Unit]
+        Description=Reset machine-id on first boot
+        ConditionFirstBoot=yes
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/systemd-machine-id-setup
+
+        [Install]
+        WantedBy=multi-user.target
+        ```
+        a následně se služba povolí vytvořením symlinku, který ale musí být relativní
+        `ln -s ../reset-machine-id-firstboot.service /mnt/x/etc/systemd/system/multi-user.target.wants/reset-machine-id-firstboot.service`
+        
+        ```sh
+        rm -f /mnt/x/etc/machine-id
+        rm -f /mnt/x/var/lib/dbus/machine-id
+        touch /mnt/x/etc/machine-id        
+        ```
+    
+        Args:
+            diskInfo (lsblkDiskInfo): informace o disku, který chceme resetovat
+            
+        Returns:
+            str|None: chybová hláška pokud se nepodařilo resetovat, None pokud se reset povedl
+    
+        """
+        if not partInfo.mountpoints:
+            return "Disk není připojený, nelze resetovat machine-id"
+        if len(partInfo.mountpoints)>1:
+            return "Disk má více mountů, nelze resetovat machine-id"
+        mountPoint=Path(partInfo.mountpoints[0])
+        if not mountPoint.is_dir():
+            return "Mount point není adresář, nelze resetovat machine-id"
+        
+        # smažeme machine-id soubory
+        machine_id_path = mountPoint / "etc/machine-id"
+        dbus_machine_id_path = mountPoint / "var/lib/dbus/machine-id"
+        if machine_id_path.is_file():
+            machine_id_path.unlink()
+        if dbus_machine_id_path.is_file():
+            dbus_machine_id_path.unlink()
+            
+        # vytvoříme prázdný machine-id pro vygenerování nového
+        (mountPoint / "etc/machine-id").touch()
+        # vytvoříme službu pro reset machine-id
+        service_content ="""[Unit]
+Description=Reset machine-id on first boot
+ConditionFirstBoot=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-machine-id-setup
+
+[Install]
+WantedBy=multi-user.target
+        """
+        service_path = mountPoint / "etc/systemd/system/reset-machine-id-firstboot.service"
+        with service_path.open("w", encoding="utf-8") as f:
+            f.write(service_content)
+        # povolíme službu vytvořením relativního symlinku
+        wants_dir = mountPoint / "etc/systemd/system/multi-user.target.wants"
+        if not wants_dir.is_dir():
+            wants_dir.mkdir(parents=True, exist_ok=True)
+        symlink_path = wants_dir / "reset-machine-id-firstboot.service"
+        if not symlink_path.is_symlink():
+            symlink_path.symlink_to("../reset-machine-id-firstboot.service")
+            
+        return None
