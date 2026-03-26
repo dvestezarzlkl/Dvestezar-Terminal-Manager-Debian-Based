@@ -108,7 +108,7 @@ class menu (nd_menu):
 
     def updateGlobNodeJs(self,selItem:c_menu_item) -> onSelReturn:
         """Update global Node.js to the next major version."""
-        nodeVer,isGlobal=getNodeJsVersion()
+        nodeVer,isGlobal,strVer=getNodeJsVersion()
         if nodeVer <= 0 or not isGlobal:
             return onSelReturn(err=TXT_NODEJS_NOTEXISTS)
 
@@ -125,7 +125,7 @@ class menu (nd_menu):
         if not confirm(TXT_NODEJS_LATEST_GLOB_Q.format(ver=LATEST_LTS_MAJOR)):
             return onSelReturn()
 
-        nodeVer,isGlobal=getNodeJsVersion()
+        nodeVer,isGlobal,strVer=getNodeJsVersion()
         if nodeVer > 0 and isGlobal:
             ok,msg=nodeJsUpdate(True)
         else:

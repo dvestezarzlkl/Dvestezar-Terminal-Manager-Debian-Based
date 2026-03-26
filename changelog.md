@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.8.7
+
+- FIX menu získání verze node.js
+
 ## v1.8.6
 
 - UPD update JBLibs
