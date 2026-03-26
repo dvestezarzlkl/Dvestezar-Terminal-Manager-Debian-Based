@@ -124,14 +124,20 @@ class menuEdit_edit_nodeInstance(nd_menu):
         """
         from libs.JBLibs.term import cls
         if confirm(TXT_MENU_INSTN_s_upd_latQ,True):
-            return update_instance_node_red(self.selectedSystemUSer,latest=True)
+            x=update_instance_node_red(self.selectedSystemUSer,latest=True)
+            if x:
+                anyKey()                
+            return x
         cls()
     
     def  update_instance(self,selItem:c_menu_item) -> onSelReturn:
         """
         Update node instance for selected system user
         """
-        return update_instance_node_red(self.selectedSystemUSer)
+        x = update_instance_node_red(self.selectedSystemUSer)
+        if x:
+            anyKey()
+        return x
     
     def delete_instance(self,selItem:c_menu_item) -> onSelReturn:
         """
