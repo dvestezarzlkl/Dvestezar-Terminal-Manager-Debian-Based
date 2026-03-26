@@ -264,8 +264,12 @@ def instanceVersionNpm(username:str)->str:
         log.error("Chyba při získávání verze Node-RED: %s", e)
         return "N/A"
 
-def instanceVersion(username: str) -> str:
+def instanceVersion_OLD(username: str) -> str:
     """Získá verzi Node-RED přímo z red.js
+    
+    Deprecated:
+    verze node-red 3 neumí --version, tak selže (node-red se spustí místo vypsání verze) a nenačte se pak menu
+    vyřazeno 2026-03-26
     
     Parameters:
         username (str): jméno uživatele
@@ -293,6 +297,42 @@ def instanceVersion(username: str) -> str:
 
 _ports: List[int] = []
 """Seznam portů obsazených instancemi - toto se generuje až při použití menu """
+
+
+def instanceVersion(username: str) -> str:
+    """Vrátí verzi Node-RED z package.json v uživatelské instanci.
+    Verze z 2026-03-26
+
+    Parameters:
+        username (str): Jméno uživatele.
+
+    Returns:
+        str: Verze Node-RED, nebo "N/A" při chybě.
+    """
+    if not instanceCheck(username):
+        return "N/A"
+
+    user_home = getUserHome(username)
+    package_json = os.path.join(
+        user_home,
+        "node_instance",
+        "node_modules",
+        "node-red",
+        "package.json"
+    )
+
+    try:
+        with open(package_json, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        version = data.get("version")
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+
+    except (FileNotFoundError, PermissionError, json.JSONDecodeError, OSError) as e:
+        log.error("Chyba při čtení verze Node-RED z %s: %s", package_json, e)
+
+    return "N/A"
 
 def ports(toSet:List[int]=None) -> List[int]:
     """
