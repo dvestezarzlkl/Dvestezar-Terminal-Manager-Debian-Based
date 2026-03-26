@@ -1,8 +1,14 @@
 # Changelog
 
+## v1.8.6
+
+- UPD update JBLibs
+- FIX získání verze node-red, u verzí pod 4 neuměl parametr --version a spouštěl se, tím selhalo načtení menu s chybou
+- ADD - přidána instalce node.js z menu, nebo update major veze - povýšení node.js na další major verzi, nebo update na poslední LTS verzi
+
 ## v1.8.5
 
-- ADD - reset machine id pro RPi a OPi na připojené partition, pokud je platný a není již resetován 
+- ADD - reset machine id pro RPi a OPi na připojené partition, pokud je platný a není již resetován
 
 ## v1.8.4
 

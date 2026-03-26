@@ -1,10 +1,16 @@
-import os,subprocess,json
-from typing import Union,List
+from .lng.default import * 
+from libs.JBLibs.helper import loadLng
+loadLng()
+
+import os,subprocess,json, re, shutil
+from typing import Union,List,Optional
 from . import cfg
 from .c_service_node import c_service_node  
 from libs.JBLibs.helper import userExists,getLogger,getUserHome
 
 log = getLogger(__name__)   
+
+LATEST_LTS_MAJOR = 22
 
 def getCfgPath(username: str) -> Union[str,None]:
     """ vrátí cestu k souboru s konfigurací pro uživatele 
@@ -530,3 +536,410 @@ def update_sudoers_file() -> Union[str,None]:
     else:
         log.info("Aktualizován sudoers soubor pro node-red instance")
     return None
+
+# -------- 2026-06
+
+def getNodeJsVersion(username: Optional[str] = None) -> tuple[int, bool, str]:
+    """Zjistí major verzi Node.js a zda je binárka globální.
+
+    Parameters:
+        username (str | None): pokud je zadán, zjišťuje verzi v kontextu uživatele
+
+    Returns:
+        tuple[int, bool, str]: (major_verze, je_globalni, velé číslo verze)
+            (major_verze, je_globalni)
+            - major_verze = 0 při chybě
+            - je_globalni = True pokud binárka neleží v HOME uživatele
+    """
+    try:
+        if username:
+            user_home = getUserHome(username)
+
+            result_path = subprocess.run(
+                ["su", "-", username, "-c", "which node"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            node_path = result_path.stdout.strip()
+
+            result_ver = subprocess.run(
+                ["su", "-", username, "-c", "node -v"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            version_str = result_ver.stdout.strip()
+        else:
+            user_home = os.path.expanduser("~")
+            node_path = shutil.which("node") or ""
+
+            if not node_path:
+                return (0, False)
+
+            result_ver = subprocess.run(
+                [node_path, "-v"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            version_str = result_ver.stdout.strip()
+
+        if not node_path:
+            return (0, False)
+
+        node_real_path = os.path.realpath(node_path)
+
+        m = re.match(r"v(\d+)", version_str)
+        if not m:
+            return (0, False)
+
+        major = int(m.group(1))
+        user_home_real = os.path.realpath(user_home)
+        is_global = not (
+            node_real_path == user_home_real
+            or node_real_path.startswith(user_home_real + os.sep)
+        )
+        
+        # ošetříme verzi, pokud je v ní něco navíc, např. "v18.16.0" → "18.16.0"
+        version_str = version_str.strip().lstrip("v").strip()
+
+        return (major, is_global, version_str)
+
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError) as e:
+        log.error("Chyba při zjišťování verze Node.js: %s", e)
+        return (0, False)
+
+def getNodeSourceVersion(username: Optional[str] = None) -> tuple[int, str]:
+    """Zjistí major verzi Node.js a aktuální verzi v repo
+
+    Parameters:
+        username (str | None): pokud je zadán, zjišťuje verzi v kontextu uživatele
+
+    Returns:
+        tuple[int, str]: (major_verze, verze_str)
+    """
+    try:
+        if username:
+            result = subprocess.run(
+                ["su", "-", username, "-c", "apt-cache policy nodejs"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        else:
+            result = subprocess.run(
+                ["apt-cache", "policy", "nodejs"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+        version_str = ""
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("Candidate:"):
+                version_str = line.split("Candidate:")[1].strip()
+                break
+
+        m = re.match(r"(\d+)", version_str)
+        major = int(m.group(1)) if m else 0
+        
+        # ošetříme verzi, pokud je v ní něco navíc, např. "18.16.0-1nodesource1" → "18.16.0-1nodesource1"
+        version_str = version_str.strip()
+        version_str = version_str.split("-")[0]  # vezmeme jen část před případným pomlčkou
+
+        return (major, version_str)
+
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError) as e:
+        log.error("Chyba při zjišťování verze Node.js z APT: %s", e)
+        return (0, "")
+
+
+def getInstalledNodeMajor() -> int:
+    """Vrátí nainstalovanou major verzi systémového Node.js."""
+    try:
+        result = subprocess.run(
+            ["node", "-v"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        m = re.match(r"v(\d+)", result.stdout.strip())
+        return int(m.group(1)) if m else 0
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        log.error("Chyba při čtení nainstalované verze Node.js: %s", e)
+        return 0
+
+
+def isRoot() -> bool:
+    """Vrátí True pokud proces běží jako root."""
+    try:
+        return os.geteuid() == 0
+    except AttributeError:
+        return False
+
+
+def isNodeSourceAptInstall() -> bool:
+    """Ověří, zda je Node.js instalován systémově přes APT z NodeSource."""
+    try:
+        policy = subprocess.run(
+            ["apt-cache", "policy", "nodejs"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        sources = []
+        sources_path = "/etc/apt/sources.list.d/nodesource.list"
+        if not os.path.isfile(sources_path):
+            sources_path = "/etc/apt/sources.list.d/nodesource.sources"
+            if not os.path.isfile(sources_path):
+                sources_path = "/etc/apt/sources.list"
+        
+        if os.path.isfile(sources_path):
+            with open(sources_path, "r", encoding="utf-8") as f:
+                sources.append(f.read())
+
+        sources_blob = "\n".join(sources)
+
+        return (
+            "nodesource" in policy.stdout.lower()
+            and "deb.nodesource.com" in sources_blob.lower()
+        )
+
+    except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError) as e:
+        log.error(TX_NODEJS_APT_CHECK_ERR, e)
+        return False
+
+
+def getConfiguredNodeSourceMajor() -> int:
+    """Vrátí major verzi nastavenou v nodesource.list, např. 18 z node_18.x."""
+    path = "/etc/apt/sources.list.d/nodesource.list"
+    try:
+        if not os.path.isfile(path):
+            return 0
+
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        m = re.search(r"node_(\d+)\.x", content)
+        return int(m.group(1)) if m else 0
+
+    except (PermissionError, OSError) as e:
+        log.error(TX_NODEJS_READ_FILE_ERR, path, e)
+        return 0
+
+
+def getTargetNodeMajor(current_major: int, to_lts: bool = False) -> int:
+    """Určí cílovou major verzi Node.js.
+
+    Parameters:
+        current_major (int): aktuální major verze
+        to_lts (bool):
+            False = o jednu major výš
+            True = poslední podporovaná LTS definovaná ve skriptu
+
+    Returns:
+        int: cílová major verze, nebo 0 při chybě
+    """
+    if current_major <= 0:
+        return 0
+
+    if to_lts:
+        return LATEST_LTS_MAJOR
+
+    return current_major + 1
+
+
+def _printAndLog(message: str, *args) -> None:
+    """Zapíše informační hlášku do logu a současně ji vypíše na stdout."""
+    log.info(message, *args)
+    if args:
+        print(message % args)
+    else:
+        print(message)
+
+
+def _applyNodeSourceNodeMajor(target_major: int, current_major: int = 0, allow_newer: bool = False) -> tuple[bool, str]:
+    """Nainstaluje nebo aktualizuje globální Node.js na zadanou major verzi.
+    
+    Parameters:
+        target_major (int): cílová major verze k instalaci
+        current_major (int): aktuální major verze, pro informativní výpisy
+        allow_newer (bool): pokud True, povolí i instalaci novější major verze než je target_major, pokud je aktuální major verze 0 (není nainstalováno) a target_major je LATEST_LTS_MAJOR, což může být užitené pro nové instalace, kde chceme zajistit alespoň LTS verzi, ale nechceme selhat pokud je dostupná novější major verze než LATEST_LTS_MAJOR
+    
+    Returns:
+        tuple[bool, str]: (ok, zprava)
+        ok = True pokud instalace nebo aktualizace proběhla úspěšně a výsledná major verze je target_major (nebo novější pokud allow_newer=True a aktuální major verze je 0)
+        zprava = informační zpráva o výsledku operace nebo chybová zpráva při neúspěchu
+    """
+    if target_major <= 0:
+        return (False, TX_NODEJS_TARGET_MAJOR_ERR)
+
+    setup_url = f"https://deb.nodesource.com/setup_{target_major}.x"
+
+    try:
+        if current_major > 0:
+            _printAndLog(
+                TX_NODEJS_UPDATE_RUN,
+                current_major, target_major
+            )
+        else:
+            _printAndLog(TX_NODEJS_INSTALL_RUN, target_major)
+
+        setup_cmd = f"curl -fsSL {setup_url} | bash -"
+
+        _printAndLog(TX_NODEJS_REPO_CONFIGURE_RUN, target_major)
+        result_setup = subprocess.run(
+            ["bash", "-lc", setup_cmd],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(result_setup.stdout.strip())
+
+        _printAndLog(TX_NODEJS_REPO_CONFIGURED, target_major)
+        result_update = subprocess.run(
+            ["apt-get", "update"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(result_update.stdout.strip())
+
+        _printAndLog(TX_NODEJS_INSTALL_RUN, target_major)
+        result_install = subprocess.run(
+            ["apt-get", "install", "-y", "nodejs"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(result_install.stdout.strip())
+
+        _printAndLog(TX_NODEJS_INSTALL_UPDATE_SUCCESS, target_major)
+        new_major, new_is_global, new_ver_str = getNodeJsVersion()
+        if new_major <= 0:
+            return (False, TX_NODEJS_NEW_VERSION_ERR)
+
+        if not new_is_global:
+            return (False, TX_NODEJS_NOT_GLOBAL_AFTER)
+
+        if allow_newer:
+            if new_major < target_major:
+                return (False, TX_NODEJS_AFTER_EXPECTED_MIN.format(new_major=new_major, target_major=target_major))
+        else:
+            if new_major != target_major:
+                return (False, TX_NODEJS_AFTER_EXPECTED_EXACT.format(new_major=new_major, target_major=target_major))
+
+        _printAndLog(TX_NODEJS_AVAILABLE_MAJOR, new_ver_str)
+
+        if current_major > 0:
+            msg = TX_NODEJS_UPDATED_OK.format(new_major=new_major, current_major=current_major)
+        else:
+            msg = TX_NODEJS_INSTALLED_OK.format(new_major=new_major)
+
+        if result_setup.stdout.strip():
+            log.debug("NodeSource setup stdout: %s", result_setup.stdout.strip())
+        if result_update.stdout.strip():
+            log.debug("apt update stdout: %s", result_update.stdout.strip())
+        if result_install.stdout.strip():
+            log.debug("apt install stdout: %s", result_install.stdout.strip())
+
+        return (True, msg)
+
+    except subprocess.CalledProcessError as e:
+        stderr = (e.stderr or "").strip()
+        stdout = (e.stdout or "").strip()
+        msg = stderr or stdout or str(e)
+        log.error(TX_NODEJS_INSTALL_UPDATE_ERR, msg)
+        return (False, TX_NODEJS_INSTALL_UPDATE_FAILED.format(msg=msg))
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        log.error(TX_NODEJS_INSTALL_UPDATE_SYS_ERR, e)
+        return (False, TX_NODEJS_INSTALL_UPDATE_SYS_FAILED.format(err=e))
+
+def nodeJsUpdateActualMajorMinor() -> tuple[bool, str]:
+    """Provede jen aktualizaci aktuálně nainstalované verze, tzn minor update, bez změny major verze. 
+    Returns:
+        tuple[bool, str]:
+            (ok, zprava)
+    """
+    if not isRoot():
+        return (False, TX_NODEJS_UPDATE_ROOT_ERR)
+
+    current_major, is_global, ver_str = getNodeJsVersion()
+    if current_major <= 0:
+        return (False, TX_NODEJS_CURRENT_VERSION_ERR)
+
+    if not is_global:
+        return (False, TX_NODEJS_NOT_GLOBAL)
+
+    if not isNodeSourceAptInstall():
+        return (False, TX_NODEJS_NOT_NODESOURCE)
+
+    ndSrcRpVer, ndSrcVerStr = getNodeSourceVersion()
+
+    _printAndLog(
+        TX_NODEJS_UPDATE_REPO_RUN,
+        current_major, ndSrcRpVer, ndSrcVerStr
+    )
+    
+    return _applyNodeSourceNodeMajor(current_major, current_major, allow_newer=True)
+    
+
+def nodeJsInstall(target_major: int = LATEST_LTS_MAJOR) -> tuple[bool, str]:
+    """Nainstaluje globální Node.js přes NodeSource APT repo."""
+    if not isRoot():
+        return (False, TX_NODEJS_INSTALL_ROOT_ERR)
+
+    current_major, is_global, ver_str = getNodeJsVersion()
+    if current_major > 0 and is_global:
+        return (False, TX_NODEJS_ALREADY_INSTALLED.format(current_major=current_major))
+
+    return _applyNodeSourceNodeMajor(target_major)
+
+
+def nodeJsUpdate(to_lts: bool = False) -> tuple[bool, str]:
+    """Provede update globálního Node.js přes NodeSource APT repo.
+
+    Parameters:
+        to_lts (bool):
+            False = posun o jednu major verzi
+            True = přepnutí na poslední podporovanou LTS definovanou ve skriptu
+
+    Returns:
+        tuple[bool, str]:
+            (ok, zprava)
+    """
+    if not isRoot():
+        return (False, TX_NODEJS_UPDATE_ROOT_ERR)
+
+    current_major, is_global, ver_str = getNodeJsVersion()
+    if current_major <= 0:
+        return (False, TX_NODEJS_CURRENT_VERSION_ERR)
+
+    if not is_global:
+        return (False, TX_NODEJS_NOT_GLOBAL)
+
+    if not isNodeSourceAptInstall():
+        return (False, TX_NODEJS_NOT_NODESOURCE)
+
+    configured_major = getConfiguredNodeSourceMajor()
+    target_major = getTargetNodeMajor(current_major, to_lts)
+
+    if target_major <= 0:
+        return (False, TX_NODEJS_TARGET_MAJOR_ERR)
+
+    if to_lts and current_major >= target_major:
+        return (True, TX_NODEJS_ALREADY_LTS.format(current_major=current_major, target_major=target_major))
+
+    if not to_lts and current_major == target_major:
+        return (True, TX_NODEJS_ALREADY_TARGET.format(current_major=current_major))
+
+    log.info(
+        TX_NODEJS_UPDATE_REPO_RUN,
+        current_major, target_major, configured_major
+    )
+    return _applyNodeSourceNodeMajor(target_major, current_major, allow_newer=to_lts)
+    
+    

@@ -12,6 +12,7 @@ from libs.app.c_service_node import c_service_node
 from libs.app.appHelper import getSysUsers
 from libs.app import cfg
 from .nd_menu import nd_menu
+from libs.app.instanceHelper import getNodeJsVersion, LATEST_LTS_MAJOR, nodeJsInstall, nodeJsUpdate, nodeJsUpdateActualMajorMinor, getNodeSourceVersion
 
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
@@ -36,6 +37,10 @@ class menu (nd_menu):
         """
         cfg.mainService=c_service_node('')
         header=cfg.mainService.getHeader()
+        
+        nodeVer,isGlobal, fVer=getNodeJsVersion()
+        candidatMajor,candidat=getNodeSourceVersion()
+        
           
         self._setAppHeader(TXT_MENU0_HOME,"",
             c_menu_block_items([
@@ -45,12 +50,37 @@ class menu (nd_menu):
             ])
         )
         
-        self.menu=[
-            c_menu_title_label(TXT_MENU),
-            c_menu_item(text_color(TXT_MENU0_EDIT,color=en_color.BRIGHT_CYAN),"e",menuEdit_select_nodeInstance()),
-            c_menu_item(TXT_MENU0_BACKUP,"bkg",self.fullBackup),
-            c_menu_item(TXT_MENU0_BACKUP_LIST,"bklst",self.delBackups),
-        ]
+        self.menu=[]
+        
+        if nodeVer==0 or isGlobal==False:
+            # není nainstalovaná globální verze
+            self.menu.extend([
+                c_menu_title_label(TXT_NODEJS_NOTEXISTS),
+                c_menu_item(TXT_NODEJS_LATEST_GLOB.format(ver=LATEST_LTS_MAJOR),"llts",self.installGlobLatest)
+            ])
+        else:
+            # je instalovaná verze
+            self.menu.append(c_menu_title_label(TXT_NODEJS_IS_INSTALLED.format(ver=nodeVer,fver=fVer)))
+            if nodeVer < LATEST_LTS_MAJOR:
+                # je nainstalovaná verze nižší než LTS
+                if (LATEST_LTS_MAJOR - nodeVer) >= 2:
+                    self.menu.append(c_menu_item(TXT_NODEJS_UPDATE_MAJOR.format(ver=nodeVer+1),"upmaj",self.updateGlobNodeJs))
+                self.menu.append(c_menu_item(TXT_NODEJS_LATEST_GLOB.format(ver=LATEST_LTS_MAJOR),"llts",self.installGlobLatest))
+            else:
+                # updated není potřeba
+                self.menu.append(c_menu_item(text_color(TXT_NODEJS_IS_FRESH,color=en_color.BRIGHT_BLACK)))
+                # update minor verze
+                self.menu.append(c_menu_item(TXT_NODEJS_UPDATE.format(ver=candidat),"updt",self.updateGlobNodeJsMinor))
+            
+        self.menu.append(c_menu_item(TXT_NODEJS_HELP_MN,"hlp",self.nodeJsHelp))        
+        self.menu.extend(
+            [
+                c_menu_title_label(TXT_MENU),
+                c_menu_item(text_color(TXT_MENU0_EDIT,color=en_color.BRIGHT_CYAN),"e",menuEdit_select_nodeInstance()),
+                c_menu_item(TXT_MENU0_BACKUP,"bkg",self.fullBackup),
+                c_menu_item(TXT_MENU0_BACKUP_LIST,"bklst",self.delBackups),
+            ]
+        )
         
         if not cfg.mainService.serviceFileExists():
             self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE,color=en_color.BRIGHT_YELLOW),"inst",self.makeServiceTemplate))
@@ -58,6 +88,52 @@ class menu (nd_menu):
             if header.checkVersion(self.serviceVersion):
                 self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_UPD,color=en_color.BRIGHT_YELLOW),"upd",self.updateServiceTemplate))            
             self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_REM,color=en_color.RED),"remove",self.removeServiceFile))
+     
+    def nodeJsHelp(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Show help for Node.js installation.
+        """
+        from libs.JBLibs.term import cls
+        
+        cls()
+        print(TXT_NODEJS_HELP_INFO)
+        anyKey()
+        
+    def updateGlobNodeJsMinor(self,selItem:c_menu_item) -> onSelReturn:
+        """Update global Node.js to the latest minor version."""
+        ok, msg = nodeJsUpdateActualMajorMinor()
+        if ok:
+            return onSelReturn(ok=msg)
+        return onSelReturn(err=msg)
+
+    def updateGlobNodeJs(self,selItem:c_menu_item) -> onSelReturn:
+        """Update global Node.js to the next major version."""
+        nodeVer,isGlobal=getNodeJsVersion()
+        if nodeVer <= 0 or not isGlobal:
+            return onSelReturn(err=TXT_NODEJS_NOTEXISTS)
+
+        if not confirm(TXT_NODEJS_UPDATE_MAJOR.format(ver=nodeVer+1)+'?'):
+            return onSelReturn()
+
+        ok,msg=nodeJsUpdate(False)
+        if ok:
+            return onSelReturn(ok=msg)
+        return onSelReturn(err=msg)
+
+    def installGlobLatest(self,selItem:c_menu_item) -> onSelReturn:
+        """Install or update the global Node.js to the recommended LTS version."""
+        if not confirm(TXT_NODEJS_LATEST_GLOB_Q.format(ver=LATEST_LTS_MAJOR)):
+            return onSelReturn()
+
+        nodeVer,isGlobal=getNodeJsVersion()
+        if nodeVer > 0 and isGlobal:
+            ok,msg=nodeJsUpdate(True)
+        else:
+            ok,msg=nodeJsInstall(LATEST_LTS_MAJOR)
+
+        if ok:
+            return onSelReturn(ok=msg)
+        return onSelReturn(err=msg)
         
     def fullBackup(self,selItem:c_menu_item) -> onSelReturn:
         """

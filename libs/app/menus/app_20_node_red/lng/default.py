@@ -151,3 +151,26 @@ TXT_MENU_INSTN_cfg_help_Err = "Error reading help file"
 TXT_MENU_INSTN_cfg_help_fileName = "setting_help.txt"
 
 TXT_MENU_INSTN_MNG = "Manage node instance" 
+
+TXT_NODEJS_NOTEXISTS = "Global Node.js executable not found"
+TXT_NODEJS_LATEST_GLOB = "Install the recommended LTS version globally, ver: {ver}"
+TXT_NODEJS_LATEST_GLOB_Q = "Install the recommended LTS {ver} version globally for all users?"
+
+TXT_NODEJS_HELP_MN = "Help for Node.js installation"
+TXT_NODEJS_HELP_INFO = """ ****  HELP for Node.js installation  ****
+
+Node.js is required for Node-RED to run. You can install it globally or for each user instance separately.
+- Globally installed Node.js
+    will be used by all Node-RED instances on the system and can save disk space, but can cause compatibility
+    issues with some Node-RED user versions.
+- Installing Node.js for each user instance
+    allows you to have different Node.js versions for different instances, which can help avoid compatibility issues.
+    However, it requires more disk space and maintenance effort, as you will need to manage Node.js installations
+    for each user instance separately.
+    This user instance installation of Node.js can only be done manually and will need to fix the service file.
+"""
+TXT_NODEJS_IS_INSTALLED = "Node.js is installed on the system, major: {ver}, v{fver}"
+
+TXT_NODEJS_UPDATE = "Update Node.js to the latest LTS vr: {ver}"
+TXT_NODEJS_UPDATE_MAJOR = "Update Node.js to next major version {ver} (not latest)"
+TXT_NODEJS_IS_FRESH = "Node.js is up to date"
