@@ -434,3 +434,48 @@ def apply_changes(cfg: Optional[Dict] = None, path: Optional[str] = None, save:b
         pass
     
     return True, None
+
+def uninstall_all_users(user:str=None) -> Tuple[bool, Optional[str]]:
+    """Uninstall all users by invoking ``sftpmanager.py uninstall`` config není potřeba, ani žádné přepínače, automaticky je to all
+    
+    Args:
+        user: Optional username to uninstall.  If not provided, all users will be uninstalled.
+            Pokud je použit user tak se používá argument --user pro sftpmanager.py
+
+    Returns:
+        Tuple[bool, Optional[str]]: První prvek je True pokud se změny úspěšně aplikovaly, jinak False. Druhý prvek je chybová zpráva pokud se změny nepodařilo aplikovat, jinak None.
+        
+    """
+    
+    # Derive the python executable; fall back to "python3" if unknown.
+    python_exec = sys.executable or "python3"
+    # Potential locations for the sftpmanager.py script.  Adjust these
+    # paths if you have installed the script elsewhere.
+    candidate_scripts = [
+        "sftpmanager.py",
+        os.path.join(os.path.dirname(__file__), "..", "sftpmanager.py"),
+        os.path.join(os.getcwd(), "sftpmanager.py"),
+    ]
+    script: Optional[str] = None
+    for cand in candidate_scripts:
+        if os.path.isfile(cand):
+            script = cand
+            break
+    if script is None:
+        # Nothing to do if no script can be located.
+        return False, "No sftpmanager.py script found."
+    try:
+        cmd = [python_exec, script, "uninstall"]
+        if user:
+            cmd.extend(["--user", user])
+        subprocess.run(
+            cmd,
+            check=False,
+            # stdout=subprocess.DEVNULL,
+            # stderr=subprocess.DEVNULL,
+        )        
+    except Exception:
+        # Suppress all exceptions – the caller can inspect logs if needed.
+        pass
+    
+    return True, None

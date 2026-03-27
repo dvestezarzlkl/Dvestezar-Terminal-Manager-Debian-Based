@@ -113,9 +113,38 @@ class menu(c_menu):
                 c_menu_item(label, str(idx), m_user(name, self),atRight=atR)
             )
             
+        self.menu.append(None)
         if self.changed:
             self.menu.append(c_menu_item(text_color("!! Save & apply changes !!",en_color.BRIGHT_RED), "a", self.apply_changes))
             self.menu.append(c_menu_item(text_color("Discard unsaved changes",en_color.BRIGHT_YELLOW), "d", self.cancel_changes))
+        else:
+            # apply changes = install update active sftp users according to curent config, dáme mgentu
+            self.menu.append(c_menu_item(text_color("Install/update active SFTP users according to current config",en_color.MAGENTA), "a", self.apply_changes))
+            
+        # kompletně smazat všechny aktivní uživatele - clean state, run sftpmanager delete all users
+        self.menu.append(c_menu_item(text_color("Uninstall all users", en_color.BRIGHT_RED), "u", self.uninstall_all_users))
+
+    def uninstall_all_users(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        """
+        Uninstall all active SFTP users from the system.
+        Prompts for confirmation before removing all active SFTP user accounts.
+        This action does not modify the configuration file, allowing 'Apply changes'
+        to be used afterwards to reinstall users according to the current configuration.
+        Args:
+            selItem: Menu item object (required by interface, not used internally).
+        Returns:
+            onSelReturn: Success message if uninstall completed, error message if cancelled.
+        """
+        from .sftp_manager_hlp import uninstall_all_users
+        
+        # opravdu odinstalovat všechny aktivní sftp usery? \n toto odinstaluje aktivní sftp uživatele
+        # tato akce nemá nic společného s modifikací konfigu, po této akci lze použít apply changes pro aktualizaci aktivních sftp uživatelů
+        # tzn tato akce + apply = reainstall sftp users podle aktuálního stavu konfigu
+        if not confirm("Really uninstall all active SFTP users?\nThis will remove all SFTP user accounts currently active on the system.\nThis action does not modify the configuration, so you can use 'Apply changes'\n  afterwards to reinstall users according to the current configuration.\n\nProceed [y/N]"):
+            return onSelReturn().errRet("Cancelled.")
+        
+        uninstall_all_users()
+        return onSelReturn(ok="All users uninstalled.")
 
     def create_user(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Prompt for a new user name and append it to the config."""
