@@ -103,10 +103,11 @@ class menu (nd_menu):
         if nodeVer <= 0 or not isGlobal:
             return onSelReturn(err=TXT_NODEJS_NOTEXISTS)
 
-        ok,msg=update_global_npm()
-        if ok:
-            return onSelReturn(ok=msg)
-        return onSelReturn(err=msg)
+        msg=update_global_npm()
+        anyKey()
+        if msg:
+            return onSelReturn(err=msg)
+        return onSelReturn()
      
     def nodeJsHelp(self,selItem:c_menu_item) -> onSelReturn:
         """
@@ -124,8 +125,10 @@ class menu (nd_menu):
             return onSelReturn(err=TXT_CANCELED_U)
         
         ok, msg = nodeJsUpdateActualMajorMinor()
+        anyKey()
+        
         if ok:
-            return onSelReturn(ok=msg)
+            return onSelReturn(ok=msg)        
         return onSelReturn(err=msg)
 
     def updateGlobNodeJs(self,selItem:c_menu_item) -> onSelReturn:
@@ -138,8 +141,10 @@ class menu (nd_menu):
             return onSelReturn(err=TXT_CANCELED_U)
 
         ok,msg=nodeJsUpdate(False)
+        anyKey()
         if ok:
             return onSelReturn(ok=msg)
+        
         return onSelReturn(err=msg)
 
     def installGlobLatest(self,selItem:c_menu_item) -> onSelReturn:
@@ -153,8 +158,10 @@ class menu (nd_menu):
         else:
             ok,msg=nodeJsInstall(LATEST_LTS_MAJOR)
 
+        anyKey()
         if ok:
             return onSelReturn(ok=msg)
+        
         return onSelReturn(err=msg)
         
     def fullBackup(self,selItem:c_menu_item) -> onSelReturn:
