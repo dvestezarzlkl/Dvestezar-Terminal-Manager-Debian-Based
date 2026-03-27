@@ -9,6 +9,7 @@ TXT_TITLE_INSTANCE = "Instance"
 TXT_TITLE_NDR_USR = "Node-Red Users"
 TXT_PORT = "port"
 TX_OFF = "OFF"
+TXT_CANCELED_U = "Canceled by user"
 
 TXT_BKG_FOUND = "Found backups\n  Select a backup for further actions"
 TXT_BKG_DELETED = "Backup file {fnm} for user {usr} has been deleted"
@@ -174,3 +175,4 @@ TXT_NODEJS_IS_INSTALLED = "Node.js is installed on the system, major: {ver}, v{f
 TXT_NODEJS_UPDATE = "Update Node.js to the latest LTS vr: {ver}"
 TXT_NODEJS_UPDATE_MAJOR = "Update Node.js to next major version {ver} (not latest)"
 TXT_NODEJS_IS_FRESH = "Node.js is up to date"
+TXT_MENU0_NPM_UPD = "Update npm for global Node.js installation"
