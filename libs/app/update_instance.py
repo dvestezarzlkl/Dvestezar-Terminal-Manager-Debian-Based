@@ -12,14 +12,14 @@ from libs.JBLibs.term import cls
 
 def update_instance_node_red(username: str, noAnyKey:bool=False, latest: bool = False) -> str:
     """
-    Odstraní adresář uživatele systému, ale nejdřív jej zazálohuje.
-    Primárně je určeno pro odstranění uživatelského adresáře s konfigurací node-red.  
-    Ale lze použít i pro uživatele bez instance, tzn jakéhokoliv uživatele.    
+    Provede aktualizaci Node-RED instance pro zadaného systémového uživatele. Aktualizace může být provedena
+    buď na nejnovější minor verzi (default) nebo na nejnovější major verzi (pokud je latest=True).
+    Při aktualizaci se nejprve vytvoří záloha aktuální instance, poté se provede aktualizace pomocí npm a nakonec se služba znovu spustí.
     
     Parameters:
         username (str): Uživatelské jméno uživatele systému
         noAnyKey (bool): Nečekat na stisk klávesy po dokončení
-        
+        latest (bool): Aktualizovat na nejnovější major verzi, pokud je True
     
     """
     if not instanceCheck(username):
@@ -62,16 +62,19 @@ def update_instance_node_red(username: str, noAnyKey:bool=False, latest: bool = 
     else:
         update_cmd = f"cd {path} && npm update"
     
-    subprocess.run(
-        [
-            "su",
-            "-",
-            username,
-            "-c",
-            update_cmd
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "su",
+                "-",
+                username,
+                "-c",
+                update_cmd
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        return f"ERROR {e}"
 
 
     print("")
