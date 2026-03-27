@@ -27,7 +27,7 @@ def getCfgPath(username: str) -> Union[str,None]:
     return None
 
 def instanceCheck(username: str) -> bool:
-    """testuje existenci instance pro uživatele, tzn existenci adresáře a souboru muj-node-config.js
+    """testuje existenci instance node-red pro uživatele, tzn existenci adresáře a souboru muj-node-config.js
     
     Parameters:
         username (str): jméno uživatele
@@ -575,7 +575,7 @@ def getNodeJsVersion(username: Optional[str] = None) -> tuple[int, bool, str]:
             node_path = shutil.which("node") or ""
 
             if not node_path:
-                return (0, False)
+                return (0, False, "")
 
             result_ver = subprocess.run(
                 [node_path, "-v"],
@@ -586,13 +586,13 @@ def getNodeJsVersion(username: Optional[str] = None) -> tuple[int, bool, str]:
             version_str = result_ver.stdout.strip()
 
         if not node_path:
-            return (0, False)
+            return (0, False, "")
 
         node_real_path = os.path.realpath(node_path)
 
         m = re.match(r"v(\d+)", version_str)
         if not m:
-            return (0, False)
+            return (0, False, "")
 
         major = int(m.group(1))
         user_home_real = os.path.realpath(user_home)
@@ -608,7 +608,7 @@ def getNodeJsVersion(username: Optional[str] = None) -> tuple[int, bool, str]:
 
     except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError) as e:
         log.error("Chyba při zjišťování verze Node.js: %s", e)
-        return (0, False)
+        return (0, False, "")
 
 def getNodeSourceVersion(username: Optional[str] = None) -> tuple[int, str]:
     """Zjistí major verzi Node.js a aktuální verzi v repo
@@ -778,6 +778,10 @@ def _applyNodeSourceNodeMajor(target_major: int, current_major: int = 0, allow_n
         return (False, TX_NODEJS_TARGET_MAJOR_ERR)
 
     setup_url = f"https://deb.nodesource.com/setup_{target_major}.x"
+    configured_major = getConfiguredNodeSourceMajor()
+    should_reconfigure_repo = configured_major != target_major
+    should_purge_before_switch = current_major > 0 and should_reconfigure_repo
+    should_only_upgrade = current_major > 0 and current_major == target_major and not should_reconfigure_repo
 
     try:
         if current_major > 0:
@@ -788,34 +792,60 @@ def _applyNodeSourceNodeMajor(target_major: int, current_major: int = 0, allow_n
         else:
             _printAndLog(TX_NODEJS_INSTALL_RUN, target_major)
 
-        setup_cmd = f"curl -fsSL {setup_url} | bash -"
+        result_setup = None
+        if should_purge_before_switch:
+            _printAndLog(TX_NODEJS_PURGE_RUN, current_major, target_major)
+            result_purge = subprocess.run(
+                ["apt-get", "purge", "-y", "nodejs"],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            if result_purge.stdout.strip():
+                print(result_purge.stdout.strip())
+            _printAndLog(TX_NODEJS_PURGE_DONE, current_major)
+            if result_purge.stdout.strip():
+                log.debug("apt purge stdout: %s", result_purge.stdout.strip())
 
-        _printAndLog(TX_NODEJS_REPO_CONFIGURE_RUN, target_major)
-        result_setup = subprocess.run(
-            ["bash", "-lc", setup_cmd],
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        print(result_setup.stdout.strip())
+        if should_reconfigure_repo:
+            setup_cmd = f"curl -fsSL {setup_url} | bash -"
+            _printAndLog(TX_NODEJS_REPO_CONFIGURE_RUN, target_major)
+            result_setup = subprocess.run(
+                ["bash", "-lc", setup_cmd],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            if result_setup.stdout.strip():
+                print(result_setup.stdout.strip())
+            _printAndLog(TX_NODEJS_REPO_CONFIGURED, target_major)
+        else:
+            _printAndLog(TX_NODEJS_REPO_CONFIGURE_SKIP, target_major)
 
-        _printAndLog(TX_NODEJS_REPO_CONFIGURED, target_major)
         result_update = subprocess.run(
             ["apt-get", "update"],
             check=True,
             capture_output=True,
             text=True
         )
-        print(result_update.stdout.strip())
+        if result_update.stdout.strip():
+            print(result_update.stdout.strip())
 
-        _printAndLog(TX_NODEJS_INSTALL_RUN, target_major)
+        install_cmd = ["apt-get", "install", "-y", "nodejs"]
+        if should_only_upgrade:
+            install_cmd = ["apt-get", "install", "--only-upgrade", "-y", "nodejs"]
+            _printAndLog(TX_NODEJS_PACKAGE_UPGRADE_RUN, target_major)
+        else:
+            _printAndLog(TX_NODEJS_INSTALL_RUN, target_major)
+
         result_install = subprocess.run(
-            ["apt-get", "install", "-y", "nodejs"],
+            install_cmd,
             check=True,
             capture_output=True,
             text=True
         )
-        print(result_install.stdout.strip())
+        if result_install.stdout.strip():
+            print(result_install.stdout.strip())
 
         _printAndLog(TX_NODEJS_INSTALL_UPDATE_SUCCESS, target_major)
         new_major, new_is_global, new_ver_str = getNodeJsVersion()
@@ -839,7 +869,7 @@ def _applyNodeSourceNodeMajor(target_major: int, current_major: int = 0, allow_n
         else:
             msg = TX_NODEJS_INSTALLED_OK.format(new_major=new_major)
 
-        if result_setup.stdout.strip():
+        if result_setup and result_setup.stdout.strip():
             log.debug("NodeSource setup stdout: %s", result_setup.stdout.strip())
         if result_update.stdout.strip():
             log.debug("apt update stdout: %s", result_update.stdout.strip())
@@ -943,3 +973,36 @@ def nodeJsUpdate(to_lts: bool = False) -> tuple[bool, str]:
     return _applyNodeSourceNodeMajor(target_major, current_major, allow_newer=to_lts)
     
     
+def update_global_npm() -> Optional[str]:
+    """Aktualizuje globální npm na nejnovější verzi.
+
+    Returns:
+        str | None: None pokud OK, jinak chybová zpráva
+    """
+    try:
+        result = subprocess.run(
+            ["npm", "install", "-g", "npm@latest"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        if result.stdout.strip():
+            log.info("NPM update stdout: %s", result.stdout.strip())
+            print(result.stdout.strip())
+
+        if result.stderr.strip():
+            log.warning("NPM update stderr: %s", result.stderr.strip())
+            print(result.stderr.strip())
+            return "NPM update completed with warnings"
+
+        return None
+
+    except subprocess.CalledProcessError as e:
+        msg = (e.stderr or e.stdout or str(e)).strip()
+        log.error("Chyba při update npm: %s", msg)
+        return f"Update npm selhal: {msg}"
+
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        log.error("Systémová chyba při update npm: %s", e)
+        return f"Systémová chyba: {e}"
