@@ -7,6 +7,7 @@ from typing import Union,List,Optional
 from . import cfg
 from .c_service_node import c_service_node  
 from libs.JBLibs.helper import userExists,getLogger,getUserHome
+from libs.JBLibs.input import confirm,anyKey
 
 log = getLogger(__name__)   
 
@@ -715,10 +716,14 @@ def isNodeSourceAptInstall() -> bool:
 
 def getConfiguredNodeSourceMajor() -> int:
     """Vrátí major verzi nastavenou v nodesource.list, např. 18 z node_18.x."""
-    path = "/etc/apt/sources.list.d/nodesource.list"
     try:
+        path = "/etc/apt/sources.list.d/nodesource.list"
         if not os.path.isfile(path):
-            return 0
+            path = "/etc/apt/sources.list.d/nodesource.sources"
+            if not os.path.isfile(path):
+                path = "/etc/apt/sources.list"
+                if not os.path.isfile(path):        
+                    return 0
 
         with open(path, "r", encoding="utf-8") as f:
             content = f.read()
@@ -876,6 +881,16 @@ def _applyNodeSourceNodeMajor(target_major: int, current_major: int = 0, allow_n
         if result_install.stdout.strip():
             log.debug("apt install stdout: %s", result_install.stdout.strip())
 
+        # zeptáme se jestli updatovat i npm balíčkovač, to se většinou hned chce že ;)        
+        if confirm(TX_NODEJS_UPDATE_NPM_QUESTION):
+            npm_update_msg = update_global_npm()
+            if npm_update_msg:
+                log.warning("NPM update completed with warnings: %s", npm_update_msg)
+                print(npm_update_msg)
+            else:
+                log.info("NPM update completed successfully")
+                print(TX_NPM_UPDATE_SUCCESS)
+
         return (True, msg)
 
     except subprocess.CalledProcessError as e:
@@ -980,6 +995,8 @@ def update_global_npm() -> Optional[str]:
         str | None: None pokud OK, jinak chybová zpráva
     """
     try:
+        print(TX_NPM_UPDATE_RUN)
+        
         result = subprocess.run(
             ["npm", "install", "-g", "npm@latest"],
             check=True,
