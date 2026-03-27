@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.9.0
+
+- ADD - přidán sftpmanager do menu
+- ADD - node-red správa nodejs
+
 ## v1.8.7
 
 - FIX menu získání verze node.js
