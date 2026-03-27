@@ -12,7 +12,7 @@ from libs.app.c_service_node import c_service_node
 from libs.app.appHelper import getSysUsers
 from libs.app import cfg
 from .nd_menu import nd_menu
-from libs.app.instanceHelper import getNodeJsVersion, LATEST_LTS_MAJOR, nodeJsInstall, nodeJsUpdate, nodeJsUpdateActualMajorMinor, getNodeSourceVersion, update_global_npm
+from libs.app.instanceHelper import getNodeJsVersion, LATEST_LTS_MAJOR, nodeJsInstall, nodeJsUpdate, nodeJsUpdateActualMajorMinor, getNodeSourceVersion, update_global_npm, nodeJsDelete
 
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
@@ -75,6 +75,9 @@ class menu (nd_menu):
             # přidáme npm update, když je nainstalovaný Node.js a je globální
             self.menu.append(c_menu_item(text_color(TXT_MENU0_NPM_UPD,color=en_color.BRIGHT_BLUE),"npmup",self.npmUpdateGlob))
             
+            # uninstall globální verze
+            self.menu.append(c_menu_item(text_color(TXT_NODEJS_UNINSTALL,color=en_color.RED),"uninst",self.uninstallGlobNodeJs))
+            
         self.menu.append(c_menu_item(TXT_NODEJS_HELP_MN,"hlp",self.nodeJsHelp))        
         self.menu.extend(
             [
@@ -91,6 +94,28 @@ class menu (nd_menu):
             if header.checkVersion(self.serviceVersion):
                 self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_UPD,color=en_color.BRIGHT_YELLOW),"upd",self.updateServiceTemplate))            
             self.menu.append(c_menu_item(text_color(TXT_MENU0_SERVICE_REM,color=en_color.RED),"remove",self.removeServiceFile))
+     
+    def uninstallGlobNodeJs(self,selItem:c_menu_item) -> onSelReturn:
+        """
+        Uninstall the global Node.js installation.
+        """
+        nodeVer,isGlobal,strVer=getNodeJsVersion()
+        if nodeVer <= 0 or not isGlobal:
+            return onSelReturn(err=TXT_NODEJS_NOTEXISTS)
+
+        if not confirm(TXT_NODEJS_UNINSTALL+'?'):
+            return onSelReturn(err=TXT_CANCELED_U)
+
+        purge=False
+        if confirm(TXT_NODEJS_UNINSTALL_PURGE_Q):
+            purge=True
+
+        ok,msg=nodeJsDelete(purge)
+        anyKey()
+        if ok:
+            return onSelReturn(ok=msg)
+        
+        return onSelReturn(err=msg)
      
     def npmUpdateGlob(self,selItem:c_menu_item) -> onSelReturn:
         """

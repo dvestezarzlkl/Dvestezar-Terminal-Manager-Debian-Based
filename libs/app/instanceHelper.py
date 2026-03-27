@@ -944,6 +944,67 @@ def nodeJsInstall(target_major: int = LATEST_LTS_MAJOR) -> tuple[bool, str]:
     return _applyNodeSourceNodeMajor(target_major)
 
 
+def nodeJsDelete(purge: bool = False) -> tuple[bool, str]:
+    """Odstraní globální Node.js systémový balík.
+
+    Parameters:
+        purge (bool):
+            False = apt remove
+            True = apt purge
+
+    Returns:
+        tuple[bool, str]:
+            (ok, zprava)
+    """
+    if not isRoot():
+        return (False, TX_NODEJS_REMOVE_ROOT_ERR)
+
+    current_major, is_global, version_str = getNodeJsVersion()
+    if current_major <= 0:
+        return (False, TX_NODEJS_REMOVE_NOT_INSTALLED)
+
+    if not is_global:
+        return (False, TX_NODEJS_NOT_GLOBAL)
+
+    apt_action = "purge" if purge else "remove"
+    progress_message = TX_NODEJS_PURGE_ONLY_RUN if purge else TX_NODEJS_REMOVE_RUN
+    done_message = TX_NODEJS_PURGE_ONLY_DONE if purge else TX_NODEJS_REMOVE_DONE
+    result_message = TX_NODEJS_PURGED_OK if purge else TX_NODEJS_REMOVED_OK
+
+    try:
+        _printAndLog(progress_message, version_str)
+        result_remove = subprocess.run(
+            ["apt-get", apt_action, "-y", "nodejs"],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        if result_remove.stdout.strip():
+            print(result_remove.stdout.strip())
+            log.debug("apt %s stdout: %s", apt_action, result_remove.stdout.strip())
+        if result_remove.stderr.strip():
+            log.debug("apt %s stderr: %s", apt_action, result_remove.stderr.strip())
+
+        _printAndLog(done_message, version_str)
+
+        new_major, new_is_global, new_version_str = getNodeJsVersion()
+        if new_major > 0 and new_is_global:
+            return (False, TX_NODEJS_REMOVE_STILL_PRESENT.format(ver=new_version_str or new_major))
+
+        return (True, result_message.format(ver=version_str))
+
+    except subprocess.CalledProcessError as e:
+        stderr = (e.stderr or "").strip()
+        stdout = (e.stdout or "").strip()
+        msg = stderr or stdout or str(e)
+        log.error(TX_NODEJS_REMOVE_ERR, msg)
+        return (False, TX_NODEJS_REMOVE_FAILED.format(msg=msg))
+    except (FileNotFoundError, PermissionError, OSError) as e:
+        log.error(TX_NODEJS_REMOVE_SYS_ERR, e)
+        return (False, TX_NODEJS_REMOVE_SYS_FAILED.format(err=e))
+
+
 def nodeJsUpdate(to_lts: bool = False) -> tuple[bool, str]:
     """Provede update globálního Node.js přes NodeSource APT repo.
 
