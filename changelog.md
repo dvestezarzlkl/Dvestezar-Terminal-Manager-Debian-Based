@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.1
+
+- FIX synchronize userů sftpmanagera s uživateli v systému, při delete se nemazali staří uživatele, apply teď přidá nové, nebo je updatuje a smaže sftp uživatele kteří nejsou v konfigu (byli vymazáni)
+
 ## v1.9.0
 
 - ADD - přidán sftpmanager do menu

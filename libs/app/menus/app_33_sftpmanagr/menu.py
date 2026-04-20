@@ -161,8 +161,10 @@ class menu(c_menu):
 
     def apply_changes(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Invoke the SFTP manager script to apply changes to the system."""
-        ok, msg = apply_changes(self.cfg, save=True)
+        ok, msg = apply_changes(cfg=self.cfg, save=True)
         if not ok:
+            log.error(f"Failed to apply changes: {msg}")
+            print(text_color(f"Error: {msg}", en_color.BRIGHT_RED))
             anyKey()
             return onSelReturn().errRet(f"Failed to apply changes: {msg}")
         self.changed=False

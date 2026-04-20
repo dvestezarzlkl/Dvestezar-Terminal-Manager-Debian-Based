@@ -10,17 +10,10 @@ import tempfile
 import time
 
 from libs.JBLibs.helper import getLogger
+from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
+from libs.JBLibs.sftp.sambaPoint import smbHelp
+
 log = getLogger("sftpprs")
-
-
-# Path to the SFTP manager configuration file.  The default location
-# matches the behaviour of the upstream sftpmanager.py tool.  If you
-# deploy your configuration elsewhere you can override this value via
-# the ``JB_SFTPMANAGER_CONFIG`` environment variable.
-CONFIG_PATH: str = os.environ.get(
-    "JB_SFTPMANAGER_CONFIG",
-    "/etc/jb_sftpmanager/config.jsonc",
-)
 
 def load_config(path: Optional[str] = None) -> Tuple[bool,Optional[str],Optional[Dict]]:
     """Load and parse the SFTP manager configuration.
@@ -39,7 +32,7 @@ def load_config(path: Optional[str] = None) -> Tuple[bool,Optional[str],Optional
         an empty ``users`` list is returned and ``success`` is ``True``.
     """
     
-    cfg_path = path or CONFIG_PATH
+    cfg_path = path or getDefaultEtcConfigPath()
     if not os.path.isfile(cfg_path):
         # Return a minimal configuration if no file exists yet.
         return True, None, {"users": []}
@@ -68,7 +61,7 @@ def save_config(cfg: Dict, path: Optional[str] = None) -> None:
     four spaces.  Comments are not preserved; subsequent calls to
     :func:`load_config` will therefore return a comment‑free structure.
     """
-    cfg_path = path or CONFIG_PATH
+    cfg_path = path or getDefaultEtcConfigPath()
     cfg_dir = os.path.dirname(cfg_path)
     os.makedirs(cfg_dir, exist_ok=True)
     
@@ -340,41 +333,9 @@ def delete_key(cfg: Dict, username: str, key: str) -> bool:
     except ValueError:
         return False
 
-def check_config_valid(cfg: Dict) -> Tuple[bool, Optional[str]]:
-    """Otestuje základní validitu konfigurační struktury.
 
-    Otestuje přítomnost min jednoho usera, user musí mít min jeden mountpoint a min jeden certifikát.
-    U mountpointů se testuje validita labelu (pouze alfanumerické znaky, podtržítka a pomlčky) a validita cílové cesty (musí být absolutní cesta začínající / a existovat).
 
-    Args:
-        cfg: Konfigurační slovník k otestování.
-    Returns:
-        Tuple[bool, Optional[str]]: První prvek je True pokud je konfigurace validní, jinak False. Druhý prvek je chybová zpráva pokud konfigurace není validní, jinak None.
-    """
-    users = cfg.get("users", [])
-    if not users:
-        return False, "Configuration must contain at least one user."
-    for usr in users:
-        username = usr.get("sftpuser")
-        if not username:
-            return False, "Each user must have a 'sftpuser' field."
-        mounts = usr.get("sftpmounts", {})
-        if not mounts:
-            return False, f"User '{username}' must have at least one mountpoint."
-        for label, path in mounts.items():
-            if not re.match(r"^[a-zA-Z0-9_\-]+$", label):
-                return False, f"Mountpoint label '{label}' for user '{username}' is invalid. Use only letters, numbers, underscores or hyphens."
-            if not os.path.isabs(path) or not os.path.exists(path):
-                return False, f"Mountpoint path '{path}' for user '{username}' is invalid. Must be an absolute path that exists."
-            # zkonvertuejeme na string pro případ že je Path
-            mounts[label] = str(path)
-            
-        keys = usr.get("sftpcerts", [])
-        if not keys:
-            return False, f"User '{username}' must have at least one public key or certificate."
-    return True, None
-
-def apply_changes(cfg: Optional[Dict] = None, path: Optional[str] = None, save:bool=False) -> Tuple[bool, Optional[str]]:
+def apply_changes(cfg: Optional[Dict] = None, save:bool=False) -> Tuple[bool, Optional[str]]:
     """Apply configuration changes by invoking ``sftpmanager.py``.
 
     This helper calls the underlying command line script with the
@@ -387,14 +348,21 @@ def apply_changes(cfg: Optional[Dict] = None, path: Optional[str] = None, save:b
     Args:
         cfg: Optional configuration to save before applying.  If
             provided, it will be written to disk using :func:`save_config`.
-        path: Optional override for the configuration path.  By
+        path: Deprecated - nevyužívá se -  Optional override for the configuration path.  By
             default :data:`CONFIG_PATH` is used.
         save: If True, the configuration will be saved to disk before applying.  If False, the configuration will not be saved and the caller is responsible for ensuring that any changes are persisted.
             
     Returns:
         Tuple[bool, Optional[str]]: První prvek je True pokud se změny úspěšně aplikovaly, jinak False. Druhý prvek je chybová zpráva pokud se změny nepodařilo aplikovat, jinak None.
     """
-    cfg_path = path or CONFIG_PATH
+    
+    log.info("Applying configuration changes via sftpmanager ...")
+    
+    log.info("Checking configuration validity before applying...")
+    b,cfg_path = check_config_exists()
+    if not b:
+        return False, f"Cannot determine JSON input file path: {cfg_path}"
+    
     if cfg is None:
         return False, "No configuration provided to apply."
     
@@ -405,33 +373,15 @@ def apply_changes(cfg: Optional[Dict] = None, path: Optional[str] = None, save:b
     if save:
         save_config(cfg, cfg_path)
         
-    # Derive the python executable; fall back to "python3" if unknown.
-    python_exec = sys.executable or "python3"
-    # Potential locations for the sftpmanager.py script.  Adjust these
-    # paths if you have installed the script elsewhere.
-    candidate_scripts = [
-        "sftpmanager.py",
-        os.path.join(os.path.dirname(__file__), "..", "sftpmanager.py"),
-        os.path.join(os.getcwd(), "sftpmanager.py"),
-    ]
-    script: Optional[str] = None
-    for cand in candidate_scripts:
-        if os.path.isfile(cand):
-            script = cand
-            break
-    if script is None:
-        # Nothing to do if no script can be located.
-        return False, "No sftpmanager.py script found."
     try:
-        subprocess.run(
-            [python_exec, script, "install"],
-            check=False,
-            # stdout=subprocess.DEVNULL,
-            # stderr=subprocess.DEVNULL,
-        )        
-    except Exception:
-        # Suppress all exceptions – the caller can inspect logs if needed.
-        pass
+        log.info(f"Applying configuration via sftpmanager lib with config file: {cfg_path}")
+        createUserFromJson()
+        smbHelp.reloadSystemdDaemon()
+        
+        log.info("Uninstalling unwanted users who are not in the configuration...")
+        uninstallUnwantedUsers()
+    except Exception as e:
+        return False, f"Failed to apply configuration via sftpmanager.py: {e}"
     
     return True, None
 
@@ -446,34 +396,15 @@ def uninstall_all_users(user:str=None) -> Tuple[bool, Optional[str]]:
         Tuple[bool, Optional[str]]: První prvek je True pokud se změny úspěšně aplikovaly, jinak False. Druhý prvek je chybová zpráva pokud se změny nepodařilo aplikovat, jinak None.
         
     """
-    
-    # Derive the python executable; fall back to "python3" if unknown.
-    python_exec = sys.executable or "python3"
     # Potential locations for the sftpmanager.py script.  Adjust these
     # paths if you have installed the script elsewhere.
-    candidate_scripts = [
-        "sftpmanager.py",
-        os.path.join(os.path.dirname(__file__), "..", "sftpmanager.py"),
-        os.path.join(os.getcwd(), "sftpmanager.py"),
-    ]
-    script: Optional[str] = None
-    for cand in candidate_scripts:
-        if os.path.isfile(cand):
-            script = cand
-            break
-    if script is None:
-        # Nothing to do if no script can be located.
-        return False, "No sftpmanager.py script found."
+    
     try:
-        cmd = [python_exec, script, "uninstall"]
-        if user:
-            cmd.extend(["--user", user])
-        subprocess.run(
-            cmd,
-            check=False,
-            # stdout=subprocess.DEVNULL,
-            # stderr=subprocess.DEVNULL,
-        )        
+        if unInstAll():
+            return True, None
+        else:
+            return False, "Failed to uninstall users via sftpmanager.py"
+                
     except Exception:
         # Suppress all exceptions – the caller can inspect logs if needed.
         pass
