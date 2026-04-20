@@ -137,6 +137,7 @@ Volitelné:
   * veřejné SSH klíče
   * musí začínat `ssh-` nebo `ecdsa-`
   * podporuje i `b64:<base64>` (pak se dekóduje)
+  * podporuje i `b64:<base64>-pk:<base64>` stejné jako předchozí ale obsahuje i privátní část (pro import z OpenSSH formátu)
 
 ### Minimální příklad
 

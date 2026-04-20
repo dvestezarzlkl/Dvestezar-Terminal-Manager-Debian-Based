@@ -1,10 +1,9 @@
 from __future__ import annotations
+import base64
 
 import json5
 import os
-import re
-import subprocess
-import sys
+import binascii
 from typing import Dict, List, Optional, Tuple
 import tempfile
 import time
@@ -12,6 +11,7 @@ import time
 from libs.JBLibs.helper import getLogger
 from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
 from libs.JBLibs.sftp.sambaPoint import smbHelp
+from libs.JBLibs.term import text_color, en_color
 
 log = getLogger("sftpprs")
 
@@ -288,34 +288,239 @@ def delete_mountpoint(cfg: Dict, username: str, label: str) -> bool:
         return True
     return False
 
+def crc32(s: str) -> str:
+    """Calculate a CRC32 checksum of the given string and return it as an 8-character hexadecimal string."""
+    import zlib
+    return f"{zlib.crc32(s.encode('utf-8')) & 0xffffffff:08x}"
 
-def list_keys(cfg: Dict, username: str) -> List[str]:
-    """List public keys (and raw certificates) for the given user."""
+def list_keys(cfg: Dict, username: str) -> List[Tuple[str,str,bool]]:
+    """List public keys (and raw certificates) for the given user.
+    vrací seznam tuple (název a celý key - záznam, jak je) název je část na konci certifikátu
+    na konci vrací jestli má záznam i privátní část
+    
+    """
     usr = find_user(cfg, username)
     if not usr:
         return []
-    return list(usr.get("sftpcerts", []))
+    x = list(usr.get("sftpcerts", []))
+    o=[]
+    for k in x:
+        has_pk = False
+        org=k
+        # pokud začíná 'b64:' tak dekódujeme        
+        if k.startswith("b64:"):
+            # otestuejem na pk, ta je oddělena "-pk:" a je na konci, pokud tam je tak ji odstraníme a použijeme pouze veřejnou část certifikátu pro zobrazení
+            try:
+
+                has_pk = "-pk:" in k
+                if has_pk:
+                    pk_index = k.find("-pk:")
+                    cert_part = k[4:pk_index]
+                else:
+                    cert_part = k[4:] # odstraníme prefix
+            
+                k = base64.b64decode(cert_part).decode("utf-8")
+            except Exception as e:
+                log.error(f"Failed to decode base64 key: {e}")
+                # pokud se nepodaří dekódovat, použijeme původní řetězec bez 'b64:' prefixu
+                k = org
+        
+        # název je část za poslední mezerou, pokud tam není mezera tak celý záznam
+        if " " in k:
+            name = k.rsplit(" ", 1)[-1]
+        else:
+            name = k
+        name=name.strip()
+        
+        # přidám na konec název + 6 znaků z CRC32 pro odlišení klíčů se stejným názvem
+        # taky přidáme tak PK pokud tam je, aby bylo vidět že se jedná o záznam s privátní částí
+        name= f"{name}  {crc32(k)[:6]}"
+        if has_pk:
+            name += " " + text_color("(with PK)", en_color.BRIGHT_MAGENTA)
+        o.append((name,org, has_pk))
+    return o
+
+from typing import Tuple
+import base64
+import binascii
 
 
-def add_key(cfg: Dict, username: str, key: str) -> bool:
+def check_ssh_pub_key(key: str, outAsB64ForMng: bool = True) -> Tuple[bool, str] | Tuple[bool, Tuple[str, str]]:
+    """Validuje SSH veřejný klíč a volitelně extrahuje privátní část z formátu b64:<base64>-pk:<base64>.
+    
+    Args:
+        key: Řetězec obsahující veřejný klíč ve formátu OpenSSH (např. "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB3... user@host") nebo ve formátu
+        "b64:<base64>" případně "b64:<base64>-pk:<base64>" pro záznamy obsahující i privátní část.
+        outAsB64ForMng: Pokud je True, výstupní klíč bude ve formátu "b64:<base64>" pro konzistenci s interním uložením v konfiguraci.  Pokud je False, výstup bude ve formátu OpenSSH (typ + base64 + komentář).
+
+    Returns:
+        Při outAsB64ForMng=True: Tuple[bool, str] kde první prvek je:
+            - True pokud je klíč validní a je ve formátu "b64:<base64>" popř s privátní částí "-pk:<base64>", připravený pro uložení do konfigurace.
+            - False Druhý prvek je chybová zpráva pokud klíč není validní, jinak None.
+        Při outAsB64ForMng=False: Tuple[bool, str, str] kde první prvek je:
+            - True pokud je klíč validní, druhý prvek je dekódovaný klíč ve formátu OpenSSH (typ + base64 + komentář)
+                a třetí prvek je privátní část pokud existuje, jinak prázdný řetězec.
+            - False Druhý prvek je chybová zpráva pokud klíč není validní, třetí prvek je None.
+    """
+    
+    k = key.strip()
+    pk= ""
+
+    if k.startswith("b64:"):
+        try:
+            # pokud obsahuje PK, tak extrahujeme
+            has_pk = "-pk:" in k
+            if has_pk:
+                pk_index = k.find("-pk:")
+                cert_part = k[4:pk_index]                
+                pk= k[pk_index+4:] # získáme část s privátní částí
+            else:
+                cert_part = k[4:] # odstraníme prefix
+            
+            k = base64.b64decode(cert_part).decode("utf-8")
+        except Exception:
+            return False, "Failed to decode base64 key"
+
+    parts = k.split()
+
+    if len(parts) < 2:
+        return False, "Invalid public key format: expected '<type> <base64> [comment]'"
+
+    key_type = parts[0].strip()
+    key_b64 = parts[1].strip()    
+
+    try:
+        key_bytes = base64.b64decode(key_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return False, "Invalid public key: base64 payload is malformed"
+
+    try:
+        from paramiko.pkey import PKey, UnknownKeyType
+        from paramiko.ssh_exception import SSHException
+
+        pkey = PKey.from_type_string(key_type, key_bytes)
+
+        # kontrola typu
+        if pkey.get_name() != key_type:
+            return False, f"Key type mismatch: declared '{key_type}', parsed '{pkey.get_name()}'"
+
+        # velmi důležitá kontrola integrity:
+        # canonical base64 po parsování musí sedět přesně na vstup
+        if pkey.get_base64() != key_b64:
+            return False, "Invalid SSH public key: payload does not round-trip correctly"
+
+    except UnknownKeyType:
+        return False, f"Unsupported SSH public key type: {key_type}"
+    except SSHException as e:
+        return False, f"Invalid SSH public key: {e}"
+    except ImportError as e:
+        return False, f"Paramiko is not installed: {e}"
+
+    # pokud chceš komentář povinně, nech to jako vlastní business pravidlo:
+    # if not key_comment:
+    #     return False, "Public key is missing a comment (username or identifier)."
+
+    if outAsB64ForMng:
+        out = "b64:" + base64.b64encode(k.encode("utf-8")).decode("utf-8") if outAsB64ForMng else k
+        if pk:
+            out += "-pk:" + pk
+        return True, out
+    else:
+        # decode pk
+        priv = ""
+        if pk:
+            try:
+                priv = base64.b64decode(pk).decode("utf-8")
+            except Exception as e:
+                log.error(f"Failed to decode private key part: {e}")
+                priv = ""
+        return True, (k, priv)
+        
+
+def add_key(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional[str]]:
     """Append a new public key or certificate to a user.
 
     Returns:
         ``True`` if the key was added; ``False`` if the user does not
         exist.
     """
+    
+    ok,keyOrMsg = check_ssh_pub_key(key)
+    if not ok:
+        log.error(f"Key validation failed: {keyOrMsg}")
+        return False, keyOrMsg
+    else:
+        key = keyOrMsg
+    
     usr = find_user(cfg, username)
     if not usr:
-        return False
+        return False, "User not found"
     
     #test jestli tam už není
     keys = usr.get("sftpcerts", [])
     if key in keys:
-        return False
+        return False, "Key already exists for user"
     
     usr.setdefault("sftpcerts", []).append(key)
-    return True
+    return True, None
 
+def generate_ssh_ed25519_keypair(usrname: str) -> Tuple[bool, Optional[Tuple[str, str]], Optional[str]]:
+    """Genereruje pár, do komentu dá username a hostname, vrací tuple (success, (private_key, public_key), error_message)"""
+
+    # "YmdHis"
+    timestamp = time.strftime("%Y%m%d%H%M%S")
+    comment= f"{timestamp}_{usrname}@{os.uname().nodename}"
+    import libs.JBLibs.sftp.ssh as ssh
+    try:
+        ok, keys = ssh.generate_ssh_ed25519_keypair(comment=comment)
+        if not ok:
+            return False, None, f"Failed to generate SSH key pair: {keys}"
+    except Exception as e:
+        return False, None, f"Exception during SSH key generation: {e}"
+    return True, keys, None
+
+
+def add_new_key_pair(cfg: Dict, username: str) -> Tuple[bool, Optional[str]]:
+    """Generates a new SSH Ed25519 key pair and adds the public key to the user's configuration.
+
+    Returns:
+        Tuple[bool, Optional[str]]: A tuple where the first element is True if the key pair was successfully generated and added, otherwise False. The second element is an error message if the operation failed, or None if it succeeded.
+    """
+    ok, keys, err = generate_ssh_ed25519_keypair(username)
+    if not ok:
+        return False, f"Key pair generation failed: {err}"
+    
+    # sestavíme key
+    private_key = base64.b64encode(keys[0].encode('utf-8')).decode('utf-8')
+    public_key = base64.b64encode(keys[1].encode('utf-8')).decode('utf-8')
+    key_entry = f"b64:{public_key}-pk:{private_key}"
+    add_ok, add_err = add_key(cfg, username, key_entry)
+    if not add_ok:
+        return False, f"Failed to add generated public key to user: {add_err}"
+    
+    # Optionally, you could return the private key here or handle it as needed.
+    return True, None
+
+def get_printable_keys(b64key:str) -> Tuple[bool,Tuple[str,str], Optional[str]]:
+    """Získá z b64 zakódovaného klíče tuple (název, (pub,priv))
+    
+    Args:
+        b64key: Klíč ve formátu "b64:<base64>-pk:<base64>" nebo "b64:<base64>"
+    
+    Returns:
+        Tuple[bool, Tuple[str, str], Optional[str]]: První prvek je True pokud se klíč úspěšně zpracoval, jinak False. Druhý prvek je tuple (název, (pub, priv)) kde název je část za poslední mezerou v dekódovaném klíči a pub/priv jsou veřejná a privátní část klíče. Třetí prvek je chybová zpráva pokud se klíč nepodařilo zpracovat, jinak None.
+    """
+    try:
+        ok, prm = check_ssh_pub_key(b64key, outAsB64ForMng=False)
+        if not ok:
+            return False, f"Key validation failed: {prm}"
+        
+        pub, priv = prm
+                
+        return True, (pub.strip(), priv.strip())
+    except Exception as e:
+        return False, f"Exception during key processing: {e}"
+    
 
 def delete_key(cfg: Dict, username: str, key: str) -> bool:
     """Remove a key from a user.  Keys are compared as exact strings.

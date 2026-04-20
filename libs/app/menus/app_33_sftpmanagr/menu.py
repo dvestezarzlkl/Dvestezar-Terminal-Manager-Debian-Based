@@ -28,7 +28,8 @@ from .sftp_manager_hlp import (
     delete_key as hlp_delete_key,
     apply_changes,
     get_mountpointReadOnlyStatus,
-    set_mountpoint_readonly
+    set_mountpoint_readonly,
+    get_printable_keys
 )
 
 _MENU_NAME_: str = "SFTP Manager"
@@ -395,19 +396,22 @@ class m_user_keys(c_menu):
     def onShowMenu(self) -> None:
         self.title=self.mainMenu.basicTitle(add=" *** User > Keys ***", username=self.username)
         
-        self.keys: List[str] = hlp_list_keys(self.cfg, self.username)
+        self.keys: List[Tuple[str,str]] = hlp_list_keys(self.cfg, self.username)
         
         self.menu = [
             c_menu_title_label(text_color(f"Keys for {self.username}",en_color.CYAN)),
             c_menu_item("Add key", "a", self.add_key),
+            c_menu_item("Generate new  pair", "g", self.generate),
             None
         ]
-        for idx, keystr in enumerate(self.keys, start=1):
+        for idx, itm in enumerate(self.keys, start=1):
             # Truncate long keys for display but carry the full string in data
-            disp = keystr
-            if len(keystr) > 40:
-                disp = keystr[:37] + "…"
-            itm = c_menu_item(text_color(disp,en_color.YELLOW), str(idx), self.delete_key)
+            name = itm[0]
+            keystr = itm[1]
+            disp = name
+            # if len(name) > 40:
+                # disp = name[:37] + "…"
+            itm = c_menu_item(text_color(disp,en_color.YELLOW), str(idx), self.delete_key,data=keystr,atRight="DEL")
             itm.data = keystr
             self.menu.append(itm)
 
@@ -416,21 +420,72 @@ class m_user_keys(c_menu):
         keystr = get_input("Paste the public key or certificate:")
         if not keystr:
             return ret.errRet("No key provided.")
-        if not hlp_add_key(self.cfg, self.username, keystr):
-            return ret.errRet(f"User '{self.username}' not found.")
+        ok,msg = hlp_add_key(self.cfg, self.username, keystr)
+        if not ok:
+            return ret.errRet(msg)
         
         self.mainMenu.changed=True
         return ret.okRet("Key added.")
 
     def delete_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
-        keystr = getattr(selItem, "data", None)
+        keystr = selItem.data
         if keystr is None:
             return ret.errRet("No key specified.")
-        if not confirm("Remove this key?"):
-            return ret.errRet("Cancelled.")
-        if not hlp_delete_key(self.cfg, self.username, keystr):
-            return ret.errRet("Key not found.")
+        
+        # dekodujeme key pro rozhodnutí jestli pokračovat na delete nebo dat subvolbu pro delete/show pk pokud je to certifikát s pk částí
+        ok, x = get_printable_keys(keystr)
+        if not ok:
+            return ret.errRet(f"Failed to parse key: {x}")
+        pub, priv = x
+        is_cert_with_pk = bool(priv)
+        if not is_cert_with_pk:        
+            if not confirm("Remove this key?"):
+                return ret.errRet("Cancelled.")
+            if not hlp_delete_key(self.cfg, self.username, keystr):
+                return ret.errRet("Key not found.")
+            
+            self.mainMenu.changed=True
+            return ret.okRet("Key removed.")
+        
+        else:
+            opts = [
+                select_item("Delete entire certificate (public + private)", "D", "D"),
+                select_item("Show private key part", "S", "S")
+            ]
+            x = select("This entry contains both public and private key parts. What do you want to do?", opts)
+            if x is None:
+                return ret.errRet("No action selected.")
+            x = x.item.data
+            if x == "D":
+                if not confirm("Remove this certificate (both public and private parts)?"):
+                    return ret.errRet("Cancelled.")
+                if not hlp_delete_key(self.cfg, self.username, keystr):
+                    return ret.errRet("Certificate not found.")
+                
+                self.mainMenu.changed=True
+                return ret.okRet("Certificate removed.")
+            elif x == "S":
+                # zobrazíme PK část pro možnost zkopírování, můžeme dát i možnost zkopírovat do schránky pokud je dostupná
+                print(text_color("Private key part:", en_color.BRIGHT_MAGENTA))
+                print(priv)
+                anyKey()
+                return ret.okRet("Displayed private key part.")
+            else:
+                return ret.errRet("Invalid action selected.")
+            
+            
+    
+    def generate(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        if not confirm("Generate a new SSH Ed25519 key pair? The private key will be added to the config in base64 format and the public key will be added to the user's authorised keys."):
+            return onSelReturn().errRet("Cancelled.")
+        
+        from .sftp_manager_hlp import add_new_key_pair
+        
+        ret = onSelReturn()
+        ok, msg = add_new_key_pair(self.cfg, self.username)
+        if not ok:
+            return ret.errRet(msg)
         
         self.mainMenu.changed=True
-        return ret.okRet("Key removed.")
+        return ret.okRet("New key pair generated and added.")
