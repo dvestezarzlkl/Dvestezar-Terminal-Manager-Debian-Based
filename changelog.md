@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.2
+
+- FIX sftpmanager - menu klíče, už se nezobrazuje DEL
+
 ## v1.9.1
 
 - FIX synchronize userů sftpmanagera s uživateli v systému, při delete se nemazali staří uživatele, apply teď přidá nové, nebo je updatuje a smaže sftp uživatele kteří nejsou v konfigu (byli vymazáni)

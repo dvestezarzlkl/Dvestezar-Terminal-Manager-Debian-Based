@@ -411,7 +411,7 @@ class m_user_keys(c_menu):
             disp = name
             # if len(name) > 40:
                 # disp = name[:37] + "…"
-            itm = c_menu_item(text_color(disp,en_color.YELLOW), str(idx), self.delete_key,data=keystr,atRight="DEL")
+            itm = c_menu_item(text_color(disp,en_color.YELLOW), str(idx), self.delete_key,data=keystr)
             itm.data = keystr
             self.menu.append(itm)
 
