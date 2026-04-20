@@ -416,6 +416,72 @@ def check_ssh_pub_key(key: str, outAsB64ForMng: bool = True) -> Tuple[bool, str]
     except ImportError as e:
         return False, f"Paramiko is not installed: {e}"
 
+    if pk:
+        try:
+            pk_decoded = base64.b64decode(pk).decode("utf-8")
+        except Exception:
+            return False, "Failed to decode private key part"
+
+        # --- pokus 1: Paramiko ---
+        try:
+            from io import StringIO
+            from paramiko import RSAKey, ECDSAKey, Ed25519Key
+            from paramiko.ssh_exception import SSHException, PasswordRequiredException
+
+            key_file = StringIO(pk_decoded)
+            priv_key = None
+
+            for cls in (RSAKey, ECDSAKey, Ed25519Key):
+                key_file.seek(0)
+                try:
+                    priv_key = cls.from_private_key(key_file)
+                    break
+                except PasswordRequiredException:
+                    return False, "Private key is encrypted and requires passphrase"
+                except Exception:
+                    pass
+
+            if priv_key:
+                # porovnání public části
+                if priv_key.get_name() != key_type:
+                    return False, "Private key type does not match public key"
+
+                if priv_key.get_base64() != key_b64:
+                    return False, "Private key does not match provided public key"
+
+            else:
+                raise Exception("Paramiko could not parse private key")
+
+        except Exception:
+            # --- fallback: cryptography ---
+            try:
+                from cryptography.hazmat.primitives import serialization
+
+                private_key = serialization.load_ssh_private_key(
+                    pk_decoded.encode("utf-8"),
+                    password=None
+                )
+
+                public_key_bytes = private_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.OpenSSH,
+                    format=serialization.PublicFormat.OpenSSH
+                ).decode("utf-8")
+
+                # rozparsujeme public z private
+                parts_priv = public_key_bytes.split()
+                if len(parts_priv) < 2:
+                    return False, "Failed to extract public key from private key"
+
+                if parts_priv[0] != key_type:
+                    return False, "Private key type does not match public key"
+
+                if parts_priv[1] != key_b64:
+                    return False, "Private key does not match provided public key"
+
+            except Exception as e:
+                return False, f"Invalid private key: {e}"
+
+
     # pokud chceš komentář povinně, nech to jako vlastní business pravidlo:
     # if not key_comment:
     #     return False, "Public key is missing a comment (username or identifier)."
