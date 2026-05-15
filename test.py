@@ -1,107 +1,154 @@
-# cspell:disable
+import os
+import glob
+from dataclasses import dataclass
 
-# pro testy na lokále
 
-# print verze pythonu
-from libs.JBLibs.c_menu import printBlock
-from libs.JBLibs.helper import cls
-from datetime import datetime as dt
+@dataclass
+class UartPortInfo:
+    device: str
+    name: str
+    sys_device: str = ""
+    driver: str = ""
+    is_usb: bool = False
+    source: str = ""
 
-# x=systemd.c_service('node-red-node_team_4')
 
-# x=systemd.c_service.list('postgresql-8.3.servicex')
+def _readlink(path: str) -> str:
+    try:
+        return os.path.realpath(path)
+    except Exception:
+        return ""
 
-# c=x.status()
 
-# timestamp = "Fri 2024-10-25 09:10:42 CEST"
-# active_time = parser.parse(timestamp)
+def _get_driver(name: str) -> str:
+    path = f"/sys/class/tty/{name}/device/driver"
+    try:
+        real = os.path.realpath(path)
+        if real and os.path.exists(real):
+            return os.path.basename(real)
+    except Exception:
+        pass
+    return ""
 
-# uptime = int(dt.now().timestamp() - active_time.timestamp())
-# s=strTime(str(uptime)+"s")
 
-cls()
+def _get_sys_device(name: str) -> str:
+    path = f"/sys/class/tty/{name}/device"
+    try:
+        real = os.path.realpath(path)
+        if real and os.path.exists(real):
+            return real
+    except Exception:
+        pass
+    return ""
 
-def prn(obalChar="",bracket="",minwidth=0):
 
-    tst=[    
-        [
-            "Zadejte uživatelské jméno:",
-            "q = Konec"
-        ],    
-        # [
-        #     ["Zadejte uživatelské jméno:"],
-        #     ["q = Konec"]
-        # ],
-        # [
-        #     ["Zadejte uživatelské jméno:\nNext Line inline"],
-        #     "q = Konec",
-        # ],
-        # [
-        #     ["Zadejte uživatelské jméno","Next Line split"],
-        #     "q = Konec"
-        # ],
-        # [    
-        #     [
-        #         ["Zadejte uživatelské jméno","right side"],
-        #         "Next Line"
-        #     ],
-        #     "q = Konec"
-        # ],
-        # [
-        #     [
-        #         "Test\nNext Line after LF",
-        #         ["","right side"],
-        #         "Next Line",
-        #         "-"
-        #     ],
-        #     [
-        #         ["n","q = Konec"]
-        #     ]
-        # ]
+def _is_usb_path(path: str) -> bool:
+    return "/usb" in path.lower()
+
+
+def _is_real_tty(device: str) -> bool:
+    if not os.path.exists(device):
+        return False
+
+    name = os.path.basename(device)
+    sys_device = _get_sys_device(name)
+    driver = _get_driver(name)
+
+    # Bez sysfs device je to většinou pseudo/virtuální bordel
+    if not sys_device:
+        return False
+
+    # tty zařízení bez driveru bych do defaultního seznamu nedával
+    if not driver:
+        return False
+
+    return True
+
+
+def list_uart_ports(include_legacy: bool = False) -> list[UartPortInfo]:
+    result: list[UartPortInfo] = []
+    seen: set[str] = set()
+
+    patterns = [
+        "/dev/ttyUSB*",
+        "/dev/ttyACM*",
+        "/dev/ttyAMA*",
+        "/dev/ttyS*",
     ]
-    for x,y in tst:
-        printBlock(x,y,eof=True,charObal=obalChar,rightTxBrackets=bracket,min_width=minwidth)
-        
-# print( "start at {0}".format(dt.now().strftime("%Y-%m-%d %H:%M:%S")) )
 
-# print("x"*100 +"\nprn()\n")
-# prn()
+    for pattern in patterns:
+        for device in sorted(glob.glob(pattern)):
+            name = os.path.basename(device)
 
-# print("x"*100 +"\nprn(obalChar='*')\n")
-# prn("*","<")
+            if device in seen:
+                continue
 
-# print("x"*100 +"\nprn(obalChar='*',bracket='[', minwidth=50)\n") 
-# prn("*","[",50)
+            if not _is_real_tty(device):
+                continue
 
-# print("x"*100 +"\nprn(obalChar='*',bracket='[', minwidth=50)\n") 
-# prn("|*","[",50)
+            sys_device = _get_sys_device(name)
+            driver = _get_driver(name)
+            is_usb = _is_usb_path(sys_device)
 
-# print("x"*100 +"\nprn(obalChar='',bracket='[',minwidth=50)\n")
-# prn("","[",50)
+            # ttyS vyšší čísla jsou často falešný bordel,
+            # pokud nechceš legacy režim, nech jen nízké porty
+            if name.startswith("ttyS") and not include_legacy:
+                try:
+                    num = int(name[4:])
+                    if num > 5:
+                        continue
+                except ValueError:
+                    continue
 
-# from libs.JBLibs.systemdService import bytesTx
+            seen.add(device)
 
-# print(bytesTx(1024))
-# print(bytesTx(1024*1024))
-# print(bytesTx('1kB'))
-# print(bytesTx('1,15kB'))
-# print(bytesTx('1kB').bytes)
-# print(bytesTx('2.15MB'))
-# print(bytesTx('2.15MB').bytes)
-# print(bytesTx('25B'))
-# print(bytesTx('2048MB'))
-# print('test exa')
-# x=bytesTx('154E')
-# print(x)
-# x=bytesTx(x.bytes)
-# print(x)
-# print(x.bytes)
-# print(bytesTx(177549911709454434304000000))
+            result.append(
+                UartPortInfo(
+                    device=device,
+                    name=name,
+                    sys_device=sys_device,
+                    driver=driver,
+                    is_usb=is_usb,
+                    source="sysfs",
+                )
+            )
 
-from libs.JBLibs.input import select, select_item
+    return result
 
-x=select("Testovací select",[
-    select_item("První",data="první výběr"),
-    select_item("Druhý","dru",data="druhý výběr"),
-],80)
-print(x.item.data if x.item else "ESC, nebylo nic vybráno")
+def classify_uart_port(p: UartPortInfo) -> tuple[int, str]:
+    name = p.name
+    driver = p.driver
+    sys_device = p.sys_device
+
+    if name.startswith("ttyUSB"):
+        return 10, "USB serial"
+
+    if name.startswith("ttyACM"):
+        return 20, "USB ACM"
+
+    if name.startswith("ttyAMA"):
+        return 30, "SBC UART"
+
+    if name.startswith("ttyS"):
+        if "serial8250" in sys_device and driver == "port":
+            return 90, "legacy serial8250"
+
+        return 40, "hardware UART"
+
+    return 100, "unknown"
+
+ports = list_uart_ports()
+
+for p in ports:
+    p.priority, p.kind = classify_uart_port(p)
+
+# když existuje USB/ACM/AMA, schovej generické serial8250
+has_good_ports = any(p.priority < 90 for p in ports)
+
+if has_good_ports:
+    ports = [p for p in ports if p.priority < 90]
+
+ports.sort(key=lambda p: (p.priority, p.name))
+
+for p in ports:
+    print(f"{p.device}: {p.kind} (driver={p.driver}, sys_device={p.sys_device})")
