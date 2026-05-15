@@ -156,35 +156,90 @@ def save_settings(settings: UartSettings) -> None:
         json.dump(settings.to_dict(), f, indent=4)
 
 
+def _get_tty_driver(name: str) -> str:
+    path = f"/sys/class/tty/{name}/device/driver"
+    try:
+        real = os.path.realpath(path)
+        if real and os.path.exists(real):
+            return os.path.basename(real)
+    except Exception:
+        pass
+    return ""
+
+
+def _get_tty_sys_device(name: str) -> str:
+    path = f"/sys/class/tty/{name}/device"
+    try:
+        real = os.path.realpath(path)
+        if real and os.path.exists(real):
+            return real
+    except Exception:
+        pass
+    return ""
+
+
+def _is_real_tty(device: str) -> bool:
+    if not os.path.exists(device):
+        return False
+
+    name = os.path.basename(device)
+    sys_device = _get_tty_sys_device(name)
+    driver = _get_tty_driver(name)
+
+    if not sys_device:
+        return False
+
+    if not driver:
+        return False
+
+    return True
+
+
+def _classify_tty(name: str, sys_device: str, driver: str) -> str:
+    if name.startswith("ttyUSB"):
+        return "USB serial"
+
+    if name.startswith("ttyACM"):
+        return "USB ACM"
+
+    if name.startswith("ttyAMA"):
+        return "SBC UART"
+
+    if name.startswith("ttyS"):
+        if "serial8250" in sys_device and driver == "port":
+            return "legacy serial8250"
+
+        if driver == "serial8250":
+            return "legacy serial8250"
+
+        return "hardware UART"
+
+    return "unknown"
+
+
 def list_serial_ports() -> list[UartPortInfo]:
     ports: list[UartPortInfo] = []
     seen: set[str] = set()
-
-    for device in sorted(glob.glob("/dev/serial/by-id/*")):
-        _add_port(ports, seen, device)
-
-    try:
-        from serial.tools import list_ports
-
-        for port in list_ports.comports():
-            _add_port(
-                ports,
-                seen,
-                port.device,
-                getattr(port, "description", ""),
-                getattr(port, "hwid", ""),
-            )
-    except Exception as e:
-        log.debug(f"pyserial list_ports failed: {e}")
 
     for pattern in (
         "/dev/ttyUSB*",
         "/dev/ttyACM*",
         "/dev/ttyAMA*",
-        "/dev/ttyS[0-3]",
+        "/dev/ttyS*",
     ):
         for device in sorted(glob.glob(pattern)):
-            _add_port(ports, seen, device)
+            if not _is_real_tty(device):
+                continue
+
+            name = os.path.basename(device)
+            sys_device = _get_tty_sys_device(name)
+            driver = _get_tty_driver(name)
+            kind = _classify_tty(name, sys_device, driver)
+
+            if kind in ("legacy serial8250", "unknown"):
+                continue
+
+            _add_port(ports, seen, device, kind, driver)
 
     return ports
 
