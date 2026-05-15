@@ -197,24 +197,36 @@ def _is_real_tty(device: str) -> bool:
 
 def _classify_tty(name: str, sys_device: str, driver: str) -> str:
     if name.startswith("ttyUSB"):
-        return "USB serial"
+        return "usb_serial"
 
     if name.startswith("ttyACM"):
-        return "USB ACM"
+        return "usb_acm"
 
     if name.startswith("ttyAMA"):
-        return "SBC UART"
+        return "sbc_uart"
 
     if name.startswith("ttyS"):
         if "serial8250" in sys_device and driver == "port":
-            return "legacy serial8250"
+            return "legacy_serial8250"
 
         if driver == "serial8250":
-            return "legacy serial8250"
+            return "legacy_serial8250"
 
-        return "hardware UART"
+        return "hardware_uart"
 
     return "unknown"
+
+
+def _uart_kind_label(kind: str) -> str:
+    labels = {
+        "usb_serial": TXT_UART_MENU_PORT_KIND_USB_SERIAL,
+        "usb_acm": TXT_UART_MENU_PORT_KIND_USB_ACM,
+        "sbc_uart": TXT_UART_MENU_PORT_KIND_SBC_UART,
+        "hardware_uart": TXT_UART_MENU_PORT_KIND_HARDWARE_UART,
+        "legacy_serial8250": TXT_UART_MENU_PORT_KIND_LEGACY_SERIAL8250,
+        "unknown": TXT_UART_MENU_PORT_KIND_UNKNOWN,
+    }
+    return labels.get(kind, kind)
 
 
 def list_serial_ports() -> list[UartPortInfo]:
@@ -236,10 +248,10 @@ def list_serial_ports() -> list[UartPortInfo]:
             driver = _get_tty_driver(name)
             kind = _classify_tty(name, sys_device, driver)
 
-            if kind in ("legacy serial8250", "unknown"):
+            if kind in ("legacy_serial8250", "unknown"):
                 continue
 
-            _add_port(ports, seen, device, kind, driver)
+            _add_port(ports, seen, device, _uart_kind_label(kind), driver)
 
     return ports
 
