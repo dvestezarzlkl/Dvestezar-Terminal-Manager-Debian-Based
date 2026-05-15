@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.6.0
+v1.9.3
 
 [ENG](readme_en.md)
 
@@ -15,27 +15,80 @@ Viz níže sekce [Soubory v root adresáři](#soubory-v-root-adresáři) a [Requ
 
 ## Popis aplikace
 
-Dvestezar Terminal Manager je nástroj pro správu systémů založených na Debianu, jako jsou Ubuntu, Raspbian, OrangePi a další distribuce. Poskytuje jednoduché menu pro ovládání různých funkcí systému přímo z terminálu.
+Dvestezar Terminal Manager je terminálový správce pro Debian-based systémy jako Ubuntu, Debian, Raspbian nebo Orange Pi. Aplikace staví na modulárním menu systému, kde se jednotlivé části načítají jako samostatné pluginy z adresáře `libs/app/menus/app_*`.
 
-Tento nástroj je navržen jako modulární framework, který lze snadno rozšiřovat o nové podaplikace a funkce podle potřeb. 
+Hlavní menu automaticky načte každý plugin, který obsahuje `menu.py`, takže je možné aplikaci rozšiřovat o další systémové nebo servisní nástroje bez zásahu do hlavního menu.
 
-**Aktuální funkce aplikace:**
+## Aktuální pluginy v menu
 
-1. **User Management:**
-   - Správa uživatelů systému včetně přidávání, mazání a nastavování hesel.
-   - Generování a správa SSH klíčů s automatickým ukládáním do `authorized_keys`.
-   - Správa přístupu uživatelů k sudo.
+### Disk manager
 
-2. **Node-RED Instance Manager:**
-   - Vytváření, editace, zálohování a mazání instancí Node-RED.
-   - Správa šablon pro rychlé nasazení nových instancí.
-   - Automatická kontrola a konfigurace služeb pro každou instanci.
-   - **Novinky v 1.5.0+**
-      - Přidáno menu pro správu instancí a záloh
-      - Možnost obnovení instance ze zálohy se 3násobným potvrzením
-      - Kontrola integrity záloh pomocí `7z t`
-      - Force update umožněn i přes major verzi
-      - Obnova automaticky zastaví a znovu spustí službu po úspěchu
+- výpis fyzických disků, partací a image souborů
+- mount a unmount partací i `.img` souborů přes loop zařízení
+- práce s mountpointy a kontrola, zda je adresář vhodný pro připojení
+- operace nad disky a partacemi včetně formátování, shrink a rozšíření partice
+- pomocné operace pro zálohování a práci se souborovými systémy
+
+### Swap manager
+
+- vytvoření nového SWAP image souboru
+- aktivace, deaktivace a správa existujících SWAP souborů
+- zobrazení vytížení RAM a SWAP včetně aktivních SWAP zařízení
+- výpis procesů využívajících SWAP
+- změna velikosti SWAP image podle stavu systému
+
+### Node-RED manager
+
+- instalace nové Node-RED instance pro systémového uživatele
+- editace existující instance včetně názvu, portu a dashboard uživatelů
+- start, stop, restart, enable a disable systemd služby instance
+- zálohy instancí, full backup, seznam záloh a kontrola integrity
+- správa service template, sudoers pravidel a HTTPS certifikátů
+- spuštění instance jako aplikace, včetně SAFE MODE
+- správa globální instalace Node.js a npm, včetně LTS update a uninstallu
+
+### SSH manager
+
+- přehled systémových uživatelů relevantních pro SSH správu
+- vytvoření nového systémového uživatele
+- správa SSH klíčů uživatele a `authorized_keys`
+- nastavení hesla, sudo oprávnění a skupiny `dialout`
+- otevření detailního submenu pro správu konkrétního uživatele
+
+### SFTP manager
+
+- správa SFTP uživatelů definovaných v konfiguraci
+- vytváření a mazání SFTP uživatelů
+- přidávání a odebírání mountpointů do SFTP jailu
+- správa veřejných klíčů a jejich přehled v čitelném tvaru
+- přepínání mountpointů do read-only režimu
+- uložení a aplikace změn do systému až ve chvíli, kdy je správce potvrdí
+
+Podrobněji viz také [sftp_manager_readme.md](sftp_manager_readme.md).
+
+### UART tester
+
+- detekce relevantních sériových portů přes sysfs
+- režim vysílač, příjem a rychlé spuštění uloženého testovacího příkazu
+- nastavení portu, baudrate, parity, datových bitů, stop bitů a timeoutu
+- uložení konfigurace do souboru a její opětovné načtení při dalším spuštění
+- generování testovacího příkazu ve tvaru `test{len}n{repeat}`
+- nastavení délky testovacího textu a počtu opakování přímo z menu
+
+Podrobněji viz také [uart_tester.md](uart_tester.md).
+
+### ZLKL plugin
+
+- v adresáři `app_50_zlkl` je přítomen externí nebo proprietární modul
+- protože neobsahuje `menu.py`, hlavní menu ho aktuálně nenačítá a není součástí běžně dostupných položek
+
+## Co aplikace celkově umí
+
+- sjednotit více administrátorských nástrojů do jednoho terminálového menu
+- spravovat storage, swap, Node-RED, SSH, SFTP i UART testování z jednoho místa
+- ukládat konfiguraci vybraných pluginů do souborů mimo samotný kód
+- používat lokalizované texty přes `lng` soubory
+- rozšiřovat systém o další pluginy bez úprav hlavního menu
 
 ### Výzva k rozšíření
 
