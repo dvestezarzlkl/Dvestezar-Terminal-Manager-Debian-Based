@@ -38,6 +38,8 @@ BYTESIZES: list[int] = [5, 6, 7, 8]
 STOPBITS: list[float] = [1, 1.5, 2]
 TIMEOUTS: list[float] = [0.1, 0.2, 0.5, 1, 2, 5]
 MODES: list[str] = ["transmitter", "receiver"]
+DEFAULT_MENU_TEST_LENGTH = 120
+DEFAULT_MENU_TEST_REPEAT = 30
 
 
 @dataclass
@@ -62,6 +64,8 @@ class UartSettings:
     stopbits: float = uart_tester.DEFAULT_STOPBITS
     timeout: float = uart_tester.DEFAULT_SERIAL_TIMEOUT
     mode: str = "transmitter"
+    test_length: int = DEFAULT_MENU_TEST_LENGTH
+    test_repeat: int = DEFAULT_MENU_TEST_REPEAT
 
     @classmethod
     def from_dict(cls, data: dict[str, Any] | None) -> "UartSettings":
@@ -74,6 +78,18 @@ class UartSettings:
         cfg.stopbits = _as_choice_float(data.get("stopbits"), STOPBITS, cfg.stopbits)
         cfg.timeout = _as_choice_float(data.get("timeout"), TIMEOUTS, cfg.timeout)
         cfg.mode = _as_choice_str(data.get("mode"), MODES, cfg.mode)
+        cfg.test_length = _as_int_in_range(
+            data.get("test_length"),
+            1,
+            1024,
+            cfg.test_length,
+        )
+        cfg.test_repeat = _as_int_in_range(
+            data.get("test_repeat"),
+            1,
+            100,
+            cfg.test_repeat,
+        )
         return cfg
 
     def to_dict(self) -> dict[str, Any]:
@@ -85,9 +101,14 @@ class UartSettings:
             "stopbits": self.stopbits,
             "timeout": self.timeout,
             "mode": self.mode,
+            "test_length": self.test_length,
+            "test_repeat": self.test_repeat,
         }
 
     def serial_kwargs(self) -> dict[str, Any]:
+        return self.run_as_kwargs()
+
+    def run_as_kwargs(self) -> dict[str, Any]:
         return {
             "port": self.port,
             "baudrate": self.baudrate,
@@ -96,6 +117,20 @@ class UartSettings:
             "parity": self.parity,
             "stopbits": self.stopbits,
         }
+
+    def serial_open_kwargs(self) -> dict[str, Any]:
+        return {
+            "port": self.port,
+            "baudrate": self.baudrate,
+            "timeout": self.timeout,
+            "bytesize": self.bytesize,
+            "parity": self.parity,
+            "stopbits": self.stopbits,
+        }
+
+    @property
+    def test_command(self) -> str:
+        return uart_tester.build_test_command(self.test_length, self.test_repeat)
 
 
 def _as_str(value: Any, default: str) -> str:
@@ -123,6 +158,16 @@ def _as_choice_float(value: Any, choices: list[float], default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value if value in choices else default
+
+
+def _as_int_in_range(value: Any, minimum: int, maximum: int, default: int) -> int:
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return default
+    if value < minimum or value > maximum:
+        return default
+    return value
 
 
 def get_config_path(create: bool = False) -> Path:

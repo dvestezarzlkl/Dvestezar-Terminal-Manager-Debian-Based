@@ -64,15 +64,22 @@ class menu(c_menu):
                 enabled=port_ok,
             ),
             c_menu_item(
-                TXT_UART_MENU_START_TX,
+                text_color(TXT_UART_MENU_START_TX, en_color.BRIGHT_YELLOW),
                 "tx",
                 self.start_transmitter,
                 enabled=port_ok,
             ),
             c_menu_item(
-                TXT_UART_MENU_START_RX,
+                text_color(TXT_UART_MENU_START_RX, en_color.BRIGHT_BLUE),
                 "rx",
                 self.start_receiver,
+                enabled=port_ok,
+            ),
+            c_menu_item(
+                text_color(TXT_UART_MENU_START_TEST_COMMAND, en_color.BRIGHT_MAGENTA),
+                "t",
+                self.start_test_command,
+                atRight=self.settings.test_command,
                 enabled=port_ok,
             ),
             None,
@@ -130,6 +137,18 @@ class menu(c_menu):
                 self.select_timeout,
                 atRight=str(self.settings.timeout),
             ),
+            c_menu_item(
+                TXT_UART_MENU_SET_TEST_LENGTH,
+                "tl",
+                self.select_test_length,
+                atRight=str(self.settings.test_length),
+            ),
+            c_menu_item(
+                TXT_UART_MENU_SET_TEST_REPEAT,
+                "tr",
+                self.select_test_repeat,
+                atRight=str(self.settings.test_repeat),
+            ),
         ]
 
         if not port_ok:
@@ -150,6 +169,7 @@ class menu(c_menu):
         header.append((TXT_UART_MENU_BYTESIZE, str(self.settings.bytesize)))
         header.append((TXT_UART_MENU_STOPBITS, str(self.settings.stopbits)))
         header.append((TXT_UART_MENU_TIMEOUT, str(self.settings.timeout)))
+        header.append((TXT_UART_MENU_TEST_COMMAND, self.settings.test_command))
         return header
 
     def start_selected_mode(self, selItem: c_menu_item) -> onSelReturn:
@@ -166,6 +186,74 @@ class menu(c_menu):
         if err := self._try_save_error():
             return onSelReturn().errRet(err)
         return self._run_mode(False)
+
+    def start_test_command(self, selItem: c_menu_item) -> onSelReturn:
+        if not self.settings.port:
+            return onSelReturn().errRet(TXT_UART_MENU_NO_PORT_SELECTED)
+
+        error = uart_tester.validate_test_params(
+            self.settings.test_length,
+            self.settings.test_repeat,
+        )
+        if error:
+            return onSelReturn().errRet(error)
+
+        cls()
+        print(TXT_UART_MENU_STARTING_TEST_COMMAND.format(command=self.settings.test_command))
+        print(TXT_UART_MENU_STARTING_PORT.format(
+            port=self.settings.port,
+            baudrate=self.settings.baudrate,
+            parity=parity_label(self.settings.parity),
+            bytesize=self.settings.bytesize,
+            stopbits=self.settings.stopbits,
+            timeout=self.settings.timeout,
+        ))
+        print("")
+
+        ser = uart_tester.serialGet(**self.settings.serial_open_kwargs())
+        if isinstance(ser, str):
+            anyKey()
+            return onSelReturn().errRet(ser)
+
+        error_message: str | None = None
+        try:
+            print(
+                uart_tester.TXT_UART_SENDING_TEST.format(
+                    length=self.settings.test_length,
+                    repeat=self.settings.test_repeat,
+                )
+            )
+            result = uart_tester.run_test(
+                ser,
+                self.settings.test_length,
+                self.settings.test_repeat,
+            )
+            if isinstance(result, str):
+                error_message = result
+                print(result)
+        except KeyboardInterrupt:
+            error_message = uart_tester.TXT_UART_STOPPED_BY_USER
+            print(error_message)
+        except Exception as e:
+            error_message = uart_tester.TXT_UART_ERR_OCCURRED.format(err=e)
+            print(error_message)
+        finally:
+            try:
+                ser.close()
+            except Exception as e:
+                close_error = uart_tester.TXT_UART_ERR_CLOSE_PORT.format(err=e)
+                if error_message:
+                    error_message = f"{error_message}\n{close_error}"
+                else:
+                    error_message = close_error
+                print(close_error)
+
+        anyKey()
+        if error_message:
+            if error_message.startswith("[ERROR]"):
+                return onSelReturn().errRet(error_message)
+            return onSelReturn(ok=error_message)
+        return onSelReturn(ok=TXT_UART_MENU_RUN_FINISHED)
 
     def select_mode(self, selItem: c_menu_item) -> onSelReturn:
         options = [
@@ -263,6 +351,20 @@ class menu(c_menu):
         self.settings.timeout = float(value)
         return self._save_ok(TXT_UART_MENU_SAVED)
 
+    def select_test_length(self, selItem: c_menu_item) -> onSelReturn:
+        return self._update_test_value(
+            TXT_UART_MENU_ENTER_TEST_LENGTH,
+            "test_length",
+            self.settings.test_repeat,
+        )
+
+    def select_test_repeat(self, selItem: c_menu_item) -> onSelReturn:
+        return self._update_test_value(
+            TXT_UART_MENU_ENTER_TEST_REPEAT,
+            "test_repeat",
+            self.settings.test_length,
+        )
+
     def _run_mode(self, transmitter: bool) -> onSelReturn:
         if not self.settings.port:
             return onSelReturn().errRet(TXT_UART_MENU_NO_PORT_SELECTED)
@@ -282,7 +384,7 @@ class menu(c_menu):
 
         ret = uart_tester.runAs(
             transmitter=transmitter,
-            **self.settings.serial_kwargs(),
+            **self.settings.run_as_kwargs(),
         )
 
         if ret:
@@ -305,6 +407,25 @@ class menu(c_menu):
         if result is None or result.item is None:
             return None
         return result.item.data
+
+    def _update_test_value(self, prompt: str, field_name: str, other_value: int) -> onSelReturn:
+        value = get_input(prompt, minMessageWidth=self.minMenuWidth)
+        if value in (None, ""):
+            return onSelReturn().errRet(TXT_UART_MENU_CANCELLED)
+
+        try:
+            parsed = int(str(value).strip())
+        except (TypeError, ValueError):
+            return onSelReturn().errRet(TXT_UART_MENU_INVALID_NUMBER)
+
+        length = parsed if field_name == "test_length" else other_value
+        repeat = parsed if field_name == "test_repeat" else other_value
+        error = uart_tester.validate_test_params(length, repeat)
+        if error:
+            return onSelReturn().errRet(error)
+
+        setattr(self.settings, field_name, parsed)
+        return self._save_ok(TXT_UART_MENU_SAVED)
 
     def _save(self) -> None:
         save_settings(self.settings)
