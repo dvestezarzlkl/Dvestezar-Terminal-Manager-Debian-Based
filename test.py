@@ -130,18 +130,20 @@ def classify_uart_port(p: UartPortInfo) -> tuple[int, str]:
         return 30, "SBC UART"
 
     if name.startswith("ttyS"):
-        # Tohle je ten bordel z PC / VM:
-        # /sys/devices/platform/serial8250/...
-        # driver = port
+        # PC/VM legacy bordel
         if "serial8250" in sys_device and driver == "port":
             return 900, "legacy serial8250"
 
-        # Na OrangePi/RPi může být ttyS reálný UART,
-        # ale nebude to generický serial8250 placeholder.
+        # OPi/SBC placeholdery přes serial8250
+        # Na Orange Pi zapnuté UARTy často běží přes konkrétní driver,
+        # např. dw-apb-uart. Generický serial8250 bych do selectu nedával.
+        if driver == "serial8250":
+            return 900, "legacy serial8250"
+
+        # Reálný SoC UART, např. dw-apb-uart
         return 40, "hardware UART"
 
     return 1000, "unknown"
-
 
 
 def list_uart_ports_for_select(
