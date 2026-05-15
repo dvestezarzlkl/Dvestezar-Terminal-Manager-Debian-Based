@@ -36,7 +36,7 @@ _MENU_NAME_: str = TXT_UART_MENU_NAME
 class menu(c_menu):
     """Menu wrapper for the UART tester library."""
 
-    _VERSION_: str = "1.0.0"
+    _VERSION_: str = "1.1.0"
     ESC_is_quit: bool = True
     minMenuWidth: int = 80
 

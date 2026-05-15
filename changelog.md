@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.9.3
+
+- ADD - nové UART menu pro tester s uložením konfigurace, výběrem portu, režimu a parametrů komunikace
+- ADD - testovací UART příkaz z menu ve tvaru `test{len}n{repeat}` včetně nastavení a uložení výchozích hodnot
+- FIX - filtrování seznamu UART portů přes sysfs, aby se nabízely jen relevantní porty
+- FIX - překlady UART menu a typů detekovaných UART portů
+- UPD - `uart_tester` přesunut na knihovní variantu v `libs/JBLibs`
+- UPD - doplněny závislosti v `requirements.txt`
+
 ## v1.9.2
 
 - FIX sftpmanager - menu klíče, už se nezobrazuje DEL
