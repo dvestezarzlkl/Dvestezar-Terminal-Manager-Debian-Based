@@ -130,25 +130,48 @@ def classify_uart_port(p: UartPortInfo) -> tuple[int, str]:
         return 30, "SBC UART"
 
     if name.startswith("ttyS"):
+        # Tohle je ten bordel z PC / VM:
+        # /sys/devices/platform/serial8250/...
+        # driver = port
         if "serial8250" in sys_device and driver == "port":
-            return 90, "legacy serial8250"
+            return 900, "legacy serial8250"
 
+        # Na OrangePi/RPi může být ttyS reálný UART,
+        # ale nebude to generický serial8250 placeholder.
         return 40, "hardware UART"
 
-    return 100, "unknown"
+    return 1000, "unknown"
 
-ports = list_uart_ports()
 
-for p in ports:
-    p.priority, p.kind = classify_uart_port(p)
 
-# když existuje USB/ACM/AMA, schovej generické serial8250
-has_good_ports = any(p.priority < 90 for p in ports)
+def list_uart_ports_for_select(
+    include_legacy: bool = False,
+    include_unknown: bool = False,
+) -> list[UartPortInfo]:
+    ports = list_uart_ports(include_legacy=True)
 
-if has_good_ports:
-    ports = [p for p in ports if p.priority < 90]
+    result: list[UartPortInfo] = []
 
-ports.sort(key=lambda p: (p.priority, p.name))
+    for p in ports:
+        p.priority, p.kind = classify_uart_port(p)
 
-for p in ports:
-    print(f"{p.device}: {p.kind} (driver={p.driver}, sys_device={p.sys_device})")
+        if not include_legacy and p.kind == "legacy serial8250":
+            continue
+
+        if not include_unknown and p.kind == "unknown":
+            continue
+
+        result.append(p)
+
+    result.sort(key=lambda p: (p.priority, p.name))
+    return result
+
+
+
+ports = list_uart_ports_for_select()
+
+if not ports:
+    print("Není detekován žádný připojitelný UART port.")
+else:
+    for p in ports:
+        print(f"{p.device:12} {p.kind:18} {p.driver}")
