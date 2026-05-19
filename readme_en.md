@@ -1,29 +1,88 @@
-# Dvestezar Terminal Manager – Debian-Based  
+# Dvestezar Terminal Manager – Debian-Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-**v1.3.4**
+v1.9.3
 
-[ENG](readme_en.md)
+[CZ](readme.md)
 
 [Preview](preview_v1-3-1.mp4)
 
 ## Application Description
 
-Dvestezar Terminal Manager is a tool for managing Debian-based systems such as Ubuntu, Raspbian, OrangePi, and other related distributions. It offers a simple terminal menu interface for managing various system functionalities.
+Dvestezar Terminal Manager is a terminal-based administration tool for Debian-based systems such as Ubuntu, Debian, Raspbian, or Orange Pi. The application is built around a modular menu system where individual features are loaded as standalone plugins from `libs/app/menus/app_*`.
 
-This tool is built as a modular framework, which allows easy expansion with new sub-applications and features as needed.
+The main menu automatically loads every plugin that contains a `menu.py` entry point, so the project can be extended without modifying the main menu implementation.
 
-**Current features:**
+## Current Menu Plugins
 
-1. **User Management:**
-   - Manage system users, including adding, deleting, and setting passwords.
-   - Generate and manage SSH keys with automatic `authorized_keys` handling.
-   - Manage user sudo access.
+### Disk manager
 
-2. **Node-RED Instance Manager:**
-   - Create, edit, back up, and delete Node-RED instances.
-   - Manage templates for quick deployment.
-   - Automatically check and configure services per instance.
+- list physical disks, partitions, and image files
+- mount and unmount partitions or `.img` files through loop devices
+- validate and manage mountpoints
+- perform disk and partition operations including format, shrink, and expand
+- support backup-related filesystem work
+
+### Swap manager
+
+- create new SWAP image files
+- enable, disable, and manage existing SWAP files
+- display RAM and SWAP usage including active SWAP devices
+- show processes currently using SWAP
+- resize SWAP images according to system state
+
+### Node-RED manager
+
+- install new Node-RED instances for system users
+- edit existing instances including title, port, and dashboard users
+- start, stop, restart, enable, and disable instance systemd services
+- create instance backups, full backups, list backups, and verify backup integrity
+- manage service templates, sudoers rules, and HTTPS certificates
+- run an instance directly as an application, including SAFE MODE
+- manage global Node.js and npm installation, including LTS update and uninstall
+
+### SSH manager
+
+- list relevant system users for SSH administration
+- create a new system user
+- manage user SSH keys and `authorized_keys`
+- change password, sudo privileges, and `dialout` group membership
+- open a dedicated submenu for a selected user
+
+### SFTP manager
+
+- manage SFTP users defined in configuration
+- create and delete SFTP users
+- add and remove mountpoints inside the SFTP jail
+- manage public keys and display them in readable form
+- toggle mountpoints to read-only mode
+- save and apply system changes only when explicitly confirmed
+
+See also [sftp_manager_readme.md](sftp_manager_readme.md).
+
+### UART tester
+
+- detect relevant serial ports through sysfs filtering
+- run transmitter, receiver, and saved test-command modes
+- configure port, baudrate, parity, data bits, stop bits, and timeout
+- persist UART settings and reload them on next start
+- generate test commands in the form `test{len}n{repeat}`
+- configure test text length and repeat count directly from the menu
+
+See also [uart_tester.md](uart_tester.md).
+
+### ZLKL plugin
+
+- `app_50_zlkl` currently contains an external or proprietary module snapshot
+- because it does not provide `menu.py`, it is not loaded into the main application menu
+
+## What The Application Covers
+
+- a unified terminal menu for multiple administrative tools
+- storage, swap, Node-RED, SSH, SFTP, and UART testing workflows in one place
+- persisted configuration for selected plugins
+- localized UI texts using `lng` files
+- simple extension through additional menu plugins
 
 ### Call for Contributions
 
@@ -39,71 +98,15 @@ The main menu is built dynamically by scanning `libs/app/menus/<app_dir>`, where
   - A `_MENU_NAME_` property for the display name in the main menu.
   - A `menu` class that serves as the default entry point when the app is launched from the menu.
 
-### Node-RED Instance Control
-
-A terminal-based Node-RED instance management tool that allows creating, editing, backing up, and deleting user-specific Node-RED instances. Ideal for multi-user setups, each with its own isolated Node-RED service.
-
-#### Key Features:
-
-1. **Instance Setup & Editing:**
-   - Create a new instance for a specific system user.
-   - Edit existing instances (name, password, port, install type).
-   - Set access mode (read-only or full access).
-
-2. **Service Management:**
-   - Start, stop, disable individual services.
-   - Check instance service status.
-
-3. **Backup & Restore:**
-   - Automatically back up all or individual instances.
-   - Save configurations and user data.
-
-4. **Service Templates:**
-   - Create default service templates for future instances.
-   - Remove or uninstall templates.
-
-5. **User Access Control:**
-   - Add new users.
-   - Manage access to Node-RED dashboards.
-   - Set permission levels (read-only / full access).
-
-#### Menus and Navigation:
-
-- **Main Menu** – Overview of instance configs (URL, backup/temp dirs, defaults) + create/edit/backup/template.
-- **Edit Menu** – Modify individual instance settings (port, name, access).
-- **User Menu** – Add/manage users, access levels, and individual profiles.
-
-#### Installation Types:
-
-- **Fresh** – Clean install from repo, good for new users.
-- **Copy** – Restore from archive, useful for cloning or quick re-deploys.
-
-#### Additional Features:
-
-- **Security & Access** – User roles (read-only / full) support auditing or limited access use cases.
-
-The tool simplifies management of multiple Node-RED environments with centralized and user-specific control.
-
-### SSH Groups Manager
-
-This utility manages SSH keys for terminal access. While primarily designed for server admins managing tools like Node-RED, it can be repurposed as needed.
-
-It directly edits the user's `authorized_keys` file and supports:
-
-- Creating/deleting system users (with home backup before deletion).
-- Managing sudo/dialout group memberships.
-- Managing SSH keys in `~/.ssh/sshManager`:
-  - Generate keys
-  - Add/remove public keys
-  - View private key for user setup
-
 ## Key Files
 
-### `!run.py`  
-Main application launcher.
+### `run.sh`
 
-### `install.py`  
-Initial setup script that installs required software, libraries, submodules, Node.js, zip, etc. Also runs `rq_try_install_requirements.py` for Python dependencies.
+Main launcher script. It is created or completed by `setup.sh` and used to start the application.
+
+### `setup.sh`
+
+Initial setup script that installs required packages, Python environment dependencies, submodules, Node.js, and other runtime tools.
 
 > ⚠️ Must be run as **root** or with **sudo**.  
 > ⚠️ Node.js will be installed globally as v22.x unless already present in PATH.
@@ -151,12 +154,6 @@ Install with:
 pip install -r requirements.txt
 ```
 
-Or use:
-
-```sh
-python3 rq_try_install_requirements.py
-```
-
 ### APT Applications
 
 Install required tools:
@@ -188,7 +185,6 @@ git submodule add -b <branch> https://github.com/dvestezarzlkl/JBLibs-python.git
 
 ### Root Directory Files
 
-- `!run.py` – Main launcher  
 - `sys_apps.sh` – Global launch helper script:
 
 ```sh
@@ -201,7 +197,6 @@ Then launch with:
 sys_apps
 ```
 
-- `install.py` – Initial installer  
 - `rq.sh` – Auto-generates `requirements.txt` using `pipreqs`
 
   > Requires `pipx` and `pipreqs`. Install with:
@@ -211,7 +206,6 @@ sys_apps
   pipx ensurepath
   ```
 
-- `rq_try_install_requirements.py` – Installs dependencies via APT and pipx  
 - `update_from_git.sh` – Git auto-sync script (readonly mode only)  
 - `makeRelease.py` – Creates ZIP archive for release (ignores `release/` and cache/logs)
 
@@ -220,6 +214,6 @@ sys_apps
 Make sure the main scripts are executable:
 
 ```sh
-chmod +x '!run.py' 'sys_apps.sh'
+chmod +x 'setup.sh' 'sys_apps.sh' 'run.sh' 'update_from_git.sh'
 ```
 
