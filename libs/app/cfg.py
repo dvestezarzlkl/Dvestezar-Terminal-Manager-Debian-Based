@@ -1,9 +1,12 @@
+import sys
+
 # from .c_service_node import c_service_node
+
 from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "1.9.3"
+VERSION = "1.9.6"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -19,6 +22,16 @@ INSTANCE_INFO: str        = ""                              # kam se budou uklá
 INSTANCE_INFO_COPY_PHP:bool = False                # pokud je True tak se bude kopírovat do assets/php/node_red_instances.php do adresáře jako je JSON
 SITE_NAME: str            = "Dvestezar Terminal Manager"  # název webu, pro hlavičku a titulky
 LOG_DIR:str               = "/var/log/jb_sys_apps"         # adresář pro logy
+
+# Mail transport pro celou aplikaci
+MAIL_SMTP_HOST:str        = ""                              # SMTP server
+MAIL_SMTP_PORT:int        = 587                             # SMTP port
+MAIL_SMTP_USER:str        = ""                              # SMTP uživatel
+MAIL_SMTP_PASSWORD:str    = ""                              # SMTP heslo
+MAIL_SMTP_MODE:str        = "starttls"                      # plain / starttls / ssl
+MAIL_FROM:str             = ""                              # odesílatel, pokud je prázdný použije se SMTP user
+MAIL_FALLBACK_ADMIN:str   = ""                              # výchozí admin mail pro aplikace bez vlastního adminMail
+MAIL_TIMEOUT:int          = 20                              # timeout pro SMTP spojení v sekundách
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu
 # zadáváme jako JSON string pole string-ů !!!
@@ -46,6 +59,18 @@ def load():
         configName=defs.CONFIG_NAME,
         fromEtc=defs.CONFIG_ETC,
         appName=defs.APP_NAME
+    )
+
+
+def save():
+    """Persist the app runtime config back to the shared config.ini."""
+    from libs.JBLibs.helper import save_config
+
+    save_config(
+        config_module=sys.modules[__name__],
+        fromEtc=defs.CONFIG_ETC,
+        configName=defs.CONFIG_NAME,
+        appName=defs.APP_NAME,
     )
 
 # příklad ini souboru

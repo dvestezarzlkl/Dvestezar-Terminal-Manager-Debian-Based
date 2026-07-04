@@ -12,6 +12,7 @@ from libs.JBLibs.c_menu import (
 from libs.JBLibs.input import anyKey,selectDir,text_color,en_color,get_input,confirm,select,select_item
 from libs.JBLibs.term import cls
 from libs.JBLibs.helper import getLogger
+from libs.app import mail_hlp
 log = getLogger("sftpmng")
 
 from .sftp_manager_hlp import (
@@ -107,7 +108,7 @@ class menu(c_menu):
                 text_color("Admin mail", en_color.BRIGHT_YELLOW),
                 "e",
                 self.edit_admin_mail,
-                atRight=get_admin_mail(self.cfg) or "not set",
+                atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "not set",
             ),
             None
         ]
@@ -498,8 +499,8 @@ class m_key_actions(c_menu):
                     text_color("Send by mail", en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=get_admin_mail(self.cfg) or "admin mail not set",
-                    enabled=bool(get_admin_mail(self.cfg)),
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "admin mail not set",
+                    enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
                 ),
                 c_menu_item(
                     text_color("Delete entire certificate", en_color.BRIGHT_RED),
@@ -513,8 +514,8 @@ class m_key_actions(c_menu):
                     text_color("Send by mail", en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=get_admin_mail(self.cfg) or "admin mail not set",
-                    enabled=bool(get_admin_mail(self.cfg)),
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "admin mail not set",
+                    enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
                 ),
                 c_menu_item(
                     text_color("Delete key", en_color.BRIGHT_RED),
@@ -541,6 +542,8 @@ class m_key_actions(c_menu):
 
     def send_by_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
+        if not mail_hlp.isConfigured():
+            return ret.errRet("Mail transport is not configured in application settings.")
         ok, msg = send_key_by_mail(self.cfg, self.username, self.keystr)
         if not ok:
             return ret.errRet(msg)
@@ -610,9 +613,7 @@ class m_user_keys(c_menu):
                     str(idx),
                     m_key_actions(self.username, self.mainMenu, keystr, name),
                     data=keystr,
-                    atRight="mail"
-                    if get_admin_mail(self.mainMenu.cfg)
-                    else "admin mail not set",
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.mainMenu.cfg)) or "admin mail not set",
                 )
             )
 

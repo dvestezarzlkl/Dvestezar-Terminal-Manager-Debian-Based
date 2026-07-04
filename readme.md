@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.9.3
+v1.9.6
 
 [ENG](readme_en.md)
 
@@ -87,6 +87,8 @@ Podrobněji viz také [uart_tester.md](uart_tester.md).
 - sjednotit více administrátorských nástrojů do jednoho terminálového menu
 - spravovat storage, swap, Node-RED, SSH, SFTP i UART testování z jednoho místa
 - ukládat konfiguraci vybraných pluginů do souborů mimo samotný kód
+- udržovat globální runtime konfiguraci aplikace v `/etc/jb_sys_apps/config.ini` přes `libs.app.cfg.load()` a `libs.app.cfg.save()`
+- konfigurovat hlavní `SERVER_URL` a mailing pro celou aplikaci z jednoho místa
 - používat lokalizované texty přes `lng` soubory
 - rozšiřovat systém o další pluginy bez úprav hlavního menu
 
@@ -399,4 +401,3 @@ Zrušení venv je jednouše
 ```sh
 deactivate
 ```
-
