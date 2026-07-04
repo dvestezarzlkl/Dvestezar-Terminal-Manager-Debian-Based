@@ -29,7 +29,12 @@ from .sftp_manager_hlp import (
     apply_changes,
     get_mountpointReadOnlyStatus,
     set_mountpoint_readonly,
-    get_printable_keys
+    get_printable_keys,
+    get_admin_mail,
+    set_admin_mail,
+    get_user_mail,
+    set_user_mail,
+    send_key_by_mail,
 )
 
 _MENU_NAME_: str = "SFTP Manager"
@@ -98,6 +103,12 @@ class menu(c_menu):
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
             c_menu_item(text_color("Create new SFTP user", en_color.BRIGHT_GREEN), "n", self.create_user),
+            c_menu_item(
+                text_color("Admin mail", en_color.BRIGHT_YELLOW),
+                "e",
+                self.edit_admin_mail,
+                atRight=get_admin_mail(self.cfg) or "not set",
+            ),
             None
         ]
         # Enumerate users; assign numeric selection keys for ease of use.
@@ -106,8 +117,9 @@ class menu(c_menu):
             name = usr.get("sftpuser") or f"user{idx}"
             mp_count = len(usr.get("sftpmounts", {}))
             key_count = len(usr.get("sftpcerts", []))
+            mail = usr.get("mail") or "-"
             label = text_color(f"{name}",en_color.YELLOW)
-            atR=f"mounts:{mp_count}, keys:{key_count}"
+            atR=f"mounts:{mp_count}, keys:{key_count}, mail:{mail}"
             # Create a submenu instance carrying the username.  The
             # c_menu framework will detect it as a submenu.
             self.menu.append(
@@ -160,6 +172,28 @@ class menu(c_menu):
         self.changed = True
         return ret.okRet(f"User '{name}' created.")
 
+    def edit_admin_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        """Set or update the admin email address stored in the config."""
+        ret = onSelReturn()
+        current = get_admin_mail(self.cfg)
+        prompt = "Enter admin email address:"
+        if current:
+            prompt = f"Enter admin email address [{current}]:"
+        mail = get_input(
+            prompt,
+            accept_empty=False,
+            rgx=r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$",
+            maxLen=254,
+            errTx="Invalid email address."
+        )
+        if not mail:
+            return ret.errRet("Operation cancelled.")
+        ok, msg = set_admin_mail(self.cfg, mail)
+        if not ok:
+            return ret.errRet(msg)
+        self.changed = True
+        return ret.okRet(f"Admin mail set to '{mail}'.")
+
     def apply_changes(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Invoke the SFTP manager script to apply changes to the system."""
         ok, msg = apply_changes(cfg=self.cfg, save=True)
@@ -210,8 +244,15 @@ class m_user(c_menu):
         
         title = f"User: {self.username}"
         usr = self.user or {}
+        current_mail = get_user_mail(self.mainMenu.cfg, self.username) or "not set"
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
+            c_menu_item(
+                text_color("Mail", en_color.BRIGHT_YELLOW),
+                "e",
+                self.edit_mail,
+                atRight=current_mail,
+            ),
             c_menu_item(text_color("Delete user", en_color.BRIGHT_RED), "d", self.delete_user),
             None,
             c_menu_item("Manage mountpoints", "m", m_user_mountpoints(self.username, self.mainMenu,self.user),atRight="qty: "+str(len(usr.get("sftpmounts", {})))),
@@ -229,6 +270,33 @@ class m_user(c_menu):
         self.mainMenu.changed=True
         # End this menu so that the parent list refreshes without the user
         return onSelReturn(endMenu=True)
+
+    def edit_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        """Set, update, or clear the optional mail address for this user."""
+        ret = onSelReturn()
+        current = get_user_mail(self.mainMenu.cfg, self.username)
+        prompt = "Enter user email address (empty clears):"
+        if current:
+            prompt = f"Enter user email address [{current}] (empty clears):"
+        mail = get_input(
+            prompt,
+            accept_empty=True,
+            rgx=r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$",
+            maxLen=254,
+            errTx="Invalid email address."
+        )
+        if mail is None:
+            return ret.errRet("Operation cancelled.")
+        if not mail:
+            if current and not confirm(f"Clear mail address for user '{self.username}'?"):
+                return ret.errRet("Cancelled.")
+            ok, msg = set_user_mail(self.mainMenu.cfg, self.username, None)
+        else:
+            ok, msg = set_user_mail(self.mainMenu.cfg, self.username, mail)
+        if not ok:
+            return ret.errRet(msg)
+        self.mainMenu.changed=True
+        return ret.okRet("User mail updated.")
 
 
 class m_user_mountpoints(c_menu):
@@ -392,6 +460,7 @@ class m_user_keys(c_menu):
 
     def onEnterMenu(self) -> None:
         self.cfg = self.mainMenu.cfg
+        self.user = find_user(self.cfg, self.username)
 
     def onShowMenu(self) -> None:
         self.title=self.mainMenu.basicTitle(add=" *** User > Keys ***", username=self.username)
@@ -440,23 +509,63 @@ class m_user_keys(c_menu):
         pub, priv = x
         is_cert_with_pk = bool(priv)
         if not is_cert_with_pk:        
-            if not confirm("Remove this key?"):
-                return ret.errRet("Cancelled.")
-            if not hlp_delete_key(self.cfg, self.username, keystr):
-                return ret.errRet("Key not found.")
-            
-            self.mainMenu.changed=True
-            return ret.okRet("Key removed.")
+            opts = [
+                select_item("Show public key", "P", "P"),
+                select_item("Send by mail", "M", "M"),
+                select_item(text_color("Remove key", en_color.BRIGHT_RED), "D", "D"),
+            ]
+            x = select("Select action for this key:", opts)
+            if x is None:
+                return ret.errRet("No action selected.")
+            x = x.item.data
+            if x == "P":
+                print(text_color("Public key:", en_color.BRIGHT_CYAN))
+                print(pub)
+                anyKey()
+                return ret.okRet("Displayed public key.")
+            if x == "M":
+                ok, msg = send_key_by_mail(self.cfg, self.username, keystr)
+                if not ok:
+                    return ret.errRet(msg)
+                anyKey()
+                return ret.okRet("Key sent by mail.")
+            if x == "D":
+                if not confirm("Remove this key?"):
+                    return ret.errRet("Cancelled.")
+                if not hlp_delete_key(self.cfg, self.username, keystr):
+                    return ret.errRet("Key not found.")
+                self.mainMenu.changed=True
+                return ret.okRet("Key removed.")
+            return ret.errRet("Invalid action selected.")
         
         else:
             opts = [
+                select_item("Show public key part", "P", "P"),
+                select_item("Show private key part", "S", "S"),
+                select_item("Send by mail", "M", "M"),
                 select_item("Delete entire certificate (public + private)", "D", "D"),
-                select_item("Show private key part", "S", "S")
             ]
             x = select("This entry contains both public and private key parts. What do you want to do?", opts)
             if x is None:
                 return ret.errRet("No action selected.")
             x = x.item.data
+            if x == "P":
+                print(text_color("Public key part:", en_color.BRIGHT_CYAN))
+                print(pub)
+                anyKey()
+                return ret.okRet("Displayed public key part.")
+            elif x == "S":
+                # zobrazíme PK část pro možnost zkopírování, můžeme dát i možnost zkopírovat do schránky pokud je dostupná
+                print(text_color("Private key part:", en_color.BRIGHT_MAGENTA))
+                print(priv)
+                anyKey()
+                return ret.okRet("Displayed private key part.")
+            elif x == "M":
+                ok, msg = send_key_by_mail(self.cfg, self.username, keystr)
+                if not ok:
+                    return ret.errRet(msg)
+                anyKey()
+                return ret.okRet("Certificate sent by mail.")
             if x == "D":
                 if not confirm("Remove this certificate (both public and private parts)?"):
                     return ret.errRet("Cancelled.")
@@ -465,12 +574,6 @@ class m_user_keys(c_menu):
                 
                 self.mainMenu.changed=True
                 return ret.okRet("Certificate removed.")
-            elif x == "S":
-                # zobrazíme PK část pro možnost zkopírování, můžeme dát i možnost zkopírovat do schránky pokud je dostupná
-                print(text_color("Private key part:", en_color.BRIGHT_MAGENTA))
-                print(priv)
-                anyKey()
-                return ret.okRet("Displayed private key part.")
             else:
                 return ret.errRet("Invalid action selected.")
             

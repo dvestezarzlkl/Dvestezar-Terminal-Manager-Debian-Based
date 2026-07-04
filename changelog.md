@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.9.5
+
+- ADD SFTP manager admin mail a per-user mail adresy uložené v JSON konfiguraci
+- ADD u certifikátů možnost zobrazit veřejnou část a odeslat key pár mailem na admina a volitelně i na user mail
+
+## v1.9.4
+
+- FIX - opraveno SSH restart po updatu změn, pak i s novám userem něbo změnou certifikátu se nešlo přihlásit
+
 ## v1.9.3
 
 - ADD - nové UART menu pro tester s uložením konfigurace, výběrem portu, režimu a parametrů komunikace

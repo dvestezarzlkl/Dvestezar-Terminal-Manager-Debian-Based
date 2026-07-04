@@ -4,6 +4,10 @@ import base64
 import json5
 import os
 import binascii
+import re
+import shutil
+import socket
+import subprocess
 from typing import Dict, List, Optional, Tuple
 import tempfile
 import time
@@ -15,6 +19,11 @@ from libs.JBLibs.sftp.ssh import restart_sshd
 from libs.JBLibs.term import text_color, en_color
 
 log = getLogger("sftpprs")
+
+_MAIL_RGX = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+    r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$"
+)
 
 def load_config(path: Optional[str] = None) -> Tuple[bool,Optional[str],Optional[Dict]]:
     """Load and parse the SFTP manager configuration.
@@ -99,6 +108,164 @@ def save_config(cfg: Dict, path: Optional[str] = None) -> None:
         except OSError:
             pass
         raise
+
+
+def is_valid_mail_address(mail: str) -> bool:
+    """Return ``True`` if the value looks like a single email address."""
+    if not isinstance(mail, str):
+        return False
+    return bool(_MAIL_RGX.match(mail.strip()))
+
+
+def get_admin_mail(cfg: Dict) -> Optional[str]:
+    """Return the configured admin email address, if any."""
+    mail = cfg.get("adminMail")
+    if not isinstance(mail, str):
+        return None
+    mail = mail.strip()
+    return mail or None
+
+
+def set_admin_mail(cfg: Dict, mail: str) -> Tuple[bool, Optional[str]]:
+    """Store the admin email address in the configuration."""
+    if not is_valid_mail_address(mail):
+        return False, "Invalid admin mail address."
+    cfg["adminMail"] = mail.strip().lower()
+    return True, None
+
+
+def get_user_mail(cfg: Dict, username: str) -> Optional[str]:
+    """Return the optional mail address configured for a user."""
+    usr = find_user(cfg, username)
+    if not usr:
+        return None
+    mail = usr.get("mail")
+    if not isinstance(mail, str):
+        return None
+    mail = mail.strip()
+    return mail or None
+
+
+def set_user_mail(cfg: Dict, username: str, mail: Optional[str]) -> Tuple[bool, Optional[str]]:
+    """Store or clear the optional mail address for a user."""
+    usr = find_user(cfg, username)
+    if not usr:
+        return False, "User not found."
+
+    if mail is None or not str(mail).strip():
+        usr.pop("mail", None)
+        return True, None
+
+    mail = str(mail).strip()
+    if not is_valid_mail_address(mail):
+        return False, "Invalid user mail address."
+
+    usr["mail"] = mail.lower()
+    return True, None
+
+
+def _send_mail_message(recipients: List[str], subject: str, body: str) -> Tuple[bool, Optional[str]]:
+    """Send a plain text email using the local mail transport."""
+    recipients = [r.strip() for r in recipients if isinstance(r, str) and r.strip()]
+    unique_recipients: List[str] = []
+    for recipient in recipients:
+        if recipient not in unique_recipients:
+            unique_recipients.append(recipient)
+    if not unique_recipients:
+        return False, "No mail recipients configured."
+
+    sender = f"root@{socket.getfqdn()}"
+    message = (
+        f"From: {sender}\n"
+        f"To: {', '.join(unique_recipients)}\n"
+        f"Subject: {subject}\n"
+        "MIME-Version: 1.0\n"
+        "Content-Type: text/plain; charset=utf-8\n"
+        "\n"
+        f"{body}\n"
+    )
+
+    sendmail = shutil.which("sendmail")
+    if sendmail:
+        try:
+            subprocess.run(
+                [sendmail, "-t", "-oi"],
+                input=message,
+                text=True,
+                check=True,
+            )
+            return True, None
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to send mail via sendmail: {e}"
+
+    mailx = shutil.which("mail") or shutil.which("mailx")
+    if mailx:
+        try:
+            subprocess.run(
+                [mailx, "-s", subject, *unique_recipients],
+                input=body,
+                text=True,
+                check=True,
+            )
+            return True, None
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to send mail via mail: {e}"
+
+    return False, "No local mail transport available (sendmail/mailx not found)."
+
+
+def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional[str]]:
+    """Send an exported SSH key to the configured recipients."""
+    admin_mail = get_admin_mail(cfg)
+    if not admin_mail:
+        return False, "Admin mail is not configured."
+
+    user_mail = get_user_mail(cfg, username)
+    if user_mail is not None and not is_valid_mail_address(user_mail):
+        return False, f"User mail configured for '{username}' is invalid."
+
+    ok, printable = get_printable_keys(key)
+    if not ok:
+        return False, f"Failed to parse key: {printable}"
+
+    pub, priv = printable
+    recipients = [admin_mail]
+    if user_mail and user_mail not in recipients:
+        recipients.append(user_mail)
+
+    subject = f"SFTP key export for {username}"
+    if priv:
+        subject += " (public + private)"
+    else:
+        subject += " (public)"
+
+    body_lines = [
+        f"SFTP key export for user: {username}",
+        f"Recipients: {', '.join(recipients)}",
+        "",
+        "Public key:",
+        pub,
+    ]
+    if priv:
+        body_lines.extend([
+            "",
+            "Private key:",
+            priv,
+            "",
+            "This message contains a private key. Handle it carefully.",
+        ])
+    else:
+        body_lines.extend([
+            "",
+            "No private key is stored for this entry.",
+        ])
+
+    body_lines.extend([
+        "",
+        "Generated by SFTP Manager.",
+    ])
+
+    return _send_mail_message(recipients, subject, "\n".join(body_lines))
 
 
 def list_users(cfg: Optional[Dict] = None) -> List[Dict]:
