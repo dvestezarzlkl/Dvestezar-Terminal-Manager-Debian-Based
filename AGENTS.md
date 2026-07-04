@@ -39,8 +39,11 @@ víc přímo v `libs/app/menus/menu.md` kde je popis i vlastní hlavičky menu a
   - libs/JBLibs/sftp je knihovna pro práci s SFTP konfigurací v systému, jako uživatelé přístup, certifikáty userů, mountpointy přes sambu (sandboxy) atd.
   - libs/JBLibs/sftp/ssh.py je knihovna pro práci se SSHD démonem a pomocné funkce jako generování certifikátů a jiná správa SSHD
 - `libs/app/cfg.py` je runtime konfigurace celé aplikace načtená z `config.ini`; je to jiný kontext než `libs/app/c_cfg.py`, které patří k dynamické konfiguraci node-red instancí.
-- Mailing konfigurace patří do hlavního `menuBoss.py` a ukládá se do globálního `config.ini`; malé související submenu klidně nech v jednom `menu.py`, pokud není rozsáhlé.
+- Aplikační nastavení patří do hlavního `menuBoss.py` a ukládá se do globálního `config.ini`; zahrnuje `SERVER_URL` i mailing a malé související submenu klidně nech v jednom `menu.py`, pokud není rozsáhlé.
 - `libs/app/cfg.py` má mít jednoduché `load()` a `save()` wrappery; `save()` je nová nadstavba nad dříve read-only app configem a interně používá sdílený helper v `libs/JBLibs/helper.py`.
 - Pro nápovědu ve vstupních polích používej `get_input(..., titleNote=...)`, klidně s víc řádky přes `\n`; nepřidávej kvůli tomu nový prompt helper, pokud už to stačí.
 - U SMTP měj režim a port svázané dohromady; výchozí porty jsou `plain=25`, `starttls=587`, `ssl=465` a port `993` je obvykle IMAPS, ne SMTP.
+- V mailovém submenu používej ESC jako návrat a neschovávej to za vlastní `b` back položku.
+- `SERVER_URL` je aplikační adresa bez portu; v menu je lepší nabídnout FQDN, lokální IPv4 a ruční zadání.
+- Záhlaví menu skládaj přes `c_menu_block_items` podobně jako `appHelper._setAppHeader`: jeden titulkový řádek a samostatné stavové řádky přes `append(("label", "value"))`, ne mix všeho do jediné hlavičky.
 - Pokud submenu má jen pár souvisejících akcí nebo vlastních podsubmenu, nech je klidně v jednom `menu.py`; rozděluj až ve chvíli, kdy už je to fakt větší nebo sdílené napříč více místy.

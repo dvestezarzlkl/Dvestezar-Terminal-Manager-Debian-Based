@@ -4,6 +4,7 @@ from typing import List
 from libs.app import cfg
 from libs.app import mail_hlp
 from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_item
+from libs.JBLibs.helper import getInterfaces
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -38,10 +39,10 @@ class menuBoss(menu):
             c_menu_item('System info','i',self.showSystemInfo),
             c_menu_item('Update me','u',self.updateMe),
             c_menu_item(
-                text_color('Mailing settings', en_color.BRIGHT_GREEN),
+                text_color('App settings', en_color.BRIGHT_GREEN),
                 'm',
                 m_mail_settings(),
-                atRight=mail_hlp.get_status_text(),
+                atRight=cfg.SERVER_URL or "not set",
             ),
         ])
         
@@ -100,7 +101,8 @@ class menuBoss(menu):
 class m_mail_settings(c_menu):
     """Global mailing settings for the whole application."""
 
-    ESC_is_quit = False
+    choiceBack = None
+    ESC_is_quit = True
 
     def onEnterMenu(self) -> None:
         self.cfg = cfg
@@ -108,17 +110,23 @@ class m_mail_settings(c_menu):
     def _save(self) -> None:
         cfg.save()
 
-    def _status_text(self) -> str:
-        fallback = mail_hlp.get_fallback_admin_mail() or "not set"
-        return f"{mail_hlp.get_status_text()} | fallback admin: {fallback}"
-
     def onShowMenu(self) -> None:
-        self.title = c_menu_block_items([
-            ("Mailing settings", "c"),
-            ("SMTP", self._status_text()),
-        ])
+        self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+        self.title.append(("App settings", "c"))
+        self.subTitle = c_menu_block_items()
+        self.subTitle.append(("URL", cfg.SERVER_URL or "not set"))
+        self.subTitle.append(("SMTP", mail_hlp.get_status_text()))
+        self.subTitle.append(("Fallback admin", mail_hlp.get_fallback_admin_mail() or "not set"))
         self.menu = [
-            c_menu_title_label(text_color("Application mailing", color=en_color.CYAN)),
+            c_menu_title_label(text_color("App settings", color=en_color.CYAN)),
+            c_menu_item(
+                text_color("Server URL", en_color.BRIGHT_CYAN),
+                "s",
+                self.edit_server_url,
+                atRight=cfg.SERVER_URL or "not set",
+            ),
+            None,
+            c_menu_title_label(text_color("Mail settings", color=en_color.CYAN)),
             c_menu_item(
                 text_color("SMTP host", en_color.BRIGHT_CYAN),
                 "h",
@@ -269,6 +277,64 @@ class m_mail_settings(c_menu):
         cfg.MAIL_FROM = value.strip().lower()
         self._save()
         return onSelReturn(ok="From address updated.")
+
+    def edit_server_url(self, selItem:c_menu_item) -> onSelReturn:
+        current = (cfg.SERVER_URL or "").strip()
+        fqdn = ""
+        if getattr(cfg, "machineInfo", None):
+            fqdn = (cfg.machineInfo.hostname_full or cfg.machineInfo.static_hostname or "").strip()
+
+        opts = []
+        if fqdn:
+            opts.append(select_item(f"Use FQDN ({fqdn})", data=fqdn))
+
+        seen_ips = set()
+        for iface in getInterfaces():
+            ip = (getattr(iface, "ipv4", "") or "").strip()
+            if not ip or ip.startswith(("127.", "0.", "169.254.")):
+                continue
+            if ip in seen_ips:
+                continue
+            seen_ips.add(ip)
+            label = f"Use IPv4 ({iface.name}: {ip})"
+            opts.append(select_item(label, data=ip))
+
+        opts.append(select_item("Manual entry", data="manual"))
+        for opt in opts:
+            if opt.data == current:
+                opt.atRight = "current"
+
+        sel = select("Select SERVER_URL source:", opts)
+        if not sel:
+            return onSelReturn().errRet("Cancelled.")
+
+        new_url = ""
+        if sel.item.data == "manual":
+            note = "\n".join([
+                "SERVER_URL is used without a port.",
+                "Enter only a hostname, FQDN, IP address, or path.",
+                "Do not include http://, https://, or :PORT.",
+            ])
+            value = get_input(
+                "Enter SERVER_URL:",
+                accept_empty=False,
+                maxLen=255,
+                titleNote=note,
+                rgx=r"^[^:\s]+$",
+                errTx="SERVER_URL must not contain a port or spaces.",
+            )
+            if value is None:
+                return onSelReturn().errRet("Cancelled.")
+            new_url = value.strip()
+        else:
+            new_url = str(sel.item.data).strip()
+
+        if not new_url:
+            return onSelReturn().errRet("SERVER_URL cannot be empty.")
+
+        cfg.SERVER_URL = new_url
+        self._save()
+        return onSelReturn(ok=f"SERVER_URL updated to {new_url}.")
 
     def edit_fallback_admin_mail(self, selItem:c_menu_item) -> onSelReturn:
         current = mail_hlp.get_fallback_admin_mail()

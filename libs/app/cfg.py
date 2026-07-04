@@ -13,7 +13,7 @@ MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSIO
 
 MIN_WIDTH: int            = 0
 LANGUAGE: str             = "en-US"                         # jazyk aplikace
-SERVER_URL:str            = "moje.domena.fake"              # jen doména, popř sub path
+SERVER_URL:str            = "moje.domena.fake"              # jen doména/IP/popř sub path, bez portu
 DEFAULT_NODE_ARCHIVE: str = "/home/defaultNodeInstance.7z"  # cesta k archivu s instancí např s výchozí instalací plugin, uzlů flow atd.
 DEFAULT_JS_CONFIG: str    = "muj-node-config.default.js"    # v assets
 TEMP_DIRECTORY: str       = "/tmp/default_node"             # kam se dočasně rozbalí archiv

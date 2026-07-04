@@ -88,7 +88,7 @@ Podrobněji viz také [uart_tester.md](uart_tester.md).
 - spravovat storage, swap, Node-RED, SSH, SFTP i UART testování z jednoho místa
 - ukládat konfiguraci vybraných pluginů do souborů mimo samotný kód
 - udržovat globální runtime konfiguraci aplikace v `/etc/jb_sys_apps/config.ini` přes `libs.app.cfg.load()` a `libs.app.cfg.save()`
-- konfigurovat hlavní `SERVER_URL` a mailing pro celou aplikaci z jednoho místa
+- konfigurovat hlavní `SERVER_URL` bez portu a mailing pro celou aplikaci v jednom `App settings` menu
 - používat lokalizované texty přes `lng` soubory
 - rozšiřovat systém o další pluginy bez úprav hlavního menu
 

@@ -9,6 +9,9 @@
 - FIX SMTP mail errors now mention suspicious IMAP-like replies and mismatched transport ports
 - UPD SFTP key export mails now include the username in the subject and a SysApp version footer
 - UPD SFTP key export mails now send multipart text+HTML with key material wrapped in `<pre>`
+- UPD mailing submenu now uses ESC for back navigation and adds `SERVER_URL` editing without port
+- UPD main settings submenu split into `App settings` and `Mail settings` sections with title separators
+- UPD app settings header now uses `c_menu_block_items.append(("label", "value"))` rows like `appHelper`
 - UPD app version sync for `readme.md` and `libs/app/cfg.py`
 - FIX app config persistence moved out of `libs/app/cfg.py` into shared helper, keeping cfg module schema-only
 - ADD `cfg.save()` wrapper for the shared `/etc/jb_sys_apps/config.ini` runtime config, extending the formerly read-only app config
