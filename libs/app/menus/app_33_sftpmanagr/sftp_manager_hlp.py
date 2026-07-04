@@ -11,6 +11,7 @@ import time
 from libs.JBLibs.helper import getLogger
 from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
 from libs.JBLibs.sftp.sambaPoint import smbHelp
+from libs.JBLibs.sftp.ssh import restart_sshd
 from libs.JBLibs.term import text_color, en_color
 
 log = getLogger("sftpprs")
@@ -651,6 +652,10 @@ def apply_changes(cfg: Optional[Dict] = None, save:bool=False) -> Tuple[bool, Op
         
         log.info("Uninstalling unwanted users who are not in the configuration...")
         uninstallUnwantedUsers()
+
+        log.info("Restarting sshd after SFTP configuration changes...")
+        if not restart_sshd():
+            return False, "Failed to restart sshd after applying SFTP configuration."
     except Exception as e:
         return False, f"Failed to apply configuration via sftpmanager.py: {e}"
     
