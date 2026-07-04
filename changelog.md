@@ -4,6 +4,7 @@
 
 - ADD SFTP manager admin mail a per-user mail adresy uložené v JSON konfiguraci
 - ADD u certifikátů možnost zobrazit veřejnou část a odeslat key pár mailem na admina a volitelně i na user mail
+- UPD key actions ve SFTP manageru přesunuty do vlastního `c_menu` submenu, aby se po zobrazení klíče vracelo zpět jen na nabídku daného klíče
 
 ## v1.9.4
 

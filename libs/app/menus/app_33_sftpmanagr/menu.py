@@ -435,6 +435,133 @@ class m_user_mountpoints(c_menu):
                 self.mainMenu.changed=True
                 return onSelReturn(ok="Mountpoint updated.")
 
+class m_key_actions(c_menu):
+    """Submenu with actions for a single SFTP key entry."""
+
+    # vybrané username
+    username: str = ""
+
+    # instance hlavního menu akonfigu
+    mainMenu: menu = None
+
+    # celý uložený key záznam
+    keystr: str = ""
+
+    # zobrazený název položky v listu
+    display_name: str = ""
+
+    # dekódovaná veřejná / privátní část
+    pub_key: str = ""
+    priv_key: str = ""
+    has_private: bool = False
+
+    def __init__(
+        self,
+        username: str,
+        mainMenu: menu,
+        keystr: str,
+        display_name: str,
+    ) -> None:
+        super().__init__()
+        self.username = username
+        self.mainMenu = mainMenu
+        self.keystr = keystr
+        self.display_name = display_name
+
+    def onEnterMenu(self) -> None:
+        self.cfg = self.mainMenu.cfg
+        ok, printable = get_printable_keys(self.keystr)
+        if not ok:
+            raise ValueError(f"Failed to parse key: {printable}")
+        self.pub_key, self.priv_key = printable
+        self.has_private = bool(self.priv_key)
+
+    def onShowMenu(self) -> None:
+        self.title = self.mainMenu.basicTitle(add=" *** User > Key action ***", username=self.username)
+        self.menu = [
+            c_menu_title_label(text_color(f"Key: {self.display_name}", en_color.CYAN)),
+            c_menu_item(
+                text_color("Show public key", en_color.BRIGHT_CYAN),
+                "p",
+                self.show_public_key,
+            ),
+        ]
+
+        if self.has_private:
+            self.menu.extend([
+                c_menu_item(
+                    text_color("Show private key", en_color.BRIGHT_MAGENTA),
+                    "s",
+                    self.show_private_key,
+                ),
+                c_menu_item(
+                    text_color("Send by mail", en_color.BRIGHT_GREEN),
+                    "m",
+                    self.send_by_mail,
+                    atRight=get_admin_mail(self.cfg) or "admin mail not set",
+                    enabled=bool(get_admin_mail(self.cfg)),
+                ),
+                c_menu_item(
+                    text_color("Delete entire certificate", en_color.BRIGHT_RED),
+                    "d",
+                    self.delete_entry,
+                ),
+            ])
+        else:
+            self.menu.extend([
+                c_menu_item(
+                    text_color("Send by mail", en_color.BRIGHT_GREEN),
+                    "m",
+                    self.send_by_mail,
+                    atRight=get_admin_mail(self.cfg) or "admin mail not set",
+                    enabled=bool(get_admin_mail(self.cfg)),
+                ),
+                c_menu_item(
+                    text_color("Delete key", en_color.BRIGHT_RED),
+                    "d",
+                    self.delete_entry,
+                ),
+            ])
+
+    def show_public_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        ret = onSelReturn()
+        print(text_color("Public key:", en_color.BRIGHT_CYAN))
+        print(self.pub_key)
+        anyKey()
+        return ret.okRet("Public key displayed.")
+
+    def show_private_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        ret = onSelReturn()
+        if not self.has_private:
+            return ret.errRet("No private key stored for this entry.")
+        print(text_color("Private key:", en_color.BRIGHT_MAGENTA))
+        print(self.priv_key)
+        anyKey()
+        return ret.okRet("Private key displayed.")
+
+    def send_by_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        ret = onSelReturn()
+        ok, msg = send_key_by_mail(self.cfg, self.username, self.keystr)
+        if not ok:
+            return ret.errRet(msg)
+        anyKey()
+        return ret.okRet("Key sent by mail.")
+
+    def delete_entry(self, selItem: c_menu_item) -> Optional[onSelReturn]:
+        ret = onSelReturn()
+        if self.has_private:
+            prompt = "Remove this certificate (public + private parts)?"
+            success_msg = "Certificate removed."
+        else:
+            prompt = "Remove this key?"
+            success_msg = "Key removed."
+        if not confirm(prompt):
+            return ret.errRet("Cancelled.")
+        if not hlp_delete_key(self.cfg, self.username, self.keystr):
+            return ret.errRet("Key not found.")
+        self.mainMenu.changed = True
+        return ret.okRet(success_msg, endMenu=True)
+
 class m_user_keys(c_menu):
     """Submenu for listing and editing a user's authorised keys."""
 
@@ -477,12 +604,17 @@ class m_user_keys(c_menu):
             # Truncate long keys for display but carry the full string in data
             name = itm[0]
             keystr = itm[1]
-            disp = name
-            # if len(name) > 40:
-                # disp = name[:37] + "…"
-            itm = c_menu_item(text_color(disp,en_color.YELLOW), str(idx), self.delete_key,data=keystr)
-            itm.data = keystr
-            self.menu.append(itm)
+            self.menu.append(
+                c_menu_item(
+                    text_color(name, en_color.YELLOW),
+                    str(idx),
+                    m_key_actions(self.username, self.mainMenu, keystr, name),
+                    data=keystr,
+                    atRight="mail"
+                    if get_admin_mail(self.mainMenu.cfg)
+                    else "admin mail not set",
+                )
+            )
 
     def add_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
@@ -496,89 +628,6 @@ class m_user_keys(c_menu):
         self.mainMenu.changed=True
         return ret.okRet("Key added.")
 
-    def delete_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
-        ret = onSelReturn()
-        keystr = selItem.data
-        if keystr is None:
-            return ret.errRet("No key specified.")
-        
-        # dekodujeme key pro rozhodnutí jestli pokračovat na delete nebo dat subvolbu pro delete/show pk pokud je to certifikát s pk částí
-        ok, x = get_printable_keys(keystr)
-        if not ok:
-            return ret.errRet(f"Failed to parse key: {x}")
-        pub, priv = x
-        is_cert_with_pk = bool(priv)
-        if not is_cert_with_pk:        
-            opts = [
-                select_item("Show public key", "P", "P"),
-                select_item("Send by mail", "M", "M"),
-                select_item(text_color("Remove key", en_color.BRIGHT_RED), "D", "D"),
-            ]
-            x = select("Select action for this key:", opts)
-            if x is None:
-                return ret.errRet("No action selected.")
-            x = x.item.data
-            if x == "P":
-                print(text_color("Public key:", en_color.BRIGHT_CYAN))
-                print(pub)
-                anyKey()
-                return ret.okRet("Displayed public key.")
-            if x == "M":
-                ok, msg = send_key_by_mail(self.cfg, self.username, keystr)
-                if not ok:
-                    return ret.errRet(msg)
-                anyKey()
-                return ret.okRet("Key sent by mail.")
-            if x == "D":
-                if not confirm("Remove this key?"):
-                    return ret.errRet("Cancelled.")
-                if not hlp_delete_key(self.cfg, self.username, keystr):
-                    return ret.errRet("Key not found.")
-                self.mainMenu.changed=True
-                return ret.okRet("Key removed.")
-            return ret.errRet("Invalid action selected.")
-        
-        else:
-            opts = [
-                select_item("Show public key part", "P", "P"),
-                select_item("Show private key part", "S", "S"),
-                select_item("Send by mail", "M", "M"),
-                select_item("Delete entire certificate (public + private)", "D", "D"),
-            ]
-            x = select("This entry contains both public and private key parts. What do you want to do?", opts)
-            if x is None:
-                return ret.errRet("No action selected.")
-            x = x.item.data
-            if x == "P":
-                print(text_color("Public key part:", en_color.BRIGHT_CYAN))
-                print(pub)
-                anyKey()
-                return ret.okRet("Displayed public key part.")
-            elif x == "S":
-                # zobrazíme PK část pro možnost zkopírování, můžeme dát i možnost zkopírovat do schránky pokud je dostupná
-                print(text_color("Private key part:", en_color.BRIGHT_MAGENTA))
-                print(priv)
-                anyKey()
-                return ret.okRet("Displayed private key part.")
-            elif x == "M":
-                ok, msg = send_key_by_mail(self.cfg, self.username, keystr)
-                if not ok:
-                    return ret.errRet(msg)
-                anyKey()
-                return ret.okRet("Certificate sent by mail.")
-            if x == "D":
-                if not confirm("Remove this certificate (both public and private parts)?"):
-                    return ret.errRet("Cancelled.")
-                if not hlp_delete_key(self.cfg, self.username, keystr):
-                    return ret.errRet("Certificate not found.")
-                
-                self.mainMenu.changed=True
-                return ret.okRet("Certificate removed.")
-            else:
-                return ret.errRet("Invalid action selected.")
-            
-            
-    
     def generate(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         if not confirm("Generate a new SSH Ed25519 key pair? The private key will be added to the config in base64 format and the public key will be added to the user's authorised keys."):
             return onSelReturn().errRet("Cancelled.")
