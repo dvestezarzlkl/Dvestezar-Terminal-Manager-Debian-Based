@@ -187,11 +187,16 @@ def send_mail(
     recipients: Sequence[str],
     subject: str,
     body: str,
+    html_body: Optional[str] = None,
     cc: Sequence[str] | None = None,
     bcc: Sequence[str] | None = None,
     reply_to: Optional[str] = None,
 ) -> Tuple[bool, Optional[str]]:
-    """Send a plain text email over configured SMTP."""
+    """Send a plain text email over configured SMTP.
+
+    If ``html_body`` is provided, the message is sent as multipart/alternative
+    with both plain text and HTML parts.
+    """
     ok, reason = get_config_status()
     if not ok:
         return False, reason
@@ -216,6 +221,8 @@ def send_mail(
         msg["Reply-To"] = reply_to.strip().lower()
     msg["Subject"] = subject
     msg.set_content(body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
 
     host = get_smtp_host()
     port = get_smtp_port()
