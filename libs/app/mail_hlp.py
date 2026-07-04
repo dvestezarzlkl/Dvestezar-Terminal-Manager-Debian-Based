@@ -16,6 +16,11 @@ _MAIL_RGX = re.compile(
 )
 
 _SMTP_MODES = {"plain", "starttls", "ssl"}
+_SMTP_DEFAULT_PORTS = {
+    "plain": 25,
+    "starttls": 587,
+    "ssl": 465,
+}
 
 
 def is_valid_mail_address(mail: str) -> bool:
@@ -60,6 +65,35 @@ def get_smtp_password() -> str:
 def get_smtp_mode() -> str:
     mode = _get_str("MAIL_SMTP_MODE").lower() or "starttls"
     return mode
+
+
+def get_default_smtp_port(mode: Optional[str] = None) -> int:
+    mode = (mode or get_smtp_mode()).lower()
+    return _SMTP_DEFAULT_PORTS.get(mode, 587)
+
+
+def is_smtp_port_mismatched(mode: Optional[str] = None, port: Optional[int] = None) -> bool:
+    mode = (mode or get_smtp_mode()).lower()
+    try:
+        current_port = int(port if port is not None else get_smtp_port())
+    except (TypeError, ValueError):
+        return False
+    if current_port <= 0:
+        return False
+    return current_port != get_default_smtp_port(mode)
+
+
+def get_smtp_port_hint(mode: Optional[str] = None) -> str:
+    mode = (mode or get_smtp_mode()).lower() or "starttls"
+    lines = [
+        "Doporučené SMTP porty:",
+        "plain = 25",
+        "STARTTLS = 587",
+        "SSL = 465",
+        "Pozor: port 993 je obvykle IMAPS, ne SMTP.",
+        f"Výchozí port pro {mode.upper()} je {get_default_smtp_port(mode)}.",
+    ]
+    return "\n".join(lines)
 
 
 def get_mail_from() -> str:
@@ -128,7 +162,10 @@ def get_status_text() -> str:
     """Return a short status label for menus."""
     ok, reason = get_config_status()
     if ok:
-        return f"{get_smtp_host()}:{get_smtp_port()} {get_smtp_mode().upper()}"
+        status = f"{get_smtp_host()}:{get_smtp_port()} {get_smtp_mode().upper()}"
+        if is_smtp_port_mismatched():
+            status += " !"
+        return status
     return reason
 
 
@@ -202,8 +239,14 @@ def send_mail(
                 smtp.login(user, password)
             smtp.send_message(msg, from_addr=from_addr, to_addrs=to_addrs)
     except Exception as e:
+        err = str(e)
+        hint = ""
+        if "IMAP4rev1" in err or "Dovecot" in err or "IMAP" in err.upper():
+            hint = " The server replied like IMAP; SMTP SSL usually uses port 465 and STARTTLS uses 587."
+        elif is_smtp_port_mismatched(mode, port):
+            hint = f" The selected port {port} is unusual for {mode.upper()}; expected {get_default_smtp_port(mode)}."
         log.error(f"Failed to send mail via SMTP: {e}")
-        return False, f"Failed to send mail via SMTP: {e}"
+        return False, f"Failed to send mail via SMTP: {e}{hint}"
 
     return True, None
 

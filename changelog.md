@@ -5,6 +5,8 @@
 - ADD central SMTP mailing config in main app menu, persisted to `config.ini`
 - ADD global mailing helper with SMTP login and application-wide fallback admin mail
 - UPD SFTP manager mail send now uses the shared SMTP helper and global fallback admin mail
+- UPD SMTP mode selection now offers a port swap confirmation and port hints in the mailing menu
+- FIX SMTP mail errors now mention suspicious IMAP-like replies and mismatched transport ports
 - UPD app version sync for `readme.md` and `libs/app/cfg.py`
 - FIX app config persistence moved out of `libs/app/cfg.py` into shared helper, keeping cfg module schema-only
 - ADD `cfg.save()` wrapper for the shared `/etc/jb_sys_apps/config.ini` runtime config, extending the formerly read-only app config

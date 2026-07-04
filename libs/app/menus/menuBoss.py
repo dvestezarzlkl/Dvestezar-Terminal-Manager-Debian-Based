@@ -3,7 +3,7 @@ from libs.app.appHelper import menu
 from typing import List
 from libs.app import cfg
 from libs.app import mail_hlp
-from libs.JBLibs.input import anyKey,get_input,get_pwd,select,select_item
+from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_item
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -187,7 +187,14 @@ class m_mail_settings(c_menu):
         prompt = "Enter SMTP port:"
         if current:
             prompt = f"Enter SMTP port [{current}]:"
-        value = get_input(prompt, accept_empty=True, rgx=r"^\d+$", maxLen=5, errTx="Invalid port.")
+        value = get_input(
+            prompt,
+            accept_empty=True,
+            rgx=r"^\d+$",
+            maxLen=5,
+            errTx="Invalid port.",
+            titleNote=mail_hlp.get_smtp_port_hint(cfg.MAIL_SMTP_MODE),
+        )
         if value is None:
             return onSelReturn().errRet("Cancelled.")
         if not value:
@@ -232,9 +239,18 @@ class m_mail_settings(c_menu):
         sel = select("Select SMTP mode:", opts)
         if not sel:
             return onSelReturn().errRet("Cancelled.")
-        cfg.MAIL_SMTP_MODE = sel.item.data
+        new_mode = sel.item.data
+        new_port = mail_hlp.get_default_smtp_port(new_mode)
+        if cfg.MAIL_SMTP_PORT != new_port:
+            msg = (
+                f"Změnit aktuální port {cfg.MAIL_SMTP_PORT} "
+                f"na výchozí port {new_port} pro {new_mode.upper()}?"
+            )
+            if confirm(msg, minMessageWidth=self.minMenuWidth):
+                cfg.MAIL_SMTP_PORT = new_port
+        cfg.MAIL_SMTP_MODE = new_mode
         self._save()
-        return onSelReturn(ok=f"SMTP mode set to {sel.item.data}.")
+        return onSelReturn(ok=f"SMTP mode set to {new_mode}.")
 
     def edit_mail_from(self, selItem:c_menu_item) -> onSelReturn:
         current = cfg.MAIL_FROM or cfg.MAIL_SMTP_USER or ""
