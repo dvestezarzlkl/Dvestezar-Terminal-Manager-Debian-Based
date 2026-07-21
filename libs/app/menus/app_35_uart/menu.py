@@ -12,6 +12,7 @@ from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_t
 from libs.JBLibs.input import anyKey, get_input, select, select_item
 from libs.JBLibs.term import cls, en_color, text_color
 
+from . import uart_loopback
 from .uart_menu_hlp import (
     BAUDRATES,
     BYTESIZES,
@@ -80,6 +81,12 @@ class menu(c_menu):
                 "t",
                 self.start_test_command,
                 atRight=self.settings.test_command,
+                enabled=port_ok,
+            ),
+            c_menu_item(
+                text_color(TXT_UART_MENU_START_LOOPBACK, en_color.BRIGHT_CYAN),
+                "lb",
+                self.start_loopback_test,
                 enabled=port_ok,
             ),
             None,
@@ -186,6 +193,35 @@ class menu(c_menu):
         if err := self._try_save_error():
             return onSelReturn().errRet(err)
         return self._run_mode(False)
+
+    def start_loopback_test(self, selItem: c_menu_item) -> onSelReturn:
+        if not self.settings.port:
+            return onSelReturn().errRet(TXT_UART_MENU_NO_PORT_SELECTED)
+
+        cls()
+        print(TXT_UART_MENU_LOOPBACK_INFO)
+        print(TXT_UART_MENU_LOOPBACK_STARTING.format(port=self.settings.port))
+        print("")
+
+        error_message: str | None = None
+        try:
+            uart_loopback.run_all(
+                self.settings.port,
+                bytesize=self.settings.bytesize,
+                parity=self.settings.parity,
+                stopbits=self.settings.stopbits,
+            )
+        except KeyboardInterrupt:
+            error_message = uart_tester.TXT_UART_STOPPED_BY_USER
+            print(error_message)
+        except Exception as e:
+            error_message = uart_tester.TXT_UART_ERR_OCCURRED.format(err=e)
+            print(error_message)
+
+        anyKey()
+        if error_message:
+            return onSelReturn().errRet(error_message)
+        return onSelReturn(ok=TXT_UART_MENU_LOOPBACK_FINISHED)
 
     def start_test_command(self, selItem: c_menu_item) -> onSelReturn:
         if not self.settings.port:

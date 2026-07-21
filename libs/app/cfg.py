@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "1.9.6"
+VERSION = "1.9.7"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -30,7 +30,7 @@ MAIL_SMTP_USER:str        = ""                              # SMTP uživatel
 MAIL_SMTP_PASSWORD:str    = ""                              # SMTP heslo
 MAIL_SMTP_MODE:str        = "starttls"                      # plain / starttls / ssl
 MAIL_FROM:str             = ""                              # odesílatel, pokud je prázdný použije se SMTP user
-MAIL_FALLBACK_ADMIN:str   = ""                              # výchozí admin mail pro aplikace bez vlastního adminMail
+MAIL_FALLBACK_ADMIN:str   = ""                              # výchozí admin mail pro aplikace bez vlastního admin mail
 MAIL_TIMEOUT:int          = 20                              # timeout pro SMTP spojení v sekundách
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu

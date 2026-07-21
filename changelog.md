@@ -2,7 +2,13 @@
 
 ## v1.9.7
 
-
+- ADD UART loopback diagnostika přímo v UART menu pro rychlosti 9600 až 2 000 000 Bd
+- ADD testovací osmibajtové rámce s indexem pokusu a Modbus CRC16
+- ADD statistiky TX/RX, timeoutů, CRC chyb, rozdílů dat a cizích bajtů pro každou rychlost
+- ADD plný verbose log každého rámce do časově označeného souboru v globálním `LOG_DIR`
+- UPD živý průběh testu se v terminálu přepisuje na jednom řádku, po rychlosti zůstane pouze souhrn
+- FIX poslední odeslaný rámec dostane celý timeout na odpověď a nevzniká falešný timeout na konci časového okna
+- UPD hlavní verze aplikace na 1.9.7
 
 ## v1.9.6
 
