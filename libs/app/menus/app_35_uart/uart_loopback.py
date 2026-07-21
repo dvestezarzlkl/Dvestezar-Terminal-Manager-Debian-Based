@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
 import time
 from typing import Callable, Iterable
 
@@ -86,6 +88,7 @@ def test_baudrate(port: str, baudrate: int, *, bytesize: int = 8,
                   output: Printer = print) -> BaudResult:
     result = BaudResult(baudrate)
     started = time.monotonic()
+    send_until = started + seconds
     output(f"\n--- {baudrate} Bd | {bytesize}{parity}{stopbits:g} | {seconds:.1f} s ---")
     try:
         with serial.Serial(port, baudrate, bytesize=bytesize, parity=parity,
@@ -95,9 +98,8 @@ def test_baudrate(port: str, baudrate: int, *, bytesize: int = 8,
             output(f"OPEN port={ser.port} requested={baudrate} actual={ser.baudrate}")
             ser.reset_input_buffer()
             ser.reset_output_buffer()
-            end_time = started + seconds
             index = 0
-            while time.monotonic() < end_time:
+            while time.monotonic() < send_until:
                 frame = make_frame(index)
                 sent_at = time.monotonic()
                 written = ser.write(frame)
@@ -107,7 +109,10 @@ def test_baudrate(port: str, baudrate: int, *, bytesize: int = 8,
                     result.error = f"write {written}/{FRAME_LENGTH} B"
                     output(f"[{index:03d}] TX ERROR {result.error}")
                     break
-                rx = read_frame(ser, min(end_time, sent_at + FRAME_TIMEOUT), result)
+
+                # Once a frame is sent, always allow its complete response timeout.
+                # The configured duration limits starting new frames, not finishing one.
+                rx = read_frame(ser, sent_at + FRAME_TIMEOUT, result)
                 latency = (time.monotonic() - sent_at) * 1000.0
                 if rx is None:
                     result.timeouts += 1
@@ -128,19 +133,49 @@ def test_baudrate(port: str, baudrate: int, *, bytesize: int = 8,
     return result
 
 
+def _log_path() -> Path:
+    log_dir = Path.cwd() / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    return log_dir / f"{stamp}_uart_loopback_test.log"
+
+
 def run_all(port: str, *, baudrates: Iterable[int] = BAUDRATES,
             bytesize: int = 8, parity: str = "N", stopbits: float = 1,
             seconds_per_baud: float = TEST_SECONDS_PER_BAUD,
             output: Printer = print) -> list[BaudResult]:
-    output("Propojte TX <-> RX na testovanem UART prevodniku.")
-    output(f"Port: {port}; test: {seconds_per_baud:.1f} s na rychlost")
-    results = []
-    for baudrate in baudrates:
-        results.append(test_baudrate(port, int(baudrate), bytesize=bytesize,
-                      parity=parity, stopbits=stopbits,
-                      seconds=seconds_per_baud, output=output))
-    output("\n=== SOUHRN UART LOOPBACK ===")
-    output(format_summary(results))
+    log_path = _log_path()
+    results: list[BaudResult] = []
+
+    with log_path.open("x", encoding="utf-8", buffering=1) as log_file:
+        def tee(message: str) -> None:
+            text = str(message)
+            output(text)
+            print(text, file=log_file, flush=True)
+
+        tee("=== NEW UART LOOPBACK RUN ===")
+        tee(f"Started: {datetime.now().isoformat(timespec='seconds')}")
+        tee("Connect TX <-> RX on the tested UART adapter.")
+        tee(f"Port: {port}; format: {bytesize}{parity}{stopbits:g}; "
+            f"test: {seconds_per_baud:.1f} s per baudrate")
+        tee(f"Log: {log_path.resolve()}")
+
+        for baudrate in baudrates:
+            results.append(test_baudrate(
+                port,
+                int(baudrate),
+                bytesize=bytesize,
+                parity=parity,
+                stopbits=stopbits,
+                seconds=seconds_per_baud,
+                output=tee,
+            ))
+
+        tee("\n=== UART LOOPBACK SUMMARY ===")
+        tee(format_summary(results))
+        tee(f"Finished: {datetime.now().isoformat(timespec='seconds')}")
+        tee(f"Log saved to: {log_path.resolve()}")
+
     return results
 
 
@@ -156,5 +191,5 @@ def format_result(result: BaudResult) -> str:
 def format_summary(results: Iterable[BaudResult]) -> str:
     items = list(results)
     lines = [format_result(item) for item in items]
-    lines += ["", f"Vysledek: {sum(x.ok for x in items)}/{len(items)} rychlosti bez chyby"]
+    lines += ["", f"Result: {sum(x.ok for x in items)}/{len(items)} baudrates without error"]
     return "\n".join(lines)
