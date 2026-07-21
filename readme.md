@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.9.6
+v1.9.7
 
 [ENG](readme_en.md)
 
@@ -74,6 +74,10 @@ Podrobněji viz také [sftp_manager_readme.md](sftp_manager_readme.md).
 - uložení konfigurace do souboru a její opětovné načtení při dalším spuštění
 - generování testovacího příkazu ve tvaru `test{len}n{repeat}`
 - nastavení délky testovacího textu a počtu opakování přímo z menu
+- diagnostický UART loopback test běžných rychlostí od 9600 do 2 000 000 Bd
+- testovací rámce s indexem a Modbus CRC16, kontrola timeoutů, CRC, dat a cizích bajtů
+- průběžný stav testu se na obrazovce přepisuje na jednom řádku a po každé rychlosti zůstane souhrn
+- plný verbose výpis každého rámce se ukládá do časově označeného logu v globálním `LOG_DIR`
 
 Podrobněji viz také [uart_tester.md](uart_tester.md).
 
