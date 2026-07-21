@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.7
+
+
+
 ## v1.9.6
 
 - ADD central SMTP mailing config in main app menu, persisted to `config.ini`
