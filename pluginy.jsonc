@@ -1,3 +1,8 @@
+// Plugin catalog interface and field descriptions:
+// docs/plugin-system.md
+//
+// .gitmodules remains authoritative for submodule paths and repository URLs.
+// /etc/jb_sys_apps/plugins.jsonc stores local enabled/disabled overrides.
 {
     "sys_apps_zlkl_plugin":{
         "adr_name":"app_50_zlkl",
