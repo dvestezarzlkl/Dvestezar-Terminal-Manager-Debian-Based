@@ -56,6 +56,8 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("Public key file", files["team_user_README.txt"])
         self.assertIn("WinSCP", files["team_user_README.txt"])
         self.assertIn("Soubor se soukromým klíčem", files["team_user_README.txt"])
+        self.assertIn("Pole Password ponechte prázdné", files["team_user_README.txt"])
+        self.assertIn("Samba/SFTP sandbox", files["team_user_README.txt"])
         self.assertIn("nelze nastavit práva", files["team_user_README.txt"])
 
     def test_public_only_archive_has_no_private_file(self):
