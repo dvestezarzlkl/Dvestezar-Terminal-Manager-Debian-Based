@@ -14,6 +14,11 @@
         "satokaz.vscode-markdown-header-coloring",
         "lijiang314.code2snippet",
         "rodolphebarbanneau.python-docstring-highlighter",
-        "github.copilot"
+        "github.copilot",
+        "usernamehw.todo-md",
+        "sandy081.todotasks",
+        "ms-vscode-remote.vscode-remote-extensionpack",
+        "michelemelluso.gitignore",
+        "openai.chatgpt"
     ]
 }
