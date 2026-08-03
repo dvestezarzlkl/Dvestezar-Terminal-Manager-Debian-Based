@@ -5,7 +5,10 @@ loadLng()
 from libs.JBLibs.c_menu import c_menu_item,c_menu_title_label,onSelReturn
 from .ssh_menu import ssh_menu
 from libs.JBLibs.systemUserManager import listKeyRow
-from libs.JBLibs.term import text_color,en_color
+from libs.JBLibs.term import text_color,en_color,cls
+from libs.JBLibs.input import anyKey
+from libs.app import user_contact
+from . import ssh_mail_hlp
 
 from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
@@ -47,8 +50,27 @@ class menu_user_key_edit(ssh_menu):
             self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_05,color=en_color.GREEN),"ins",self.insKey))
         
         self.menu.extend([
+            c_menu_item(TXT_MENU3_TITLE_03,"mail",self.sendKeyMail),
             c_menu_item(text_color(TXT_MENU2_TITLE_04,color=en_color.BRIGHT_RED,bold=True),"del",self.deleteKey),
         ])
+
+    def sendKeyMail(self,selItem:c_menu_item) -> onSelReturn:
+        username=self._mData.selectedUser.userName
+        recipient=user_contact.get_user_email(username)
+        if not recipient:
+            return TXT_MENU3_TITLE_04
+        cls()
+        print(TXT_MENU3_TITLE_05)
+        ok,error=ssh_mail_hlp.send_managed_key_by_mail(
+            username,
+            self._mData.selectedKey.fileName,
+            recipient,
+        )
+        if not ok:
+            return error
+        print(TXT_MENU3_TITLE_06)
+        anyKey()
+        return None
 
     def deleteKey(self,selItem:c_menu_item) -> onSelReturn:
         """

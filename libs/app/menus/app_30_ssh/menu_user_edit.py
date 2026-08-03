@@ -5,7 +5,8 @@ loadLng()
 from libs.JBLibs.c_menu import c_menu_item,c_menu_block_items,c_menu_title_label,onSelReturn
 from .ssh_menu import ssh_menu,sshMenu_data
 from .menu_user_key_edit import menu_user_key_edit
-from libs.JBLibs.input import confirm,anyKey
+from libs.JBLibs.input import confirm,anyKey,get_input
+from libs.app import mail_hlp,user_contact
 from libs.JBLibs.term import cls
 from libs.JBLibs.term import text_color,en_color
 
@@ -30,9 +31,11 @@ class menu_user_edit (ssh_menu):
         
         t=TXT_MENU2_TITLE_01 + " (" + ( TXT_MENU_01 if self._mData.selectedUser.hasSudo else TXT_MENU_00 ) + ")"
         cl=en_color.GREEN if self._mData.selectedUser.keyCount>0 else en_color.BRIGHT_BLACK
+        recipient=user_contact.get_user_email(self._mData.selectedUser.userName)
         self._setAppHeader(t,"",
             c_menu_block_items([
                 ( text_color(TXT_MENU2_TITLE_02,color=cl)      ,text_color(str( self._mData.selectedUser.keyCount ),color=cl) ),
+                ( TXT_MENU2_TITLE_40, recipient or TXT_MENU2_TITLE_41 ),
             ]),
             self._mData.selectedUser.userName
         )
@@ -96,9 +99,31 @@ class menu_user_edit (ssh_menu):
             c_menu_item(text_color(TXT_MENU2_TITLE_03,color=en_color.GREEN),"a",self.createKey),
             c_menu_item(text_color(TXT_MENU2_TITLE_08,en_color.RED),"d",self.deleteUser),
             c_menu_item(TXT_MENU2_TITLE_09,"p",self.pwdUser),
+            c_menu_item(TXT_MENU2_TITLE_42,"mail",self.setUserMail),
             c_menu_item(text_color(TXT_MENU2_TITLE_10,color=en_color.YELLOW),"u",self.updateUserSSH),
         ])
-    
+
+    def setUserMail(self,selItem:c_menu_item) -> onSelReturn:
+        username=self._mData.selectedUser.userName
+        current=user_contact.get_user_email(username) or TXT_MENU2_TITLE_41
+        value=get_input(
+            TXT_MENU2_TITLE_43,
+            accept_empty=True,
+            rgx=lambda x: x == "" or mail_hlp.is_valid_mail_address(x),
+            clearScreen=True,
+            errTx=TXT_MENU2_TITLE_45,
+            titleNote=TXT_MENU2_TITLE_44.format(mail=current),
+        )
+        if value is None:
+            return None
+        ok,error=user_contact.set_user_email(username,value)
+        if not ok:
+            return error
+        cls()
+        print(TXT_MENU2_TITLE_46 if value else TXT_MENU2_TITLE_47)
+        anyKey()
+        return None
+
     def checkUserTty(self) -> bool:
         """Otestuje jestli má uživatel přístup k tty, tzn sériový port, UART atd.  
         Testuje se přímo existencí uživatele v systémové skupině `dialout`.

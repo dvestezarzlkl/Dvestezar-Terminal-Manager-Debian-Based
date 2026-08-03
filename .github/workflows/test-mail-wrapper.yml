@@ -5,8 +5,14 @@ on:
     paths:
       - "libs/JBLibs"
       - "libs/app/mail_hlp.py"
+      - "libs/app/user_contact.py"
+      - "libs/app/ssh_key_bundle.py"
+      - "libs/app/menus/app_30_ssh/**"
       - "libs/app/menus/app_33_sftpmanagr/**"
       - "tests/test_mail_hlp.py"
+      - "tests/test_user_contact.py"
+      - "tests/test_ssh_key_bundle.py"
+      - "tests/test_ssh_manager_mail.py"
       - "tests/test_sftp_key_mail.py"
       - ".github/workflows/test-mail-wrapper.yml"
 
@@ -53,8 +59,16 @@ jobs:
         run: |
           python -m py_compile \
             libs/app/mail_hlp.py \
+            libs/app/user_contact.py \
+            libs/app/ssh_key_bundle.py \
+            libs/app/menus/app_30_ssh/menu_user_edit.py \
+            libs/app/menus/app_30_ssh/menu_user_key_edit.py \
+            libs/app/menus/app_30_ssh/ssh_mail_hlp.py \
             libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py \
             tests/test_mail_hlp.py \
+            tests/test_user_contact.py \
+            tests/test_ssh_key_bundle.py \
+            tests/test_ssh_manager_mail.py \
             tests/test_sftp_key_mail.py
 
       - name: Run mail delivery tests
@@ -62,4 +76,7 @@ jobs:
         run: |
           python -m unittest -v \
             tests.test_mail_hlp \
+            tests.test_user_contact \
+            tests.test_ssh_key_bundle \
+            tests.test_ssh_manager_mail \
             tests.test_sftp_key_mail
