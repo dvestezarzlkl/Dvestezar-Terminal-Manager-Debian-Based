@@ -43,7 +43,7 @@ from .sftp_manager_hlp import (
     send_key_by_mail,
 )
 
-_MENU_NAME_: str = "SFTP Manager"
+_MENU_NAME_: str = TXT_SFTP_MENU_NAME
 
 class menu(c_menu):
     """Top‑level menu listing all configured SFTP users."""
@@ -60,9 +60,9 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    __VERSION__ = "1.1.2"
+    __VERSION__ = "1.2.0"
 
-    def basicTitle(self, add:str|list=None, username:str|None="not selected") -> c_menu_block_items:
+    def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
         """Vytvoří základní titulní blok pro menu.
         
         Returns:
@@ -74,9 +74,9 @@ class menu(c_menu):
         header=c_menu_block_items(blockColor=en_color.BRIGHT_CYAN )
         header.append( (menuname,'c') )
         header.append("-")
-        header.append(f"Verze: {menuVer}")
+        header.append(TXT_SFTP_MENU_VERSION.format(version=menuVer))
         if username is not None:
-            header.append( ("Selected user", username) )
+            header.append((TXT_SFTP_MENU_SELECTED_USER, username))
         
         if isinstance(add, str):
             header.append( add )
@@ -94,7 +94,7 @@ class menu(c_menu):
         # changes performed in submenus are visible here.
         ok,msg,cfg = load_config()
         if not ok:
-            print(text_color(f"Warning: {msg}", en_color.BRIGHT_RED))
+            print(text_color(TXT_SFTP_MENU_WARNING.format(message=msg), en_color.BRIGHT_RED))
             anyKey()
         self.cfg = cfg
         self.users = list_users(self.cfg)
@@ -105,7 +105,7 @@ class menu(c_menu):
         # users are configured.
         self.title = self.basicTitle()
         
-        title = f"{_MENU_NAME_} ({len(self.users)} users)"
+        title = TXT_SFTP_MENU_USERS_COUNT.format(name=_MENU_NAME_, count=len(self.users))
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
         ]
@@ -116,24 +116,24 @@ class menu(c_menu):
                 )
             )
         self.menu.extend([
-            c_menu_item(text_color("Create new SFTP user", en_color.BRIGHT_GREEN), "n", self.create_user),
+            c_menu_item(text_color(TXT_SFTP_MENU_CREATE_USER, en_color.BRIGHT_GREEN), "n", self.create_user),
             c_menu_item(
-                text_color("Admin mail", en_color.BRIGHT_YELLOW),
+                text_color(TXT_SFTP_MENU_ADMIN_MAIL, en_color.BRIGHT_YELLOW),
                 "e",
                 self.edit_admin_mail,
-                atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "not set",
+                atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or TXT_SFTP_MENU_NOT_SET,
             ),
             None
         ])
         # Enumerate users; assign numeric selection keys for ease of use.
         # FIXME jako u disku zobrazovat ve sloupcích
         for idx, usr in enumerate(self.users, start=1):
-            name = usr.get("sftpuser") or f"user{idx}"
+            name = usr.get("sftpuser") or TXT_SFTP_MENU_USER_FALLBACK.format(index=idx)
             mp_count = len(usr.get("sftpmounts", {}))
             key_count = len(usr.get("sftpcerts", []))
             mail = usr.get("mail") or "-"
             label = text_color(f"{name}",en_color.YELLOW)
-            atR=f"mounts:{mp_count}, keys:{key_count}, mail:{mail}"
+            atR = TXT_SFTP_MENU_USER_SUMMARY.format(mounts=mp_count, keys=key_count, mail=mail)
             # Create a submenu instance carrying the username.  The
             # c_menu framework will detect it as a submenu.
             self.menu.append(
@@ -142,14 +142,14 @@ class menu(c_menu):
             
         self.menu.append(None)
         if self.changed:
-            self.menu.append(c_menu_item(text_color("!! Save & apply changes !!",en_color.BRIGHT_RED), "a", self.apply_changes))
-            self.menu.append(c_menu_item(text_color("Discard unsaved changes",en_color.BRIGHT_YELLOW), "d", self.cancel_changes))
+            self.menu.append(c_menu_item(text_color(TXT_SFTP_MENU_SAVE_APPLY, en_color.BRIGHT_RED), "a", self.apply_changes))
+            self.menu.append(c_menu_item(text_color(TXT_SFTP_MENU_DISCARD_UNSAVED, en_color.BRIGHT_YELLOW), "d", self.cancel_changes))
         else:
             # apply changes = install update active sftp users according to curent config, dáme mgentu
-            self.menu.append(c_menu_item(text_color("Install/update active SFTP users according to current config",en_color.MAGENTA), "a", self.apply_changes))
+            self.menu.append(c_menu_item(text_color(TXT_SFTP_MENU_APPLY_CURRENT, en_color.MAGENTA), "a", self.apply_changes))
             
         # kompletně smazat všechny aktivní uživatele - clean state, run sftpmanager delete all users
-        self.menu.append(c_menu_item(text_color("Uninstall all users", en_color.BRIGHT_RED), "u", self.uninstall_all_users))
+        self.menu.append(c_menu_item(text_color(TXT_SFTP_MENU_UNINSTALL_ALL, en_color.BRIGHT_RED), "u", self.uninstall_all_users))
 
     def uninstall_all_users(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """
@@ -167,65 +167,67 @@ class menu(c_menu):
         # opravdu odinstalovat všechny aktivní sftp usery? \n toto odinstaluje aktivní sftp uživatele
         # tato akce nemá nic společného s modifikací konfigu, po této akci lze použít apply changes pro aktualizaci aktivních sftp uživatelů
         # tzn tato akce + apply = reainstall sftp users podle aktuálního stavu konfigu
-        if not confirm("Really uninstall all active SFTP users?\nThis will remove all SFTP user accounts currently active on the system.\nThis action does not modify the configuration, so you can use 'Apply changes'\n  afterwards to reinstall users according to the current configuration.\n\nProceed [y/N]"):
-            return onSelReturn().errRet("Cancelled.")
-        
-        uninstall_all_users()
-        return onSelReturn(ok="All users uninstalled.")
+        if not confirm(TXT_SFTP_MENU_UNINSTALL_CONFIRM):
+            return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
+
+        ok, msg = uninstall_all_users()
+        if not ok:
+            return onSelReturn().errRet(msg)
+        return onSelReturn(ok=TXT_SFTP_MENU_ALL_USERS_UNINSTALLED)
 
     def create_user(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Prompt for a new user name and append it to the config."""
         ret = onSelReturn()
-        name = get_input("Enter new SFTP user name:")
+        name = get_input(TXT_SFTP_MENU_ENTER_NEW_USER)
         if not name:
-            return ret.errRet("Operation cancelled.")
+            return ret.errRet(TXT_SFTP_MENU_OPERATION_CANCELLED)
         # Prevent duplicate names
         if find_user(self.cfg, name):
-            return ret.errRet(f"User '{name}' already exists.")
+            return ret.errRet(TXT_SFTP_MENU_USER_EXISTS.format(username=name))
         hlp_add_user(self.cfg, name)
         self.changed = True
-        return ret.okRet(f"User '{name}' created.")
+        return ret.okRet(TXT_SFTP_MENU_USER_CREATED.format(username=name))
 
     def edit_admin_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Set or update the admin email address stored in the config."""
         ret = onSelReturn()
         current = get_admin_mail(self.cfg)
-        prompt = "Enter admin email address:"
+        prompt = TXT_SFTP_MENU_ENTER_ADMIN_MAIL
         if current:
-            prompt = f"Enter admin email address [{current}]:"
+            prompt = TXT_SFTP_MENU_ENTER_ADMIN_MAIL_CURRENT.format(mail=current)
         mail = get_input(
             prompt,
             accept_empty=False,
             rgx=r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$",
             maxLen=254,
-            errTx="Invalid email address."
+            errTx=TXT_SFTP_MENU_INVALID_EMAIL
         )
         if not mail:
-            return ret.errRet("Operation cancelled.")
+            return ret.errRet(TXT_SFTP_MENU_OPERATION_CANCELLED)
         ok, msg = set_admin_mail(self.cfg, mail)
         if not ok:
             return ret.errRet(msg)
         self.changed = True
-        return ret.okRet(f"Admin mail set to '{mail}'.")
+        return ret.okRet(TXT_SFTP_MENU_ADMIN_MAIL_SET.format(mail=mail))
 
     def apply_changes(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Invoke the SFTP manager script to apply changes to the system."""
         ok, msg = apply_changes(cfg=self.cfg, save=True)
         if not ok:
             log.error(f"Failed to apply changes: {msg}")
-            print(text_color(f"Error: {msg}", en_color.BRIGHT_RED))
+            print(text_color(TXT_SFTP_MENU_ERROR.format(message=msg), en_color.BRIGHT_RED))
             anyKey()
-            return onSelReturn().errRet(f"Failed to apply changes: {msg}")
+            return onSelReturn().errRet(TXT_SFTP_MENU_APPLY_FAILED.format(message=msg))
         self.changed=False
         anyKey()
-        return onSelReturn(ok="Changes applied.")
+        return onSelReturn(ok=TXT_SFTP_MENU_CHANGES_APPLIED)
     
     def cancel_changes(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Discard unsaved changes by reloading the configuration."""
-        if not confirm("Discard unsaved changes?"):
-            return onSelReturn().errRet("Cancelled.")
+        if not confirm(TXT_SFTP_MENU_DISCARD_CONFIRM):
+            return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
         self.onEnterMenu()  # Reload config and reset state
-        return onSelReturn(ok="Changes discarded.")
+        return onSelReturn(ok=TXT_SFTP_MENU_CHANGES_DISCARDED)
 
 
 class m_user(c_menu):
@@ -254,32 +256,32 @@ class m_user(c_menu):
         self.user = find_user(self.mainMenu.cfg, self.username)
 
     def onShowMenu(self) -> None:
-        self.title=self.mainMenu.basicTitle(add=" *** User details ***", username=self.username)
-        
-        title = f"User: {self.username}"
+        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_USER_DETAILS, username=self.username)
+
+        title = TXT_SFTP_MENU_USER_TITLE.format(username=self.username)
         usr = self.user or {}
-        current_mail = get_user_mail(self.mainMenu.cfg, self.username) or "not set"
+        current_mail = get_user_mail(self.mainMenu.cfg, self.username) or TXT_SFTP_MENU_NOT_SET
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
             c_menu_item(
-                text_color("Mail", en_color.BRIGHT_YELLOW),
+                text_color(TXT_SFTP_MENU_MAIL, en_color.BRIGHT_YELLOW),
                 "e",
                 self.edit_mail,
                 atRight=current_mail,
             ),
-            c_menu_item(text_color("Delete user", en_color.BRIGHT_RED), "d", self.delete_user),
+            c_menu_item(text_color(TXT_SFTP_MENU_DELETE_USER, en_color.BRIGHT_RED), "d", self.delete_user),
             None,
-            c_menu_item("Manage mountpoints", "m", m_user_mountpoints(self.username, self.mainMenu,self.user),atRight="qty: "+str(len(usr.get("sftpmounts", {})))),
-            c_menu_item("Manage keys", "k", m_user_keys(self.username, self.mainMenu,self.user),atRight="qty: "+str(len(usr.get("sftpcerts", [])))),
+            c_menu_item(TXT_SFTP_MENU_MANAGE_MOUNTPOINTS, "m", m_user_mountpoints(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get("sftpmounts", {})))),
+            c_menu_item(TXT_SFTP_MENU_MANAGE_KEYS, "k", m_user_keys(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get("sftpcerts", [])))),
         ]
 
     def delete_user(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         """Remove this user from the configuration after confirmation."""
         ret = onSelReturn()
-        if not confirm(f"Really delete SFTP user '{self.username}'? [y/N]"):
-            return ret.errRet("Cancelled.")
+        if not confirm(TXT_SFTP_MENU_DELETE_USER_CONFIRM.format(username=self.username)):
+            return ret.errRet(TXT_SFTP_MENU_CANCELLED)
         if not hlp_delete_user(self.mainMenu.cfg, self.username):
-            return ret.errRet(f"User '{self.username}' not found.")
+            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))
         
         self.mainMenu.changed=True
         # End this menu so that the parent list refreshes without the user
@@ -289,28 +291,28 @@ class m_user(c_menu):
         """Set, update, or clear the optional mail address for this user."""
         ret = onSelReturn()
         current = get_user_mail(self.mainMenu.cfg, self.username)
-        prompt = "Enter user email address (empty clears):"
+        prompt = TXT_SFTP_MENU_ENTER_USER_MAIL
         if current:
-            prompt = f"Enter user email address [{current}] (empty clears):"
+            prompt = TXT_SFTP_MENU_ENTER_USER_MAIL_CURRENT.format(mail=current)
         mail = get_input(
             prompt,
             accept_empty=True,
             rgx=r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$",
             maxLen=254,
-            errTx="Invalid email address."
+            errTx=TXT_SFTP_MENU_INVALID_EMAIL
         )
         if mail is None:
-            return ret.errRet("Operation cancelled.")
+            return ret.errRet(TXT_SFTP_MENU_OPERATION_CANCELLED)
         if not mail:
-            if current and not confirm(f"Clear mail address for user '{self.username}'?"):
-                return ret.errRet("Cancelled.")
+            if current and not confirm(TXT_SFTP_MENU_CLEAR_USER_MAIL_CONFIRM.format(username=self.username)):
+                return ret.errRet(TXT_SFTP_MENU_CANCELLED)
             ok, msg = set_user_mail(self.mainMenu.cfg, self.username, None)
         else:
             ok, msg = set_user_mail(self.mainMenu.cfg, self.username, mail)
         if not ok:
             return ret.errRet(msg)
         self.mainMenu.changed=True
-        return ret.okRet("User mail updated.")
+        return ret.okRet(TXT_SFTP_MENU_USER_MAIL_UPDATED)
 
 
 class m_user_mountpoints(c_menu):
@@ -341,13 +343,13 @@ class m_user_mountpoints(c_menu):
         self.cfg = self.mainMenu.cfg
 
     def onShowMenu(self) -> None:
-        self.title=self.mainMenu.basicTitle(add=" *** User > Mountpoints ***", username=self.username)
+        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_MOUNTPOINTS, username=self.username)
         
         self.mounts: List[Tuple[str, str]] = hlp_list_mountpoints(self.cfg, self.username)
         
         self.menu = [
-            c_menu_title_label(text_color(f"Mountpoints for {self.username}",en_color.CYAN)),
-            c_menu_item(text_color("Add mountpoint", en_color.BRIGHT_GREEN), "a", self.add_mountpoint),
+            c_menu_title_label(text_color(TXT_SFTP_MENU_MOUNTPOINTS_FOR.format(username=self.username), en_color.CYAN)),
+            c_menu_item(text_color(TXT_SFTP_MENU_ADD_MOUNTPOINT, en_color.BRIGHT_GREEN), "a", self.add_mountpoint),
             None
         ]
         # List existing mountpoints; each item can be selected for deletion.
@@ -369,54 +371,54 @@ class m_user_mountpoints(c_menu):
         #pomocná funkce na zobrazení hlavičky pro zadávání mountpointu
         def show_header():
             cls()
-            print(f"*********** Add mountpoint for {self.username} ***********")
-            print(f"- Mountpoint name (alias): {label}")
-            print(f"- Target path: {target}")
+            print(TXT_SFTP_MENU_MOUNTPOINT_HEADER.format(username=self.username))
+            print(TXT_SFTP_MENU_MOUNTPOINT_NAME.format(label=label))
+            print(TXT_SFTP_MENU_MOUNTPOINT_TARGET.format(target=target))
             print(("*"*40) + "\n")
         
         while True:
             show_header()
             label = get_input(
-                "Enter mountpoint name (alias):",
+                TXT_SFTP_MENU_ENTER_MOUNTPOINT_NAME,
                 rgx=r"^[a-zA-Z0-9_\-]+$",
                 maxLen=32,
-                errTx="Invalid name. Use only letters, numbers, underscores or hyphens."
+                errTx=TXT_SFTP_MENU_INVALID_MOUNTPOINT_NAME
             )        
             if not label:
-                return ret.errRet("No mountpoint name provided.")
+                return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_NAME)
             if checkMountpointExists(self.cfg, self.username, label):
-                print(text_color(f"Mountpoint '{label}' already exists for user '{self.username}'.", en_color.BRIGHT_RED))
+                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_EXISTS.format(label=label, username=self.username), en_color.BRIGHT_RED))
                 anyKey()
                 continue
             break
         
         while True:
             show_header()
-            target = selectDir("/","Select absolute path to mount:")
+            target = selectDir("/", TXT_SFTP_MENU_SELECT_MOUNTPOINT_PATH)
             if not target:
-                return ret.errRet("No mountpoint path provided.")
+                return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
             existing_label = checkMountPointPathExists(self.cfg, self.username, target)
             if existing_label:
-                print(text_color(f"Path '{target}' is already used for mountpoint '{existing_label}'.", en_color.BRIGHT_RED))
+                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))
                 anyKey()
                 continue
             break
         
         # vybereme z možností R/RW
         opts=[
-            select_item("Read-only (R)", "R", "R"),
-            select_item("Read-write (RW)", "RW", "RW")
+            select_item(TXT_SFTP_MENU_READ_ONLY, "R", "R"),
+            select_item(TXT_SFTP_MENU_READ_WRITE, "RW", "RW")
         ]
         show_header()
-        x = select("Select access mode:",opts)
+        x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)
         if not x:
-            return ret.errRet("No access mode selected.")
+            return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)
         
         if not hlp_add_mountpoint(self.cfg, self.username, label, target, readOnly=(x=="R")):
-            return ret.errRet(f"User '{self.username}' not found.")
+            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))
         
         self.mainMenu.changed=True
-        return ret.okRet("Mountpoint added.")
+        return ret.okRet(TXT_SFTP_MENU_MOUNTPOINT_ADDED)
 
     def modify_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         
@@ -424,30 +426,30 @@ class m_user_mountpoints(c_menu):
         opt=[]
         rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, selItem.data)
         if rTx:
-            opt.append(select_item("Set to Read-Write", "W", "W"))
+            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, "W", "W"))
         else:
-            opt.append(select_item("Set to Read-Only", "R", "R"))
-        opt.append(select_item(text_color("Delete mountpoint", en_color.BRIGHT_RED), "D", "D"))
-        x = select(f"Select action for mountpoint '{selItem.data}':",opt)
+            opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, "R", "R"))
+        opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), "D", "D"))
+        x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)
         if x is None:
-            return onSelReturn().errRet("No action selected.")
+            return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)
         x=x.item.data
         
         if x == "D":
-            if not confirm(f"Remove mountpoint '{selItem.data}'?"):
-                return onSelReturn().errRet("Cancelled.")
+            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):
+                return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
             if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):
-                return onSelReturn().errRet("Mountpoint not found.")
+                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
             else:
                 self.mainMenu.changed=True
-                return onSelReturn(ok="Mountpoint removed.")
+                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)
         else:
             # nastavíme readonly nebo rw podle výběru
             if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x=="R")):
-                return onSelReturn().errRet("Failed to update mountpoint.")
+                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
             else:
                 self.mainMenu.changed=True
-                return onSelReturn(ok="Mountpoint updated.")
+                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)
 
 class m_key_actions(c_menu):
     """Submenu with actions for a single SFTP key entry."""
@@ -491,11 +493,11 @@ class m_key_actions(c_menu):
         self.has_private = bool(self.priv_key)
 
     def onShowMenu(self) -> None:
-        self.title = self.mainMenu.basicTitle(add=" *** User > Key action ***", username=self.username)
+        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_KEY_ACTION, username=self.username)
         self.menu = [
-            c_menu_title_label(text_color(f"Key: {self.display_name}", en_color.CYAN)),
+            c_menu_title_label(text_color(TXT_SFTP_MENU_KEY_TITLE.format(name=self.display_name), en_color.CYAN)),
             c_menu_item(
-                text_color("Show public key", en_color.BRIGHT_CYAN),
+                text_color(TXT_SFTP_MENU_SHOW_PUBLIC_KEY, en_color.BRIGHT_CYAN),
                 "p",
                 self.show_public_key,
             ),
@@ -504,19 +506,19 @@ class m_key_actions(c_menu):
         if self.has_private:
             self.menu.extend([
                 c_menu_item(
-                    text_color("Show private key", en_color.BRIGHT_MAGENTA),
+                    text_color(TXT_SFTP_MENU_SHOW_PRIVATE_KEY, en_color.BRIGHT_MAGENTA),
                     "s",
                     self.show_private_key,
                 ),
                 c_menu_item(
-                    text_color("Send by mail", en_color.BRIGHT_GREEN),
+                    text_color(TXT_SFTP_MENU_SEND_BY_MAIL, en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "admin mail not set",
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
                     enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
                 ),
                 c_menu_item(
-                    text_color("Delete entire certificate", en_color.BRIGHT_RED),
+                    text_color(TXT_SFTP_MENU_DELETE_CERTIFICATE, en_color.BRIGHT_RED),
                     "d",
                     self.delete_entry,
                 ),
@@ -524,14 +526,14 @@ class m_key_actions(c_menu):
         else:
             self.menu.extend([
                 c_menu_item(
-                    text_color("Send by mail", en_color.BRIGHT_GREEN),
+                    text_color(TXT_SFTP_MENU_SEND_BY_MAIL, en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "admin mail not set",
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
                     enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
                 ),
                 c_menu_item(
-                    text_color("Delete key", en_color.BRIGHT_RED),
+                    text_color(TXT_SFTP_MENU_DELETE_KEY, en_color.BRIGHT_RED),
                     "d",
                     self.delete_entry,
                 ),
@@ -539,42 +541,42 @@ class m_key_actions(c_menu):
 
     def show_public_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
-        print(text_color("Public key:", en_color.BRIGHT_CYAN))
+        print(text_color(TXT_SFTP_MENU_PUBLIC_KEY, en_color.BRIGHT_CYAN))
         print(self.pub_key)
         anyKey()
-        return ret.okRet("Public key displayed.")
+        return ret.okRet(TXT_SFTP_MENU_PUBLIC_KEY_DISPLAYED)
 
     def show_private_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
         if not self.has_private:
-            return ret.errRet("No private key stored for this entry.")
-        print(text_color("Private key:", en_color.BRIGHT_MAGENTA))
+            return ret.errRet(TXT_SFTP_MENU_NO_PRIVATE_KEY)
+        print(text_color(TXT_SFTP_MENU_PRIVATE_KEY, en_color.BRIGHT_MAGENTA))
         print(self.priv_key)
         anyKey()
-        return ret.okRet("Private key displayed.")
+        return ret.okRet(TXT_SFTP_MENU_PRIVATE_KEY_DISPLAYED)
 
     def send_by_mail(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
         if not mail_hlp.isConfigured():
-            return ret.errRet("Mail transport is not configured in application settings.")
+            return ret.errRet(TXT_SFTP_MENU_MAIL_NOT_CONFIGURED)
         ok, msg = send_key_by_mail(self.cfg, self.username, self.keystr)
         if not ok:
             return ret.errRet(msg)
         anyKey()
-        return ret.okRet("Key sent by mail.")
+        return ret.okRet(TXT_SFTP_MENU_KEY_SENT)
 
     def delete_entry(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
         if self.has_private:
-            prompt = "Remove this certificate (public + private parts)?"
-            success_msg = "Certificate removed."
+            prompt = TXT_SFTP_MENU_REMOVE_CERTIFICATE_CONFIRM
+            success_msg = TXT_SFTP_MENU_CERTIFICATE_REMOVED
         else:
-            prompt = "Remove this key?"
-            success_msg = "Key removed."
+            prompt = TXT_SFTP_MENU_REMOVE_KEY_CONFIRM
+            success_msg = TXT_SFTP_MENU_KEY_REMOVED
         if not confirm(prompt):
-            return ret.errRet("Cancelled.")
+            return ret.errRet(TXT_SFTP_MENU_CANCELLED)
         if not hlp_delete_key(self.cfg, self.username, self.keystr):
-            return ret.errRet("Key not found.")
+            return ret.errRet(TXT_SFTP_MENU_KEY_NOT_FOUND)
         self.mainMenu.changed = True
         return ret.okRet(success_msg, endMenu=True)
 
@@ -606,14 +608,14 @@ class m_user_keys(c_menu):
         self.user = find_user(self.cfg, self.username)
 
     def onShowMenu(self) -> None:
-        self.title=self.mainMenu.basicTitle(add=" *** User > Keys ***", username=self.username)
+        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_KEYS, username=self.username)
         
         self.keys: List[Tuple[str,str]] = hlp_list_keys(self.cfg, self.username)
         
         self.menu = [
-            c_menu_title_label(text_color(f"Keys for {self.username}",en_color.CYAN)),
-            c_menu_item("Add key", "a", self.add_key),
-            c_menu_item("Generate new  pair", "g", self.generate),
+            c_menu_title_label(text_color(TXT_SFTP_MENU_KEYS_FOR.format(username=self.username), en_color.CYAN)),
+            c_menu_item(TXT_SFTP_MENU_ADD_KEY, "a", self.add_key),
+            c_menu_item(TXT_SFTP_MENU_GENERATE_PAIR, "g", self.generate),
             None
         ]
         for idx, itm in enumerate(self.keys, start=1):
@@ -626,25 +628,25 @@ class m_user_keys(c_menu):
                     str(idx),
                     m_key_actions(self.username, self.mainMenu, keystr, name),
                     data=keystr,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.mainMenu.cfg)) or "admin mail not set",
+                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.mainMenu.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
                 )
             )
 
     def add_key(self, selItem: c_menu_item) -> Optional[onSelReturn]:
         ret = onSelReturn()
-        keystr = get_input("Paste the public key or certificate:")
+        keystr = get_input(TXT_SFTP_MENU_PASTE_KEY)
         if not keystr:
-            return ret.errRet("No key provided.")
+            return ret.errRet(TXT_SFTP_MENU_NO_KEY)
         ok,msg = hlp_add_key(self.cfg, self.username, keystr)
         if not ok:
             return ret.errRet(msg)
         
         self.mainMenu.changed=True
-        return ret.okRet("Key added.")
+        return ret.okRet(TXT_SFTP_MENU_KEY_ADDED)
 
     def generate(self, selItem: c_menu_item) -> Optional[onSelReturn]:
-        if not confirm("Generate a new SSH Ed25519 key pair? The private key will be added to the config in base64 format and the public key will be added to the user's authorised keys."):
-            return onSelReturn().errRet("Cancelled.")
+        if not confirm(TXT_SFTP_MENU_GENERATE_CONFIRM):
+            return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
         
         from .sftp_manager_hlp import add_new_key_pair
         
@@ -654,4 +656,4 @@ class m_user_keys(c_menu):
             return ret.errRet(msg)
         
         self.mainMenu.changed=True
-        return ret.okRet("New key pair generated and added.")
+        return ret.okRet(TXT_SFTP_MENU_KEY_PAIR_ADDED)

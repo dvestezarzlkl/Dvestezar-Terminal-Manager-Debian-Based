@@ -48,3 +48,4 @@ TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = "Nepodařilo se odinstalovat jednoho ne
 TXT_SFTP_HLP_SSHD_RESTART_FAILED = "Po aplikování SFTP konfigurace se nepodařilo restartovat sshd."
 TXT_SFTP_HLP_APPLY_FAILED = "Konfiguraci se nepodařilo aplikovat pomocí sftpmanager.py: {error}"
 TXT_SFTP_HLP_UNINSTALL_USERS_FAILED = "Uživatele se nepodařilo odinstalovat pomocí sftpmanager.py"
+TXT_SFTP_HLP_UNINSTALL_USERS_EXCEPTION = "Při odinstalování SFTP uživatelů nastala chyba: {error}"
