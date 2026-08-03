@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import stat
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -14,6 +15,8 @@ class SelfUpdaterTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         (self.root / "assets/tokens").mkdir(parents=True)
         self.updater = ApplicationUpdater(self.root)
+        self.updater.plugins.catalog_path = self.root / "pluginy.jsonc"
+        self.updater.plugins.state_path = self.root / "plugins.jsonc"
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -38,13 +41,18 @@ class SelfUpdaterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.updater._read_token("private_plugin")
 
+    def test_registry_writes_token_with_private_permissions(self) -> None:
+        self.updater.plugins.set_token("private_plugin", "tester", "secret-token")
+        token_path = self.root / "assets/tokens/private_plugin.cd"
+        self.assertEqual(token_path.read_text(encoding="utf-8"), "tester:secret-token\n")
+        self.assertEqual(stat.S_IMODE(token_path.stat().st_mode), 0o600)
+
     def test_private_uninstalled_plugin_without_token_is_optional_skip(self) -> None:
         plugin = {
             "adr_name": "app_50_private",
             "private": True,
             "optional": True,
             "auto_update": True,
-            "access": {"type": "token"},
         }
         path = "libs/app/menus/app_50_private"
         with patch.object(self.updater, "_configured_submodule_paths", return_value={path}), \
@@ -81,7 +89,24 @@ class SelfUpdaterTests(unittest.TestCase):
             self.assertTrue(self.updater._update_plugin("public_plugin", plugin))
         self.assertEqual(run_live.call_count, 2)
 
-    def test_disabled_plugin_is_not_touched(self) -> None:
+    def test_locally_disabled_plugin_is_not_touched_even_with_token(self) -> None:
+        plugin = {
+            "adr_name": "app_50_private",
+            "private": True,
+            "optional": True,
+            "auto_update": True,
+            "access": {"type": "token"},
+        }
+        self.updater.plugins.save_state(
+            {"private_plugin": {"enabled": False}}
+        )
+        self.updater.plugins.set_token("private_plugin", "tester", "secret-token")
+        with patch.object(self.updater, "_run_live") as run_live:
+            self.assertTrue(self.updater._update_plugin("private_plugin", plugin))
+        run_live.assert_not_called()
+        self.assertIn("disabled by local plugin settings", self.updater.report.warnings[0])
+
+    def test_catalog_auto_update_false_is_not_touched(self) -> None:
         plugin = {
             "adr_name": "app_40_public",
             "private": False,
@@ -91,6 +116,11 @@ class SelfUpdaterTests(unittest.TestCase):
         with patch.object(self.updater, "_run_live") as run_live:
             self.assertTrue(self.updater._update_plugin("public_plugin", plugin))
         run_live.assert_not_called()
+
+    def test_plugin_path_rejects_parent_directory(self) -> None:
+        self.assertIsNone(
+            self.updater.plugins.plugin_path({"adr_name": "../app_50_private"})
+        )
 
 
 if __name__ == "__main__":
