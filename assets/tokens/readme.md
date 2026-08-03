@@ -1,35 +1,38 @@
-# Tokens for Private Plugins
+# Tokens for repositories and private plugins
 
-This directory contains access tokens for private plugins.
+This directory contains local Git access credentials used by the sys_apps self-updater.
 
-Files:
+Permanent plugin-system documentation is in `docs/plugin-system.md`.
 
-- `<plugin_id>.cd`
+## File naming
 
-Each file contains exactly one line:
+Files use this format:
 
-`<username>:<token>`
+- `<token_id>.cd`
 
-Never commit tokens.
+Reserved token IDs:
 
-## Token files MUST
+- `sys_apps.cd` — optional credentials for the main sys_apps repository
+- `JBLibs-python.cd` — optional credentials for the mandatory JBLibs repository; updater falls back to `sys_apps.cd`
+- `<plugin_id>.cd` — credentials for the matching entry in `pluginy.jsonc`
 
-- be named `<plugin_id>.cd`, where `<plugin_id>` matches the plugin identifier in `plugins.jsonc`, and must end with `.cd`
-- contain exactly one line in the format `<username>:<token>`
-- never be committed to Git
+Each file contains one logical line:
 
-Only `*.cd` files are treated as access tokens.  
-These files are ignored by Git via `.gitignore`.
+```text
+<username>:<token>
+```
 
-## Token files MUST NOT
+A final newline is allowed. The token settings menu writes files with mode `0600`.
 
-- contain extra spaces, new lines, or any other characters
-- be committed to Git repositories
-- be shared publicly
-- be stored in any other format
-- be named differently than `<plugin_id>.cd`
-- be empty
-- contain multiple lines
-- contain comments
-- be stored in any other directory
-- be used for any other purpose
+## Security rules
+
+Token files:
+
+- are ignored by Git through `assets/tokens/*.cd`;
+- must never be committed, logged, printed, pasted into documentation or included in diffs;
+- must contain exactly one non-empty username and token separated by the first `:`;
+- must not contain whitespace inside the username or token;
+- are used only through a temporary Git credential-helper file that is removed after the command;
+- may be created, replaced or removed through **Plugin settings** without displaying the stored token value.
+
+A token grants repository access, but does not force a plugin to run. Local plugin state in `/etc/jb_sys_apps/plugins.jsonc` has priority: a plugin with `enabled: false` is skipped even when its token exists.
