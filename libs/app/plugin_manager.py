@@ -42,7 +42,7 @@ class PluginRegistry:
             fromEtc=True,
             configName=STATE_NAME,
             appName=defs.APP_NAME,
-            createIfNotExist=True,
+            createIfNotExist=False,
         )
 
     def load_catalog(self) -> dict[str, dict[str, Any]]:
