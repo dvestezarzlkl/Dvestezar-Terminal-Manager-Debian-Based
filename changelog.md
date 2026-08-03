@@ -4,9 +4,11 @@
 
 - ADD setup nyní kontroluje a instaluje systémovou závislost `cifs-utils` pro Samba-backed SFTP mountpointy
 - ADD SFTP menu zobrazuje červené upozornění, pokud není dostupný `mount.cifs`
-- FIX nové upozornění SFTP menu používá relativní jazykové soubory `lng/default.py` a `lng/cs-CZ.py` přes `loadLng()`
+- UPD všechny uživatelské texty SFTP menu byly přesunuty do relativních jazykových souborů `lng/default.py` a `lng/cs-CZ.py`
+- UPD validační chyby, výsledky operací a exportní e-mail SFTP helperu používají samostatný katalog `helper_lng/lng`
+- FIX odinstalování všech SFTP uživatelů již nepohltí výjimku ani neohlásí falešný úspěch
 - FIX SFTP Apply zastaví systémové změny při chybějícím CIFS a ověřuje počet zpracovaných uživatelů i úklid nechtěných uživatelů
-- UPD SFTP Manager menu na verzi 1.1.2 a JBLibs submodul na 1.2.10
+- UPD SFTP Manager menu na verzi 1.2.0 a JBLibs submodul na 1.2.11
 - FIX SFTP Manager při prvním Apply vytvoří chybějící konfigurační soubor a chybu zápisu vrátí menu místo neošetřené výjimky
 - ADD UART loopback diagnostika přímo v UART menu pro rychlosti 9600 až 2 000 000 Bd
 - ADD testovací osmibajtové rámce s indexem pokusu a Modbus CRC16
