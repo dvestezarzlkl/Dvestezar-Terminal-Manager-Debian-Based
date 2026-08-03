@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "Wire SSH Manager key mail actions",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "from libs.JBLibs.input import confirm,anyKey",
+      "new": "from libs.JBLibs.input import confirm,anyKey,get_input\nfrom libs.app import mail_hlp,user_contact",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "        t=TXT_MENU2_TITLE_01 + \" (\" + ( TXT_MENU_01 if self._mData.selectedUser.hasSudo else TXT_MENU_00 ) + \")\"\n        cl=en_color.GREEN if self._mData.selectedUser.keyCount>0 else en_color.BRIGHT_BLACK\n        self._setAppHeader(t,\"\",\n            c_menu_block_items([\n                ( text_color(TXT_MENU2_TITLE_02,color=cl)      ,text_color(str( self._mData.selectedUser.keyCount ),color=cl) ),\n            ]),\n            self._mData.selectedUser.userName\n        )",
+      "new": "        t=TXT_MENU2_TITLE_01 + \" (\" + ( TXT_MENU_01 if self._mData.selectedUser.hasSudo else TXT_MENU_00 ) + \")\"\n        cl=en_color.GREEN if self._mData.selectedUser.keyCount>0 else en_color.BRIGHT_BLACK\n        recipient=user_contact.get_user_email(self._mData.selectedUser.userName)\n        self._setAppHeader(t,\"\",\n            c_menu_block_items([\n                ( text_color(TXT_MENU2_TITLE_02,color=cl)      ,text_color(str( self._mData.selectedUser.keyCount ),color=cl) ),\n                ( TXT_MENU2_TITLE_40, recipient or TXT_MENU2_TITLE_41 ),\n            ]),\n            self._mData.selectedUser.userName\n        )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "            c_menu_item(text_color(TXT_MENU2_TITLE_08,en_color.RED),\"d\",self.deleteUser),\n            c_menu_item(TXT_MENU2_TITLE_09,\"p\",self.pwdUser),\n            c_menu_item(text_color(TXT_MENU2_TITLE_10,color=en_color.YELLOW),\"u\",self.updateUserSSH),",
+      "new": "            c_menu_item(text_color(TXT_MENU2_TITLE_08,en_color.RED),\"d\",self.deleteUser),\n            c_menu_item(TXT_MENU2_TITLE_09,\"p\",self.pwdUser),\n            c_menu_item(TXT_MENU2_TITLE_42,\"mail\",self.setUserMail),\n            c_menu_item(text_color(TXT_MENU2_TITLE_10,color=en_color.YELLOW),\"u\",self.updateUserSSH),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "        ])\n    \n    def checkUserTty(self) -> bool:",
+      "new": "        ])\n\n    def setUserMail(self,selItem:c_menu_item) -> onSelReturn:\n        username=self._mData.selectedUser.userName\n        current=user_contact.get_user_email(username) or TXT_MENU2_TITLE_41\n        value=get_input(\n            TXT_MENU2_TITLE_43,\n            accept_empty=True,\n            rgx=lambda x: x == \"\" or mail_hlp.is_valid_mail_address(x),\n            clearScreen=True,\n            errTx=TXT_MENU2_TITLE_45,\n            titleNote=TXT_MENU2_TITLE_44.format(mail=current),\n        )\n        if value is None:\n            return None\n        ok,error=user_contact.set_user_email(username,value)\n        if not ok:\n            return error\n        cls()\n        print(TXT_MENU2_TITLE_46 if value else TXT_MENU2_TITLE_47)\n        anyKey()\n        return None\n    \n    def checkUserTty(self) -> bool:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_key_edit.py",
+      "old": "from libs.JBLibs.term import text_color,en_color\n\nfrom libs.JBLibs.helper import getLogger",
+      "new": "from libs.JBLibs.term import text_color,en_color,cls\nfrom libs.JBLibs.input import anyKey\nfrom libs.app import user_contact\nfrom . import ssh_mail_hlp\n\nfrom libs.JBLibs.helper import getLogger",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_key_edit.py",
+      "old": "        self.menu.extend([\n            c_menu_item(text_color(TXT_MENU2_TITLE_04,color=en_color.BRIGHT_RED,bold=True),\"del\",self.deleteKey),\n        ])",
+      "new": "        self.menu.extend([\n            c_menu_item(TXT_MENU3_TITLE_03,\"mail\",self.sendKeyMail),\n            c_menu_item(text_color(TXT_MENU2_TITLE_04,color=en_color.BRIGHT_RED,bold=True),\"del\",self.deleteKey),\n        ])",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_key_edit.py",
+      "old": "    def deleteKey(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "new": "    def sendKeyMail(self,selItem:c_menu_item) -> onSelReturn:\n        username=self._mData.selectedUser.userName\n        recipient=user_contact.get_user_email(username)\n        if not recipient:\n            return TXT_MENU3_TITLE_04\n        cls()\n        print(TXT_MENU3_TITLE_05)\n        ok,error=ssh_mail_hlp.send_managed_key_by_mail(\n            username,\n            self._mData.selectedKey.fileName,\n            recipient,\n        )\n        if not ok:\n            return error\n        print(TXT_MENU3_TITLE_06)\n        anyKey()\n        return None\n\n    def deleteKey(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v1.9.7\n\n",
+      "new": "## v1.9.7\n\n- ADD SSH Manager ukládá per-user e-mail kontakt do `~/.config/jb_sys_apps/contact.jsonc` a umí odeslat vybraný pár klíčů přes společný SMTP/ZIP transport; public-only importy neposílají dummy soukromý klíč\n\n",
+      "expected": 1
+    }
+  ]
+}
