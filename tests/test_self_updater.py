@@ -15,11 +15,18 @@ class SelfUpdaterTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         (self.root / "assets/tokens").mkdir(parents=True)
         self.updater = ApplicationUpdater(self.root)
+        self.default_state_path = self.updater.plugins.state_path
         self.updater.plugins.catalog_path = self.root / "pluginy.jsonc"
         self.updater.plugins.state_path = self.root / "plugins.jsonc"
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_default_plugin_state_path_has_no_runtime_side_effect(self) -> None:
+        self.assertEqual(
+            self.default_state_path,
+            Path("/etc/jb_sys_apps/plugins.jsonc"),
+        )
 
     def test_update_report_changed_state(self) -> None:
         report = UpdateReport()
