@@ -8,6 +8,7 @@
         "private":true,
         "optional":true,
         "auto_update":true,
+        "enabled_by_default":true,
         "licence":"ZLKL licence",
         "access":{
             "type":"token"
