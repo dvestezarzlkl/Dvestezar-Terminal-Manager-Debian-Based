@@ -90,8 +90,10 @@ class menuBoss(menu):
         report.print_summary()
         anyKey()
 
-        if report.success or report.core_changed:
+        if report.changed:
             raise SystemExit(0)
+        if report.success:
+            return onSelReturn(ok="Application is already up to date.")
         return onSelReturn().errRet(report.error or "Update failed.")
 
 

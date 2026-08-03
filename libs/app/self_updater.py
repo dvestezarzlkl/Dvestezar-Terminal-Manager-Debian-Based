@@ -175,19 +175,10 @@ class ApplicationUpdater:
             )
             return False
 
+        # Only core and mandatory libraries participate in the fatal preflight.
+        # Each plugin validates its own worktree later, so an optional dirty or
+        # temporarily unreadable plugin cannot block a core security update.
         relevant_paths = set(MANDATORY_SUBMODULES)
-        try:
-            catalog = self.plugins.load_catalog()
-            state = self.plugins.load_state()
-            for plugin_id, plugin in catalog.items():
-                if not self.plugins.is_enabled(plugin_id, plugin, state):
-                    continue
-                path = self.plugins.plugin_path(plugin)
-                if path:
-                    relevant_paths.add(path)
-        except Exception as exc:
-            self.report.error = f"Cannot read plugin policy before update: {exc}"
-            return False
 
         for path in sorted(relevant_paths):
             if not self._is_initialized_submodule(path):
@@ -198,7 +189,7 @@ class ApplicationUpdater:
                 return False
 
         self.report.steps.append(
-            "Main, mandatory and enabled plugin worktrees are clean"
+            "Main and mandatory submodule worktrees are clean"
         )
         return True
 
