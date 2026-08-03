@@ -2,6 +2,9 @@
 
 ## v1.9.7
 
+- FIX SFTP Apply před reloadem Samby odmountuje všechny spravované loopback CIFS mounty, aby `systemd-fstab-generator` nečekal na stale CIFS reconnect
+- UPD změny Samba mountpointů se dokončí v jedné transakci: reload Samba konfigurace, jeden `daemon-reload` a remount výsledného stavu z `/etc/fstab`
+- UPD SFTP Manager menu na verzi 1.2.1 a JBLibs submodul na 1.2.12
 - ADD setup nyní kontroluje a instaluje systémovou závislost `cifs-utils` pro Samba-backed SFTP mountpointy
 - ADD SFTP menu zobrazuje červené upozornění, pokud není dostupný `mount.cifs`
 - UPD všechny uživatelské texty SFTP menu byly přesunuty do relativních jazykových souborů `lng/default.py` a `lng/cs-CZ.py`

@@ -22,4 +22,5 @@
 - User-visible validation and operation results produced by `sftp_manager_hlp.py`, including key-export mail content, must use the independent `helper_lng/lng/default.py` catalog loaded through `helper_lng/__init__.py`; technical log messages may remain in English.
 - A Samba-backed Apply must save the valid config, then stop before system changes when `cifs-utils` is missing.
 - Apply must verify that `createUserFromJson()` processed every configured user and that unwanted-user cleanup succeeded before reporting success.
+- Wrap user synchronization and unwanted-user cleanup in one outer `smbHelp.beginBatch()` / `endBatch()` transaction; the menu helper must not call `daemon-reload` directly.
 - `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.
