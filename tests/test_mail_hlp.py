@@ -22,6 +22,7 @@ class MailHelperTests(unittest.TestCase):
     def test_get_smtp_settings_uses_global_config(self):
         with self.configured_mail():
             settings = mail_hlp.get_smtp_settings()
+            status = mail_hlp.get_config_status()
 
         self.assertEqual(settings.host, "smtp.example.test")
         self.assertEqual(settings.port, 465)
@@ -30,6 +31,7 @@ class MailHelperTests(unittest.TestCase):
         self.assertEqual(settings.password, "secret-value")
         self.assertEqual(settings.timeout, 12)
         self.assertNotIn("secret-value", repr(settings))
+        self.assertEqual(status, (True, "SMTP configured."))
 
     def test_send_mail_forwards_attachments_and_keeps_invalid_reply_to_compatible(self):
         attachment = mail_hlp.MailAttachment.from_bytes(
