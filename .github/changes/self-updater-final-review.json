@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "Keep optional plugins isolated during core update",
+  "replacements": [
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "        relevant_paths = set(MANDATORY_SUBMODULES)\n        try:\n            catalog = self.plugins.load_catalog()\n            state = self.plugins.load_state()\n            for plugin_id, plugin in catalog.items():\n                if not self.plugins.is_enabled(plugin_id, plugin, state):\n                    continue\n                path = self.plugins.plugin_path(plugin)\n                if path:\n                    relevant_paths.add(path)\n        except Exception as exc:\n            self.report.error = f\"Cannot read plugin policy before update: {exc}\"\n            return False\n\n        for path in sorted(relevant_paths):\n",
+      "new": "        # Only core and mandatory libraries participate in the fatal preflight.\n        # Each plugin validates its own worktree later, so an optional dirty or\n        # temporarily unreadable plugin cannot block a core security update.\n        relevant_paths = set(MANDATORY_SUBMODULES)\n\n        for path in sorted(relevant_paths):\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "        self.report.steps.append(\n            \"Main, mandatory and enabled plugin worktrees are clean\"\n        )\n",
+      "new": "        self.report.steps.append(\n            \"Main and mandatory submodule worktrees are clean\"\n        )\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        if report.success or report.core_changed:\n            raise SystemExit(0)\n        return onSelReturn().errRet(report.error or \"Update failed.\")\n",
+      "new": "        if report.changed:\n            raise SystemExit(0)\n        if report.success:\n            return onSelReturn(ok=\"Application is already up to date.\")\n        return onSelReturn().errRet(report.error or \"Update failed.\")\n",
+      "expected": 1
+    }
+  ]
+}
