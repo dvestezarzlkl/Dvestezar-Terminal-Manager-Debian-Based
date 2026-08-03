@@ -1,19 +1,20 @@
 from __future__ import annotations
 
-import re
-import smtplib
-from email.message import EmailMessage
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from libs.JBLibs.helper import getLogger
+from libs.JBLibs.mail import (
+    MailAttachment,
+    SmtpSettings,
+    ZipItem,
+    create_zip_attachment,
+    is_valid_mail_address,
+    send_message as send_smtp_message,
+    unique_addresses,
+)
 from libs.app import cfg as app_cfg
 
 log = getLogger("mail_hlp")
-
-_MAIL_RGX = re.compile(
-    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
-    r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$"
-)
 
 _SMTP_MODES = {"plain", "starttls", "ssl"}
 _SMTP_DEFAULT_PORTS = {
@@ -21,13 +22,6 @@ _SMTP_DEFAULT_PORTS = {
     "starttls": 587,
     "ssl": 465,
 }
-
-
-def is_valid_mail_address(mail: str) -> bool:
-    """Return ``True`` if the value looks like a single email address."""
-    if not isinstance(mail, str):
-        return False
-    return bool(_MAIL_RGX.match(mail.strip()))
 
 
 def _get_str(name: str) -> str:
@@ -65,6 +59,18 @@ def get_smtp_password() -> str:
 def get_smtp_mode() -> str:
     mode = _get_str("MAIL_SMTP_MODE").lower() or "starttls"
     return mode
+
+
+def get_smtp_settings() -> SmtpSettings:
+    """Return explicit transport settings from the global app configuration."""
+    return SmtpSettings(
+        host=get_smtp_host(),
+        port=get_smtp_port(),
+        mode=get_smtp_mode(),
+        username=get_smtp_user(),
+        password=get_smtp_password(),
+        timeout=_get_int("MAIL_TIMEOUT", 20),
+    )
 
 
 def get_default_smtp_port(mode: Optional[str] = None) -> int:
@@ -149,6 +155,10 @@ def get_config_status() -> Tuple[bool, str]:
     if not mail_from or not is_valid_mail_address(mail_from):
         return False, "SMTP from address is not configured."
 
+    ok, reason = get_smtp_settings().validate()
+    if not ok:
+        return False, reason or "SMTP configuration is invalid."
+
     return True, "SMTP configured."
 
 
@@ -170,17 +180,8 @@ def get_status_text() -> str:
 
 
 def _unique_addresses(addresses: Iterable[str]) -> List[str]:
-    unique: List[str] = []
-    for addr in addresses:
-        if not isinstance(addr, str):
-            continue
-        addr = addr.strip()
-        if not addr or not is_valid_mail_address(addr):
-            continue
-        addr = addr.lower()
-        if addr not in unique:
-            unique.append(addr)
-    return unique
+    """Compatibility wrapper around the shared JBLibs address normalizer."""
+    return list(unique_addresses(addresses))
 
 
 def send_mail(
@@ -191,71 +192,50 @@ def send_mail(
     cc: Sequence[str] | None = None,
     bcc: Sequence[str] | None = None,
     reply_to: Optional[str] = None,
+    attachments: Sequence[MailAttachment] | None = None,
 ) -> Tuple[bool, Optional[str]]:
-    """Send a plain text email over configured SMTP.
+    """Send an application email over the globally configured SMTP transport.
 
-    If ``html_body`` is provided, the message is sent as multipart/alternative
-    with both plain text and HTML parts.
+    Existing callers remain compatible. ``attachments`` may contain path,
+    bytes, stream, or in-memory ZIP attachments created through JBLibs mail
+    helpers.
     """
     ok, reason = get_config_status()
     if not ok:
         return False, reason
 
-    to_addrs = _unique_addresses(recipients)
-    if cc:
-        to_addrs.extend([addr for addr in _unique_addresses(cc) if addr not in to_addrs])
-    if bcc:
-        to_addrs.extend([addr for addr in _unique_addresses(bcc) if addr not in to_addrs])
-    if not to_addrs:
+    valid_recipients = _unique_addresses(recipients)
+    if not valid_recipients:
         return False, "No mail recipients configured."
 
-    from_addr = get_mail_from()
-    msg = EmailMessage()
-    msg["From"] = from_addr
-    msg["To"] = ", ".join(_unique_addresses(recipients))
-    if cc:
-        cc_list = _unique_addresses(cc)
-        if cc_list:
-            msg["Cc"] = ", ".join(cc_list)
-    if reply_to and is_valid_mail_address(reply_to):
-        msg["Reply-To"] = reply_to.strip().lower()
-    msg["Subject"] = subject
-    msg.set_content(body)
-    if html_body:
-        msg.add_alternative(html_body, subtype="html")
-
-    host = get_smtp_host()
-    port = get_smtp_port()
     mode = get_smtp_mode()
-    user = get_smtp_user()
-    password = get_smtp_password()
-    timeout = _get_int("MAIL_TIMEOUT", 20)
+    port = get_smtp_port()
+    safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None
 
-    try:
-        if mode == "ssl":
-            smtp = smtplib.SMTP_SSL(host, port, timeout=timeout)
-        else:
-            smtp = smtplib.SMTP(host, port, timeout=timeout)
+    ok, error = send_smtp_message(
+        smtp_settings=get_smtp_settings(),
+        mail_from=get_mail_from(),
+        recipients=valid_recipients,
+        subject=subject,
+        body=body,
+        html_body=html_body,
+        cc=cc,
+        bcc=bcc,
+        reply_to=safe_reply_to,
+        attachments=attachments,
+    )
+    if ok:
+        return True, None
 
-        with smtp:
-            smtp.ehlo()
-            if mode == "starttls":
-                smtp.starttls()
-                smtp.ehlo()
-            if user:
-                smtp.login(user, password)
-            smtp.send_message(msg, from_addr=from_addr, to_addrs=to_addrs)
-    except Exception as e:
-        err = str(e)
-        hint = ""
-        if "IMAP4rev1" in err or "Dovecot" in err or "IMAP" in err.upper():
-            hint = " The server replied like IMAP; SMTP SSL usually uses port 465 and STARTTLS uses 587."
-        elif is_smtp_port_mismatched(mode, port):
-            hint = f" The selected port {port} is unusual for {mode.upper()}; expected {get_default_smtp_port(mode)}."
-        log.error(f"Failed to send mail via SMTP: {e}")
-        return False, f"Failed to send mail via SMTP: {e}{hint}"
+    err = error or "Failed to send mail via SMTP."
+    hint = ""
+    if "IMAP4rev1" in err or "Dovecot" in err or "IMAP" in err.upper():
+        hint = " The server replied like IMAP; SMTP SSL usually uses port 465 and STARTTLS uses 587."
+    elif is_smtp_port_mismatched(mode, port):
+        hint = f" The selected port {port} is unusual for {mode.upper()}; expected {get_default_smtp_port(mode)}."
 
-    return True, None
+    log.error("Mail delivery failed: %s", err)
+    return False, f"{err}{hint}"
 
 
 def send_test_mail(recipient: Optional[str] = None) -> Tuple[bool, Optional[str]]:
