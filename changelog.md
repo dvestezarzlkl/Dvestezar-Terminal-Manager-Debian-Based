@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- ADD SSH Manager ukládá per-user e-mail kontakt do `~/.config/jb_sys_apps/contact.jsonc` a umí odeslat vybraný pár klíčů přes společný SMTP/ZIP transport; public-only importy neposílají dummy soukromý klíč
+
 - UPD SFTP Manager 1.2.3 doplňuje do ZIP README konkrétní nastavení Total Commander SFTP pluginu a WinSCP, výchozí port 22 a vysvětlení serverem řízených práv; konkrétní host zůstává odděleným kanálem
 
 - ADD SFTP Manager 1.2.2 odesílá veřejný a dostupný soukromý klíč jako ZIP s praktickými názvy souborů a přiloženým návodem
