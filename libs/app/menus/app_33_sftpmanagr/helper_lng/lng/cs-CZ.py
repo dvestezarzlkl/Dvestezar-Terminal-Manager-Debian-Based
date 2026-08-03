@@ -45,6 +45,7 @@ TXT_SFTP_HLP_CIFS_MISSING = "CIFS nástroje nejsou nainstalovány. Před aplikov
 TXT_SFTP_HLP_NO_USERS_PROCESSED = "Nebyl vytvořen ani aktualizován žádný SFTP uživatel. Příčinu najdete v logu SFTP Manageru."
 TXT_SFTP_HLP_USERS_PARTIAL = "Bylo vytvořeno nebo aktualizováno pouze {created} z {expected} SFTP uživatelů."
 TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = "Nepodařilo se odinstalovat jednoho nebo více SFTP uživatelů, kteří již nejsou v konfiguraci."
+TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED = "Nepodařilo se dokončit změny Samba/CIFS mountpointů."
 TXT_SFTP_HLP_SSHD_RESTART_FAILED = "Po aplikování SFTP konfigurace se nepodařilo restartovat sshd."
 TXT_SFTP_HLP_APPLY_FAILED = "Konfiguraci se nepodařilo aplikovat pomocí sftpmanager.py: {error}"
 TXT_SFTP_HLP_UNINSTALL_USERS_FAILED = "Uživatele se nepodařilo odinstalovat pomocí sftpmanager.py"

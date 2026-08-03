@@ -794,26 +794,39 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
     if config_requires_cifs(cfg) and not cifs_exists():
         return False, TXT_SFTP_HLP_CIFS_MISSING
 
+    apply_error: Optional[str] = None
+    transaction_ok = True
+
+    smbHelp.beginBatch()
     try:
         log.info(f"Applying configuration via sftpmanager lib with config file: {cfg_path}")
         created_users = createUserFromJson()
         expected_users = len(cfg.get("users", []))
         if not created_users:
-            return False, TXT_SFTP_HLP_NO_USERS_PROCESSED
-        if len(created_users) != expected_users:
-            return False, TXT_SFTP_HLP_USERS_PARTIAL.format(created=len(created_users), expected=expected_users)
+            apply_error = TXT_SFTP_HLP_NO_USERS_PROCESSED
+        elif len(created_users) != expected_users:
+            apply_error = TXT_SFTP_HLP_USERS_PARTIAL.format(
+                created=len(created_users),
+                expected=expected_users
+            )
 
-        smbHelp.reloadSystemdDaemon()
-
-        log.info("Uninstalling unwanted users who are not in the configuration...")
-        if not uninstallUnwantedUsers():
-            return False, TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED
-
-        log.info("Restarting sshd after SFTP configuration changes...")
-        if not restart_sshd():
-            return False, TXT_SFTP_HLP_SSHD_RESTART_FAILED
+        if apply_error is None:
+            log.info("Uninstalling unwanted users who are not in the configuration...")
+            if not uninstallUnwantedUsers():
+                apply_error = TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED
     except Exception as e:
-        return False, TXT_SFTP_HLP_APPLY_FAILED.format(error=e)
+        apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)
+    finally:
+        transaction_ok = smbHelp.endBatch()
+
+    if not transaction_ok:
+        return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED
+    if apply_error is not None:
+        return False, apply_error
+
+    log.info("Restarting sshd after SFTP configuration changes...")
+    if not restart_sshd():
+        return False, TXT_SFTP_HLP_SSHD_RESTART_FAILED
 
     return True, None
 

@@ -45,6 +45,7 @@ TXT_SFTP_HLP_CIFS_MISSING = "CIFS utilities are not installed. Install package '
 TXT_SFTP_HLP_NO_USERS_PROCESSED = "No SFTP users were created or updated. Check the SFTP manager log for the underlying error."
 TXT_SFTP_HLP_USERS_PARTIAL = "Only {created} of {expected} SFTP users were created or updated."
 TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = "Failed to uninstall one or more SFTP users that are no longer present in the configuration."
+TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED = "Failed to finalize Samba/CIFS mountpoint changes."
 TXT_SFTP_HLP_SSHD_RESTART_FAILED = "Failed to restart sshd after applying SFTP configuration."
 TXT_SFTP_HLP_APPLY_FAILED = "Failed to apply configuration via sftpmanager.py: {error}"
 TXT_SFTP_HLP_UNINSTALL_USERS_FAILED = "Failed to uninstall users via sftpmanager.py"
