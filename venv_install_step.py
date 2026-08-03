@@ -266,15 +266,15 @@ def main():
     print(" ---- Inicializace git submodulů ----")
     update_submodules()
 
-    # 6) Spuštění instalačního skriptu rq_try_install_requirements.py
+    # 7) Instalace Python knihoven z requirements.txt
     print(" ---- Instalace Python knihoven z requirements.txt ----")
     run_requirements_install()
 
-    # 7) Kontrola a případné vytvoření výchozího config.ini
+    # 8) Kontrola a případné vytvoření výchozího config.ini
     print(" ---- Kontrola a vytvoření config.ini ----")
     check_and_create_config()
 
-    # 8) Vytvoření symlinku pro sys_apps.sh
+    # 9) Vytvoření symlinku pro sys_apps.sh
     print(" ---- Vytvoření symlinku pro sys_apps.sh ----")
     setup_sys_apps_symlink()
 
