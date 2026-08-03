@@ -27,12 +27,14 @@ def build_key_mail_payload(
         private_line = TXT_SSH_MAIL_README_PRIVATE_LINE.format(
             private_filename=names.private_filename
         )
+        private_protection = TXT_SSH_MAIL_PRIVATE_PROTECTION
         client_instructions = TXT_SSH_MAIL_CLIENT_INSTRUCTIONS.format(
             private_usage=names.private_filename,
             public_filename=names.public_filename,
         )
     else:
         private_line = TXT_SSH_MAIL_README_NO_PRIVATE_LINE
+        private_protection = ""
         client_instructions = TXT_SSH_MAIL_CLIENT_INSTRUCTIONS_PUBLIC_ONLY
 
     generated_by = TXT_SSH_MAIL_GENERATED_BY.format(
@@ -43,6 +45,7 @@ def build_key_mail_payload(
         key_name=key_name,
         public_filename=names.public_filename,
         private_line=private_line,
+        private_protection=private_protection,
         client_instructions=client_instructions.strip(),
         generated_by=generated_by,
     )
