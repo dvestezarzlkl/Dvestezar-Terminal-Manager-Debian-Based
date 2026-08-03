@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Fix setup step numbering after CIFS dependency",
+  "replacements": [
+    {
+      "path": "venv_install_step.py",
+      "old": "    # 6) Spuštění instalačního skriptu rq_try_install_requirements.py\n    print(\" ---- Instalace Python knihoven z requirements.txt ----\")\n    run_requirements_install()\n\n    # 7) Kontrola a případné vytvoření výchozího config.ini\n    print(\" ---- Kontrola a vytvoření config.ini ----\")\n    check_and_create_config()\n\n    # 8) Vytvoření symlinku pro sys_apps.sh\n",
+      "new": "    # 7) Instalace Python knihoven z requirements.txt\n    print(\" ---- Instalace Python knihoven z requirements.txt ----\")\n    run_requirements_install()\n\n    # 8) Kontrola a případné vytvoření výchozího config.ini\n    print(\" ---- Kontrola a vytvoření config.ini ----\")\n    check_and_create_config()\n\n    # 9) Vytvoření symlinku pro sys_apps.sh\n",
+      "expected": 1
+    }
+  ]
+}
