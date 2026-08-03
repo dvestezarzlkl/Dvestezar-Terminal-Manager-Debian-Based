@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 import unittest
 import zipfile
@@ -15,6 +16,19 @@ PRIVATE_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nprivate-test-data\n-----END 
 
 
 class SshKeyBundleTests(unittest.TestCase):
+    def create_manager_dir(self, home: Path) -> Path:
+        manager_dir = home / ".ssh" / "sshManager"
+        manager_dir.mkdir(parents=True)
+        return manager_dir
+
+    def read_pair(self, home: Path, key_name: str):
+        with patch.object(
+            ssh_key_bundle.sshMng,
+            "getUserHome",
+            return_value=str(home),
+        ):
+            return ssh_key_bundle.read_managed_key_pair("alice", key_name)
+
     def test_names_and_archive_content(self):
         names = ssh_key_bundle.build_bundle_names(
             "alice/work key",
@@ -43,42 +57,53 @@ class SshKeyBundleTests(unittest.TestCase):
 
     def test_public_only_dummy_private_key_is_omitted(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            manager_dir = Path(temp_dir)
+            home = Path(temp_dir)
+            manager_dir = self.create_manager_dir(home)
             (manager_dir / "imported.pub").write_text(PUBLIC_KEY + "\n", encoding="utf-8")
             (manager_dir / "imported").write_text(
                 "DUMMY PRIVATE KEY - IMPORTED PUBLIC KEY ONLY\n",
                 encoding="utf-8",
             )
-            with patch.object(
-                ssh_key_bundle.sshMng,
-                "getDirPath_sshManager",
-                return_value=str(manager_dir),
-            ):
-                ok, pair, error = ssh_key_bundle.read_managed_key_pair(
-                    "alice",
-                    "imported",
-                )
+            ok, pair, error = self.read_pair(home, "imported")
 
         self.assertTrue(ok, error)
         self.assertEqual(pair, (PUBLIC_KEY, ""))
 
     def test_private_key_pair_is_read(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            manager_dir = Path(temp_dir)
+            home = Path(temp_dir)
+            manager_dir = self.create_manager_dir(home)
             (manager_dir / "generated.pub").write_text(PUBLIC_KEY + "\n", encoding="utf-8")
             (manager_dir / "generated").write_text(PRIVATE_KEY + "\n", encoding="utf-8")
-            with patch.object(
-                ssh_key_bundle.sshMng,
-                "getDirPath_sshManager",
-                return_value=str(manager_dir),
-            ):
-                ok, pair, error = ssh_key_bundle.read_managed_key_pair(
-                    "alice",
-                    "generated",
-                )
+            ok, pair, error = self.read_pair(home, "generated")
 
         self.assertTrue(ok, error)
         self.assertEqual(pair, (PUBLIC_KEY, PRIVATE_KEY))
+
+    def test_symlink_key_file_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as outside_dir:
+            home = Path(temp_dir)
+            manager_dir = self.create_manager_dir(home)
+            outside = Path(outside_dir) / "outside.pub"
+            outside.write_text(PUBLIC_KEY + "\n", encoding="utf-8")
+            os.symlink(outside, manager_dir / "linked.pub")
+            ok, pair, error = self.read_pair(home, "linked")
+
+        self.assertFalse(ok)
+        self.assertIsNone(pair)
+        self.assertTrue(error)
+
+    def test_symlink_ssh_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as outside_dir:
+            home = Path(temp_dir)
+            outside_ssh = Path(outside_dir) / "ssh"
+            (outside_ssh / "sshManager").mkdir(parents=True)
+            os.symlink(outside_ssh, home / ".ssh")
+            ok, pair, error = self.read_pair(home, "linked")
+
+        self.assertFalse(ok)
+        self.assertIsNone(pair)
+        self.assertTrue(error)
 
     def test_path_traversal_key_name_is_rejected(self):
         ok, pair, error = ssh_key_bundle.read_managed_key_pair("alice", "../secret")
