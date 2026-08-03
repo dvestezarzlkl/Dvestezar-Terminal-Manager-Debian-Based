@@ -50,6 +50,13 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertEqual(files["team_user_id_ed25519.pub"].strip(), PUBLIC_KEY)
         self.assertIn("team_user_id_ed25519", files["team_user_README.txt"])
         self.assertIn("chmod 600", files["team_user_README.txt"])
+        self.assertIn("Výchozí port SFTP je 22", files["team_user_README.txt"])
+        self.assertIn("Total Commander", files["team_user_README.txt"])
+        self.assertIn("Private key file", files["team_user_README.txt"])
+        self.assertIn("Public key file", files["team_user_README.txt"])
+        self.assertIn("WinSCP", files["team_user_README.txt"])
+        self.assertIn("Soubor se soukromým klíčem", files["team_user_README.txt"])
+        self.assertIn("nelze nastavit práva", files["team_user_README.txt"])
 
     def test_public_only_archive_has_no_private_file(self):
         _, text_body, html_body, attachments = sftp_hlp.build_key_mail_payload(

@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- UPD SFTP Manager 1.2.3 doplňuje do ZIP README konkrétní nastavení Total Commander SFTP pluginu a WinSCP, výchozí port 22 a vysvětlení serverem řízených práv; konkrétní host zůstává odděleným kanálem
+
 - ADD SFTP Manager 1.2.2 odesílá veřejný a dostupný soukromý klíč jako ZIP s praktickými názvy souborů a přiloženým návodem
 - FIX soukromý SFTP klíč se již nevypisuje přímo do textového ani HTML těla e-mailu
 - ADD centrální SMTP transport v JBLibs podporuje přílohy z cest, bytes a streamů i ZIP archiv vytvořený bez dočasných souborů

@@ -24,11 +24,23 @@ Soubory:
 - {public_filename}: veřejný klíč; tento soubor lze předat správci serveru.
 {private_line}
 
-Použití:
+Obecné pokyny:
 1. Rozbalte tento ZIP archiv.
-2. Ve svém SSH/SFTP klientovi importujte nebo vyberte {private_usage}.
-3. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>
-4. Adresa serveru a případné samostatné heslo se předávají jiným kanálem.
+2. Adresa serveru a případný nestandardní port se předávají samostatně. Výchozí port SFTP je 22.
+3. Heslo ponechte prázdné, pokud nebylo předáno samostatně.
+4. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>
+
+Total Commander - plugin Secure FTP/SFTP:
+1. V nastavení připojení nastavte Private key file na {private_usage}.
+2. Public key file nastavte na odpovídající veřejný klíč {public_filename}. Plugin vyžaduje oba soubory.
+3. Pole Password ponechte prázdné.
+
+WinSCP:
+1. Otevřete Upřesnit -> SSH -> Autorizace.
+2. Do pole Soubor se soukromým klíčem vyberte {private_usage}, tedy soubor bez přípony .pub.
+3. Pokud WinSCP nabídne převod do vlastního formátu PuTTY/PPK, převod potvrďte a použijte vytvořený klíč.
+4. Pole hesla ponechte prázdné.
+5. Tento účet používá serverový Samba/SFTP sandbox. Oprávnění souborů řídí server a změna práv z klienta nemá účinek. Případné upozornění WinSCP, že nelze nastavit práva, je očekávané a lze je v klientovi vypnout.
 
 {generated_by}
 """
