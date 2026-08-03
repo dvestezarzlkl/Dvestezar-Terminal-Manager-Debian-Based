@@ -2,6 +2,34 @@
 
 set -e
 
+RUN_APP=true
+
+show_help() {
+    cat <<'EOF'
+Usage: ./setup.sh [--no-run]
+
+  --no-run    Install/update sys_apps without starting run.sh.
+  -h, --help  Show this help.
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        --no-run)
+            RUN_APP=false
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $arg" >&2
+            show_help >&2
+            exit 2
+            ;;
+    esac
+done
+
 # Root adresář projektu
 APP_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$APP_ROOT"
@@ -61,6 +89,9 @@ EOF
     echo "$RUN_WRAPPER byl vytvořen."
 fi
 
-echo "Spouštím $RUN_WRAPPER..."
-./"$RUN_WRAPPER"
-
+if [ "$RUN_APP" = true ]; then
+    echo "Spouštím $RUN_WRAPPER..."
+    ./"$RUN_WRAPPER"
+else
+    echo "Instalace dokončena, --no-run: aplikace nebude spuštěna."
+fi
