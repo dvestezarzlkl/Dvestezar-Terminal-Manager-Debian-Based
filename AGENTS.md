@@ -1,5 +1,22 @@
 # info pro agenty
 
+## inicializace práce
+
+- Hlavní pracovní vstup a runtime paměť projektu je `dvestezarzlkl/todo_md`, sekce `+SysApp_terminal` v `my_todo.md`.
+- Před zahájením každého úkolu načti `todo_md/AGENTS.md`, `todo_md/README.md`, aktuální sekci `+SysApp_terminal` a potom instrukce `AGENTS.md` v tomto repozitáři.
+- Pro každý upravovaný soubor zkontroluj také všechny bližší `AGENTS.md` v jeho nadřazených adresářích; lokální instrukce rozšiřují nebo zpřesňují kořenové instrukce.
+- Chat není jediná historie práce. Nové bugy, nápady, odskoky, stav řešení a bod návratu zapisuj průběžně do `todo_md` podle jeho instrukcí.
+- Hlavní repozitář, `dvestezarzlkl/JBLibs-python` i `dvestezarzlkl/todo_md` používají pro společnou práci cílovou větev `main`.
+- Obecně použitelná funkčnost patří do `JBLibs-python`; následně aktualizuj odkaz submodulu `libs/JBLibs` v tomto repozitáři.
+
+## GitHub konektor a malé změny ve velkých souborech
+
+- GitHub konektor při přímé úpravě existujícího souboru vyžaduje kompletní nový obsah. Nepřepisuj proto velký soubor z neúplného nebo zkráceného výpisu.
+- Pro malé změny ve velkých souborech použij `.github/scripts/apply_repo_changes.py`, `.github/workflows/apply-repo-patch.yml` a JSON manifest v `.github/changes/`.
+- Vytvoř větev `automation/<nazev>` z aktuálního `main`, přidej manifest a otevři draft PR do `main`. Workflow ověří přesné výskyty, zachová LF/CRLF, provede náhrady, odstraní manifest a commitne výsledek do stejné větve.
+- Po proběhnutí Actions zkontroluj výsledný diff a teprve potom PR sluč.
+- Manifest používá `version`, `commit_message` a pole `replacements`; každá náhrada obsahuje `path`, přesné `old`, `new` a obvykle `expected: 1`.
+
 ## changelog
 
 Po každé změně kódu je potřeba aktualizovat changelog.md v poslední verzi na začátku, verzi neměníme pokud není přímo řečeno, třeba s pushem změn.
@@ -16,18 +33,24 @@ pokud má scritp v sobě někde na začátku `version` nebo `__VERSION__` tak je
 
 ## aplikace
 
-je založená komplet na `c_menu` kde má aplikace jedno výchozí menu a z něj se volí jednotlivé podmenu (podaplikace), menu jsou dynamická, hlavně vstupní menu je dynamické a vytváří se vvlastní položky do podaplikací/submenu podle toho co je v app/libs/app/menus, v tomto adresáři jsou jednotlivé subadresáře jako subaplikace které když obashuje menu.py a má správný formát a proměnné je načteno do hlavního bossMenu
+Aplikace i pomocná výběrová menu jsou založená na `c_menu`. Hlavním prostorem pro menu a podaplikace je `libs/app/menus`.
 
-víc přímo v `libs/app/menus/menu.md` kde je popis i vlastní hlavičky menu atp
+`libs/app/menus/menuBoss.py` obsahuje hlavní dynamickou menu class. Vyhledává podadresáře začínající `app_`; pokud podadresář obsahuje správně definovaný `menu.py`, načte jej jako položku hlavního menu.
+
+`libs/app/menus/menu.md` je dokumentace struktury a funkcí menu, nikoliv hlavní wrapper nebo hlavní menu class.
+
+Pokud během vývoje vznikne potřeba samostatného nástroje nebo rozsáhlejšího submenu, navrhni jej jako novou podaplikaci, zapiš úkol do `todo_md` a vytvoř nový adresář `libs/app/menus/app_<poradi>_<nazev>` se souborem `menu.py`.
+
+Aktuální podaplikace zahrnují mimo jiné UART tester, SSH manager, SFTP manager, Node-RED instance manager a self-updater.
 
 ## struktura
 
 - sys_app je název a vstupní bod do app
 - libs je složka s knihovnami, které jsou volány z app a z jednotlivých instancí
   - libs/app je hlavní knihovna pro tuto app
-    - libs/app/menus je složka s menu pro app, jednotlivá měnu nemusí být jen menu jako takové ale může tvoři vlastní celou podaplikaci
+    - libs/app/menus je složka s menu pro app, jednotlivá menu nemusí být jen menu jako takové, ale mohou tvořit vlastní celou podaplikaci
 - libs/JBLibs jsou vlastní knihovny - takový malý framework
-  - libs/JBLibs/c_menu je hlavní knihovna a class pro právi s menu
+  - libs/JBLibs/c_menu je hlavní knihovna a class pro práci s menu
   - libs/JBLibs/term.py je knihovna pro práci s terminálem, print, klávesový vstup, barevný výpis, atd.
   - libs/JBLibs/input.py je knihovna pro práci s klávesovým vstupem, čtení znaků, atd., confirm, select z voleb, selectDir, selectFile atd.
   - libs/JBLibs/fs_utils.py je knihovna pro práci se souborovým systémem, čtení, zápis, rozložení disku a jiné fs příkazy, atd.

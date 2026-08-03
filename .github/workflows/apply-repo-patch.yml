@@ -1,0 +1,49 @@
+name: Apply repository changes
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/changes/*.json"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: repo-change-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply change manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/apply_repo_changes.py \
+            --message-file "$RUNNER_TEMP/repo-change-message.txt"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Manifest produced no repository changes"
+            exit 1
+          fi
+
+      - name: Commit applied changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "SysApp automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -F "$RUNNER_TEMP/repo-change-message.txt"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
