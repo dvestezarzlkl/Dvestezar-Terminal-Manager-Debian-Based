@@ -16,6 +16,7 @@
 - `log` je unixový symlink na živý logovací adresář. Aktuální logy nejsou součástí repozitáře a při diagnostice je musí dodat uživatel.
 - `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.
 - `assets/tokens/readme.md` dokumentuje lokální přístupové tokeny. Soubory `assets/tokens/*.cd` jsou ignorované Gitem, obsahují citlivé údaje a nesmí se vypisovat do logu, chatu, diffu ani commitu.
+- Plugin systém má čtyři oddělené zdroje stavu: `.gitmodules` pro Git cestu/URL, `pluginy.jsonc` pro katalog a výchozí politiku, `/etc/jb_sys_apps/plugins.jsonc` pro lokální enable/disable a `assets/tokens/<id>.cd` pro přístup. Formát a postupy udržuj v `docs/plugin-system.md`; token nikdy nesmí implicitně přebít lokální `enabled: false`.
 - Obrázky vložené do Markdown dokumentů přes VSCode Office Viewer se ukládají relativně jako `image/<nazev_md>/resources.*`; tuto strukturu zachovej při úpravách dokumentace.
 
 ## GitHub konektor a malé změny ve velkých souborech
