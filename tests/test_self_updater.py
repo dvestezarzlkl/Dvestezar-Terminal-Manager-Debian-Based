@@ -28,6 +28,16 @@ class SelfUpdaterTests(unittest.TestCase):
             Path("/etc/jb_sys_apps/plugins.jsonc"),
         )
 
+    def test_core_preflight_does_not_depend_on_optional_plugin_catalog(self) -> None:
+        with patch.object(self.updater, "_capture", return_value=(0, "")), \
+             patch.object(self.updater, "_is_initialized_submodule", return_value=False), \
+             patch.object(
+                 self.updater.plugins,
+                 "load_catalog",
+                 side_effect=AssertionError("optional catalog must not be read"),
+             ):
+            self.assertTrue(self.updater._verify_clean_worktrees())
+
     def test_update_report_changed_state(self) -> None:
         report = UpdateReport()
         self.assertFalse(report.changed)
