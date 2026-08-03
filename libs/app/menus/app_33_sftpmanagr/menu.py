@@ -60,7 +60,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    __VERSION__ = "1.2.2"
+    __VERSION__ = "1.2.3"
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
         """Vytvoří základní titulní blok pro menu.

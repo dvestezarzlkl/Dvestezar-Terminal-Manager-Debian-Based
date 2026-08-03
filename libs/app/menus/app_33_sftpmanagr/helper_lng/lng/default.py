@@ -24,11 +24,23 @@ Files:
 - {public_filename}: public key; this file may be shared with the server administrator.
 {private_line}
 
-Usage:
+General instructions:
 1. Extract this ZIP archive.
-2. Import or select {private_usage} in your SSH/SFTP client.
-3. On Linux, protect a private key with: chmod 600 <private-key-file>
-4. Server address and any separate password are delivered through another channel.
+2. The server address and any non-standard port are delivered separately. The default SFTP port is 22.
+3. Leave the password empty unless it was delivered separately.
+4. On Linux, protect the private key with: chmod 600 <private-key-file>
+
+Total Commander - Secure FTP/SFTP plugin:
+1. Set Private key file to {private_usage} in the connection settings.
+2. Set Public key file to the matching public key {public_filename}. The plugin requires both files.
+3. Leave the Password field empty.
+
+WinSCP:
+1. Open Advanced -> SSH -> Authentication.
+2. Select {private_usage} in Private key file; this is the file without the .pub suffix.
+3. If WinSCP offers to convert the key to PuTTY/PPK format, confirm the conversion and use the converted key.
+4. Leave the password field empty.
+5. This account uses a server-side Samba/SFTP sandbox. File permissions are enforced by the server, so changing permissions from the client has no effect. A WinSCP warning that permissions cannot be set is expected and can be disabled in the client.
 
 {generated_by}
 """
