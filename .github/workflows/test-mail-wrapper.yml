@@ -1,11 +1,13 @@
-name: Test application mail wrapper
+name: Test application mail delivery
 
 on:
   pull_request:
     paths:
       - "libs/JBLibs"
       - "libs/app/mail_hlp.py"
+      - "libs/app/menus/app_33_sftpmanagr/**"
       - "tests/test_mail_hlp.py"
+      - "tests/test_sftp_key_mail.py"
       - ".github/workflows/test-mail-wrapper.yml"
 
 permissions:
@@ -32,7 +34,12 @@ jobs:
 
       - name: Install test dependencies
         shell: bash
-        run: python -m pip install --disable-pip-version-check json5==0.9.27 psutil==6.1.0
+        run: |
+          python -m pip install --disable-pip-version-check \
+            json5==0.9.27 \
+            psutil==6.1.0 \
+            paramiko==4.0.0 \
+            cryptography==46.0.7
 
       - name: Prepare application log directory
         shell: bash
@@ -40,10 +47,18 @@ jobs:
           sudo mkdir -p /var/log/jb_sys_apps
           sudo chown "$(id -u):$(id -g)" /var/log/jb_sys_apps
 
-      - name: Compile mail wrapper
+      - name: Compile mail modules and tests
         shell: bash
-        run: python -m py_compile libs/app/mail_hlp.py tests/test_mail_hlp.py
+        run: |
+          python -m py_compile \
+            libs/app/mail_hlp.py \
+            libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py \
+            tests/test_mail_hlp.py \
+            tests/test_sftp_key_mail.py
 
-      - name: Run mail wrapper tests
+      - name: Run mail delivery tests
         shell: bash
-        run: python -m unittest -v tests.test_mail_hlp
+        run: |
+          python -m unittest -v \
+            tests.test_mail_hlp \
+            tests.test_sftp_key_mail
