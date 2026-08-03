@@ -54,7 +54,7 @@ class SshManagerMailTests(unittest.TestCase):
         self.assertIn("Total Commander", readme)
         self.assertIn("WinSCP", readme)
 
-    def test_public_only_mail_has_no_private_file(self):
+    def test_public_only_mail_has_no_private_file_or_client_setup_steps(self):
         _, _, _, attachments = ssh_mail_hlp.build_key_mail_payload(
             "alice",
             "imported",
@@ -70,6 +70,10 @@ class SshManagerMailTests(unittest.TestCase):
                 "alice_imported_README.txt",
             },
         )
+        readme = files["alice_imported_README.txt"]
+        self.assertNotIn("Total Commander", readme)
+        self.assertNotIn("WinSCP", readme)
+        self.assertIn("alice_imported_id_ed25519.pub", readme)
 
     def test_send_uses_only_configured_recipient(self):
         with patch.object(
