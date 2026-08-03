@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from .lng.default import *
+from libs.JBLibs.helper import getLogger, loadLng
+
+loadLng()
+
 from typing import List, Optional, Tuple, Dict
 
 from libs.JBLibs.c_menu import (
@@ -11,7 +16,6 @@ from libs.JBLibs.c_menu import (
 )
 from libs.JBLibs.input import anyKey,selectDir,text_color,en_color,get_input,confirm,select,select_item
 from libs.JBLibs.term import cls
-from libs.JBLibs.helper import getLogger
 from libs.app import mail_hlp
 log = getLogger("sftpmng")
 
@@ -56,7 +60,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    __VERSION__ = "1.1.1"
+    __VERSION__ = "1.1.2"
 
     def basicTitle(self, add:str|list=None, username:str|None="not selected") -> c_menu_block_items:
         """Vytvoří základní titulní blok pro menu.
@@ -108,7 +112,7 @@ class menu(c_menu):
         if not cifs_exists():
             self.menu.append(
                 c_menu_title_label(
-                    text_color("!! CIFS support is missing - install package cifs-utils !!", en_color.BRIGHT_RED)
+                    text_color(TXT_SFTP_MENU_CIFS_MISSING, en_color.BRIGHT_RED)
                 )
             )
         self.menu.extend([
