@@ -2,6 +2,9 @@
 
 ## v1.9.7
 
+- ADD centrální SMTP transport v JBLibs podporuje přílohy z cest, bytes a streamů i ZIP archiv vytvořený bez dočasných souborů
+- UPD aplikační `mail_hlp` používá společný transport, zachovává stávající SMTP konfiguraci a přijímá `attachments=` pro SFTP, SSH a Node-RED menu
+- UPD JBLibs submodul na verzi 1.2.14 s redakcí SMTP hesla, dokumentací a unit testy
 - ADD bezpečný self-updater aktualizuje hlavní repo, povinný JBLibs gitlink, povolené pluginy a spouští `setup.sh --no-run`
 - FIX nepovinný privátní plugin bez tokenu již nezablokuje aktualizaci core ani JBLibs; povinné kroky se po updatu ověřují
 - ADD `pluginy.jsonc` je katalog pluginů a `/etc/jb_sys_apps/plugins.jsonc` ukládá lokální enable/disable stav s vyšší prioritou než token
