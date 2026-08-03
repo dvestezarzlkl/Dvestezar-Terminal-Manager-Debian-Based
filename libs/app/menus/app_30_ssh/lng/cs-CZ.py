@@ -24,7 +24,7 @@ TXT_SSH_MAIL_PRIVATE_WARNING = "Přiložený archiv obsahuje soukromý klíč. C
 TXT_SSH_MAIL_NO_PRIVATE_KEY = "U této položky není uložen soukromý klíč; archiv obsahuje pouze veřejný klíč."
 TXT_SSH_MAIL_README_PRIVATE_LINE = "- {private_filename}: soukromý klíč; chraňte jej a nikdy jej nezveřejňujte."
 TXT_SSH_MAIL_README_NO_PRIVATE_LINE = "- U této položky není uložen soukromý klíč."
-TXT_SSH_MAIL_README_PRIVATE_NOT_AVAILABLE = "není součástí tohoto archivu"
+TXT_SSH_MAIL_PRIVATE_PROTECTION = "4. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>"
 TXT_SSH_MAIL_CLIENT_INSTRUCTIONS = """Total Commander - plugin Secure FTP/SFTP:
 1. V nastavení připojení nastavte Private key file na {private_usage}.
 2. Public key file nastavte na odpovídající veřejný klíč {public_filename}. Plugin vyžaduje oba soubory.
@@ -52,7 +52,7 @@ Obecné pokyny:
 1. Rozbalte tento ZIP archiv.
 2. Adresa serveru a případný nestandardní port se předávají samostatně. Výchozí port SFTP/SSH je 22.
 3. Heslo ponechte prázdné, pokud nebylo předáno samostatně.
-4. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>
+{private_protection}
 
 {client_instructions}
 {generated_by}
