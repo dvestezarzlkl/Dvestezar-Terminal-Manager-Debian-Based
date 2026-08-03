@@ -63,34 +63,52 @@ class PluginRegistry:
         try:
             data = json5.loads(self.state_path.read_text(encoding="utf-8"))
         except Exception as exc:
-            raise ValueError(f"Cannot read local plugin state {self.state_path}: {exc}") from exc
+            raise ValueError(
+                f"Cannot read local plugin state {self.state_path}: {exc}"
+            ) from exc
         if not isinstance(data, dict):
-            raise ValueError(f"Local plugin state {self.state_path} must contain an object")
+            raise ValueError(
+                f"Local plugin state {self.state_path} must contain an object"
+            )
         return {
             str(plugin_id): value
             for plugin_id, value in data.items()
             if isinstance(value, dict)
         }
 
-    def save_state(self, state: dict[str, dict[str, Any]]) -> None:
-        self.state_path.parent.mkdir(parents=True, exist_ok=True)
+    @staticmethod
+    def _atomic_write(path: Path, content: str, mode: int) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_path = tempfile.mkstemp(
-            prefix=f".{STATE_NAME}.",
-            dir=str(self.state_path.parent),
+            prefix=f".{path.name}.",
+            dir=str(path.parent),
             text=True,
         )
         try:
+            os.fchmod(fd, mode)
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(state, handle, ensure_ascii=False, indent=4, sort_keys=True)
-                handle.write("\n")
-            os.chmod(temp_path, 0o644)
-            os.replace(temp_path, self.state_path)
+                handle.write(content)
+            os.replace(temp_path, path)
+            os.chmod(path, mode)
         except Exception:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
             try:
                 os.unlink(temp_path)
             except OSError:
                 pass
             raise
+
+    def save_state(self, state: dict[str, dict[str, Any]]) -> None:
+        content = json.dumps(
+            state,
+            ensure_ascii=False,
+            indent=4,
+            sort_keys=True,
+        ) + "\n"
+        self._atomic_write(self.state_path, content, 0o644)
 
     @staticmethod
     def plugin_path(plugin: dict[str, Any]) -> str | None:
@@ -99,8 +117,36 @@ class PluginRegistry:
             return None
         return str(Path("libs/app/menus") / adr_name.strip())
 
-    def token_path(self, plugin_id: str) -> Path:
-        return self.root / TOKENS_DIR / f"{plugin_id}.cd"
+    def token_path(self, token_id: str) -> Path:
+        token_id = str(token_id).strip()
+        if not token_id or Path(token_id).name != token_id:
+            raise ValueError("Token ID must be a non-empty file-safe identifier")
+        return self.root / TOKENS_DIR / f"{token_id}.cd"
+
+    def has_token(self, token_id: str) -> bool:
+        return self.token_path(token_id).is_file()
+
+    def set_token(self, token_id: str, username: str, token: str) -> None:
+        username = str(username)
+        token = str(token)
+        if not username or username.strip() != username or any(c.isspace() for c in username):
+            raise ValueError("Git username must be non-empty and contain no whitespace")
+        if not token or token.strip() != token or any(c.isspace() for c in token):
+            raise ValueError("Git token must be non-empty and contain no whitespace")
+        if ":" in username:
+            raise ValueError("Git username must not contain ':'")
+        self._atomic_write(
+            self.token_path(token_id),
+            f"{username}:{token}\n",
+            0o600,
+        )
+
+    def remove_token(self, token_id: str) -> bool:
+        token_path = self.token_path(token_id)
+        if not token_path.exists():
+            return False
+        token_path.unlink()
+        return True
 
     def is_installed(self, plugin: dict[str, Any]) -> bool:
         path = self.plugin_path(plugin)
@@ -134,7 +180,7 @@ class PluginRegistry:
             plugin_id=plugin_id,
             enabled=self.is_enabled(plugin_id, plugin),
             installed=self.is_installed(plugin),
-            has_token=self.token_path(plugin_id).is_file(),
+            has_token=self.has_token(plugin_id),
             private=bool(plugin.get("private", False)),
             optional=bool(plugin.get("optional", True)),
             auto_update=bool(plugin.get("auto_update", True)),
@@ -144,7 +190,10 @@ class PluginRegistry:
 
     def statuses(self) -> list[PluginStatus]:
         catalog = self.load_catalog()
-        return [self.status(plugin_id, plugin) for plugin_id, plugin in catalog.items()]
+        return [
+            self.status(plugin_id, plugin)
+            for plugin_id, plugin in catalog.items()
+        ]
 
     def is_app_directory_enabled(self, app_dir: str) -> bool:
         catalog = self.load_catalog()
