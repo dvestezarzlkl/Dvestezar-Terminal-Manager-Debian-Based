@@ -131,7 +131,7 @@ class menu(c_menu):
             name = usr.get("sftpuser") or TXT_SFTP_MENU_USER_FALLBACK.format(index=idx)
             mp_count = len(usr.get("sftpmounts", {}))
             key_count = len(usr.get("sftpcerts", []))
-            mail = usr.get("mail") or "-"
+            mail = usr.get("mail") or TXT_SFTP_MENU_NOT_SET
             label = text_color(f"{name}",en_color.YELLOW)
             atR = TXT_SFTP_MENU_USER_SUMMARY.format(mounts=mp_count, keys=key_count, mail=mail)
             # Create a submenu instance carrying the username.  The
@@ -365,8 +365,8 @@ class m_user_mountpoints(c_menu):
         from .sftp_manager_hlp import checkMountpointExists, checkMountPointPathExists
         
         ret = onSelReturn()
-        label = "NaN"
-        target = "NaN"
+        label = TXT_SFTP_MENU_NOT_SET
+        target = TXT_SFTP_MENU_NOT_SET
         
         #pomocná funkce na zobrazení hlavičky pro zadávání mountpointu
         def show_header():
