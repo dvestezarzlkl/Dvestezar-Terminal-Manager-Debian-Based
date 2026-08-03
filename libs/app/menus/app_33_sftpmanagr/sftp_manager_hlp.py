@@ -174,8 +174,134 @@ def set_user_mail(cfg: Dict, username: str, mail: Optional[str]) -> Tuple[bool, 
     return True, None
 
 
+def _safe_key_export_name(value: str) -> str:
+    """Return a short filesystem-safe component for exported key files."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value)).strip("._")
+    return safe or "sftp_user"
+
+
+def _key_file_stem(public_key: str) -> str:
+    """Map an OpenSSH public-key type to a familiar private-key filename."""
+    key_type = public_key.split(maxsplit=1)[0] if public_key else ""
+    return {
+        "ssh-ed25519": "id_ed25519",
+        "sk-ssh-ed25519@openssh.com": "id_ed25519_sk",
+        "ssh-rsa": "id_rsa",
+        "ssh-dss": "id_dsa",
+        "ecdsa-sha2-nistp256": "id_ecdsa",
+        "ecdsa-sha2-nistp384": "id_ecdsa",
+        "ecdsa-sha2-nistp521": "id_ecdsa",
+        "sk-ecdsa-sha2-nistp256@openssh.com": "id_ecdsa_sk",
+    }.get(key_type, "id_ssh_key")
+
+
+def build_key_mail_payload(
+    username: str,
+    public_key: str,
+    private_key: str,
+    recipients: List[str],
+) -> Tuple[str, str, str, List[mail_hlp.MailAttachment]]:
+    """Build localized SFTP key mail bodies and an in-memory ZIP attachment."""
+    safe_username = _safe_key_export_name(username)
+    key_stem = _key_file_stem(public_key)
+    public_filename = f"{safe_username}_{key_stem}.pub"
+    private_filename = f"{safe_username}_{key_stem}"
+    readme_filename = f"{safe_username}_README.txt"
+    archive_filename = f"{safe_username}_sftp_keys.zip"
+
+    if private_key:
+        private_line = TXT_SFTP_HLP_MAIL_README_PRIVATE_LINE.format(
+            private_filename=private_filename
+        )
+        private_usage = private_filename
+    else:
+        private_line = TXT_SFTP_HLP_MAIL_README_NO_PRIVATE_LINE
+        private_usage = TXT_SFTP_HLP_MAIL_README_PRIVATE_NOT_AVAILABLE
+
+    generated_by = TXT_SFTP_HLP_MAIL_GENERATED_BY.format(
+        version=getattr(app_cfg, "VERSION", "")
+    )
+    readme = TXT_SFTP_HLP_MAIL_README.format(
+        username=username,
+        public_filename=public_filename,
+        private_line=private_line,
+        private_usage=private_usage,
+        generated_by=generated_by,
+    )
+
+    zip_items = [
+        mail_hlp.ZipItem(public_filename, public_key.rstrip() + "\n"),
+    ]
+    if private_key:
+        zip_items.insert(
+            0,
+            mail_hlp.ZipItem(private_filename, private_key.rstrip() + "\n"),
+        )
+    zip_items.append(mail_hlp.ZipItem(readme_filename, readme))
+
+    try:
+        attachment = mail_hlp.create_zip_attachment(archive_filename, zip_items)
+    except Exception as e:
+        raise ValueError(TXT_SFTP_HLP_MAIL_ZIP_FAILED.format(error=e)) from e
+
+    subject = TXT_SFTP_HLP_MAIL_SUBJECT.format(username=username)
+    subject += (
+        TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC_PRIVATE
+        if private_key
+        else TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC
+    )
+
+    body_lines = [
+        TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username),
+        TXT_SFTP_HLP_MAIL_RECIPIENTS.format(recipients=', '.join(recipients)),
+        "",
+        TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED.format(filename=archive_filename),
+        TXT_SFTP_HLP_MAIL_PRIVATE_WARNING
+        if private_key
+        else TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY,
+        "",
+        generated_by,
+    ]
+    text_body = "\n".join(body_lines)
+
+    html_lines = [
+        "<html>",
+        "  <body>",
+        "    <p>{}<br>".format(
+            html.escape(TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username))
+        ),
+        "       {}</p>".format(
+            html.escape(
+                TXT_SFTP_HLP_MAIL_RECIPIENTS.format(
+                    recipients=', '.join(recipients)
+                )
+            )
+        ),
+        "    <p>{}</p>".format(
+            html.escape(
+                TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED.format(
+                    filename=archive_filename
+                )
+            )
+        ),
+        "    <p>{}</p>".format(
+            html.escape(
+                TXT_SFTP_HLP_MAIL_PRIVATE_WARNING
+                if private_key
+                else TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY
+            )
+        ),
+        "    <p>{}</p>".format(html.escape(generated_by)),
+        "  </body>",
+        "</html>",
+    ]
+    html_body = "\n".join(html_lines)
+
+    return subject, text_body, html_body, [attachment]
+
+
 def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional[str]]:
-    """Send an exported SSH key to the configured recipients."""
+    """Send an exported SSH key as a ZIP attachment to configured recipients."""
     admin_mail = get_admin_mail(cfg) or mail_hlp.get_fallback_admin_mail()
     if not admin_mail:
         return False, TXT_SFTP_HLP_ADMIN_MAIL_NOT_CONFIGURED
@@ -188,68 +314,28 @@ def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional
     if not ok:
         return False, TXT_SFTP_HLP_KEY_PARSE_FAILED.format(error=printable)
 
-    pub, priv = printable
+    public_key, private_key = printable
     recipients = [admin_mail]
     if user_mail and user_mail not in recipients:
         recipients.append(user_mail)
 
-    subject = TXT_SFTP_HLP_MAIL_SUBJECT.format(username=username)
-    if priv:
-        subject += TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC_PRIVATE
-    else:
-        subject += TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC
+    try:
+        subject, text_body, html_body, attachments = build_key_mail_payload(
+            username,
+            public_key,
+            private_key,
+            recipients,
+        )
+    except Exception as e:
+        return False, str(e)
 
-    body_lines = [
-        TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username),
-        TXT_SFTP_HLP_MAIL_RECIPIENTS.format(recipients=', '.join(recipients)),
-        "",
-        TXT_SFTP_HLP_MAIL_PUBLIC_KEY,
-        pub,
-    ]
-    if priv:
-        body_lines.extend([
-            "",
-            TXT_SFTP_HLP_MAIL_PRIVATE_KEY,
-            priv,
-            "",
-            TXT_SFTP_HLP_MAIL_PRIVATE_WARNING,
-        ])
-    else:
-        body_lines.extend([
-            "",
-            TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY,
-        ])
-
-    body_lines.extend([
-        "",
-        TXT_SFTP_HLP_MAIL_GENERATED_BY.format(version=getattr(app_cfg, 'VERSION', '')),
-    ])
-    text_body = "\n".join(body_lines)
-
-    html_lines = [
-        "<html>",
-        "  <body>",
-        "    <p>{}<br>".format(html.escape(TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username))),
-        "       {}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_RECIPIENTS.format(recipients=', '.join(recipients)))),
-        "    <p>{}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_PUBLIC_KEY)),
-        "    <pre>{}</pre>".format(html.escape(pub)),
-    ]
-    if priv:
-        html_lines.extend([
-            "    <p>{}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_PRIVATE_KEY)),
-            "    <pre>{}</pre>".format(html.escape(priv)),
-            "    <p>{}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_PRIVATE_WARNING)),
-        ])
-    else:
-        html_lines.append("    <p>{}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY)))
-    html_lines.extend([
-        "    <p>{}</p>".format(html.escape(TXT_SFTP_HLP_MAIL_GENERATED_BY.format(version=getattr(app_cfg, "VERSION", "")))),
-        "  </body>",
-        "</html>",
-    ])
-    html_body = "\n".join(html_lines)
-
-    return mail_hlp.send_mail(recipients, subject, text_body, html_body=html_body)
+    return mail_hlp.send_mail(
+        recipients,
+        subject,
+        text_body,
+        html_body=html_body,
+        attachments=attachments,
+    )
 
 
 def list_users(cfg: Optional[Dict] = None) -> List[Dict]:

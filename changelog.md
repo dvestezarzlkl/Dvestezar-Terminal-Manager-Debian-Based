@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- ADD SFTP Manager 1.2.2 odesílá veřejný a dostupný soukromý klíč jako ZIP s praktickými názvy souborů a přiloženým návodem
+- FIX soukromý SFTP klíč se již nevypisuje přímo do textového ani HTML těla e-mailu
 - ADD centrální SMTP transport v JBLibs podporuje přílohy z cest, bytes a streamů i ZIP archiv vytvořený bez dočasných souborů
 - UPD aplikační `mail_hlp` používá společný transport, zachovává stávající SMTP konfiguraci a přijímá `attachments=` pro SFTP, SSH a Node-RED menu
 - UPD JBLibs submodul na verzi 1.2.14 s redakcí SMTP hesla, dokumentací a unit testy
