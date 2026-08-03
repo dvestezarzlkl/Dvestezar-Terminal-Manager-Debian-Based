@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Document shared SMTP transport",
+  "replacements": [
+    {
+      "path": "changelog.md",
+      "old": "## v1.9.7\n\n- ADD bezpečný self-updater aktualizuje hlavní repo, povinný JBLibs gitlink, povolené pluginy a spouští `setup.sh --no-run`",
+      "new": "## v1.9.7\n\n- ADD centrální SMTP transport v JBLibs podporuje přílohy z cest, bytes a streamů i ZIP archiv vytvořený bez dočasných souborů\n- UPD aplikační `mail_hlp` používá společný transport, zachovává stávající SMTP konfiguraci a přijímá `attachments=` pro SFTP, SSH a Node-RED menu\n- UPD JBLibs submodul na verzi 1.2.14 s redakcí SMTP hesla, dokumentací a unit testy\n- ADD bezpečný self-updater aktualizuje hlavní repo, povinný JBLibs gitlink, povolené pluginy a spouští `setup.sh --no-run`",
+      "expected": 1
+    }
+  ]
+}
