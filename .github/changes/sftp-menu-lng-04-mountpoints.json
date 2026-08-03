@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "commit_message": "Localize SFTP mountpoint menus",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        self.title=self.mainMenu.basicTitle(add=\" *** User > Mountpoints ***\", username=self.username)",
+      "new": "        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_MOUNTPOINTS, username=self.username)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            c_menu_title_label(text_color(f\"Mountpoints for {self.username}\",en_color.CYAN)),\n            c_menu_item(text_color(\"Add mountpoint\", en_color.BRIGHT_GREEN), \"a\", self.add_mountpoint),",
+      "new": "            c_menu_title_label(text_color(TXT_SFTP_MENU_MOUNTPOINTS_FOR.format(username=self.username), en_color.CYAN)),\n            c_menu_item(text_color(TXT_SFTP_MENU_ADD_MOUNTPOINT, en_color.BRIGHT_GREEN), \"a\", self.add_mountpoint),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            print(f\"*********** Add mountpoint for {self.username} ***********\")\n            print(f\"- Mountpoint name (alias): {label}\")\n            print(f\"- Target path: {target}\")",
+      "new": "            print(TXT_SFTP_MENU_MOUNTPOINT_HEADER.format(username=self.username))\n            print(TXT_SFTP_MENU_MOUNTPOINT_NAME.format(label=label))\n            print(TXT_SFTP_MENU_MOUNTPOINT_TARGET.format(target=target))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                \"Enter mountpoint name (alias):\",\n                rgx=r\"^[a-zA-Z0-9_\\-]+$\",\n                maxLen=32,\n                errTx=\"Invalid name. Use only letters, numbers, underscores or hyphens.\"",
+      "new": "                TXT_SFTP_MENU_ENTER_MOUNTPOINT_NAME,\n                rgx=r\"^[a-zA-Z0-9_\\-]+$\",\n                maxLen=32,\n                errTx=TXT_SFTP_MENU_INVALID_MOUNTPOINT_NAME",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                return ret.errRet(\"No mountpoint name provided.\")",
+      "new": "                return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_NAME)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                print(text_color(f\"Mountpoint '{label}' already exists for user '{self.username}'.\", en_color.BRIGHT_RED))",
+      "new": "                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_EXISTS.format(label=label, username=self.username), en_color.BRIGHT_RED))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            target = selectDir(\"/\",\"Select absolute path to mount:\")\n            if not target:\n                return ret.errRet(\"No mountpoint path provided.\")",
+      "new": "            target = selectDir(\"/\", TXT_SFTP_MENU_SELECT_MOUNTPOINT_PATH)\n            if not target:\n                return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                print(text_color(f\"Path '{target}' is already used for mountpoint '{existing_label}'.\", en_color.BRIGHT_RED))",
+      "new": "                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            select_item(\"Read-only (R)\", \"R\", \"R\"),\n            select_item(\"Read-write (RW)\", \"RW\", \"RW\")",
+      "new": "            select_item(TXT_SFTP_MENU_READ_ONLY, \"R\", \"R\"),\n            select_item(TXT_SFTP_MENU_READ_WRITE, \"RW\", \"RW\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        x = select(\"Select access mode:\",opts)\n        if not x:\n            return ret.errRet(\"No access mode selected.\")",
+      "new": "        x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)\n        if not x:\n            return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            return ret.errRet(f\"User '{self.username}' not found.\")",
+      "new": "            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        return ret.okRet(\"Mountpoint added.\")",
+      "new": "        return ret.okRet(TXT_SFTP_MENU_MOUNTPOINT_ADDED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            opt.append(select_item(\"Set to Read-Write\", \"W\", \"W\"))\n        else:\n            opt.append(select_item(\"Set to Read-Only\", \"R\", \"R\"))\n        opt.append(select_item(text_color(\"Delete mountpoint\", en_color.BRIGHT_RED), \"D\", \"D\"))\n        x = select(f\"Select action for mountpoint '{selItem.data}':\",opt)\n        if x is None:\n            return onSelReturn().errRet(\"No action selected.\")",
+      "new": "            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, \"W\", \"W\"))\n        else:\n            opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, \"R\", \"R\"))\n        opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), \"D\", \"D\"))\n        x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)\n        if x is None:\n            return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            if not confirm(f\"Remove mountpoint '{selItem.data}'?\"):\n                return onSelReturn().errRet(\"Cancelled.\")\n            if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):\n                return onSelReturn().errRet(\"Mountpoint not found.\")\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=\"Mountpoint removed.\")",
+      "new": "            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):\n                return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)\n            if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                return onSelReturn().errRet(\"Failed to update mountpoint.\")\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=\"Mountpoint updated.\")",
+      "new": "                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)",
+      "expected": 1
+    }
+  ]
+}
