@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "Pass SFTP key text to ZIP helper as bytes",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        mail_hlp.ZipItem(public_filename, public_key.rstrip() + \"\\n\"),",
+      "new": "        mail_hlp.ZipItem(\n            public_filename,\n            (public_key.rstrip() + \"\\n\").encode(\"utf-8\"),\n        ),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            mail_hlp.ZipItem(private_filename, private_key.rstrip() + \"\\n\"),",
+      "new": "            mail_hlp.ZipItem(\n                private_filename,\n                (private_key.rstrip() + \"\\n\").encode(\"utf-8\"),\n            ),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "    zip_items.append(mail_hlp.ZipItem(readme_filename, readme))",
+      "new": "    zip_items.append(\n        mail_hlp.ZipItem(readme_filename, readme.encode(\"utf-8\"))\n    )",
+      "expected": 1
+    }
+  ]
+}
