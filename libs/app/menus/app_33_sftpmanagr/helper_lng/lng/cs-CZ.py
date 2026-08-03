@@ -12,8 +12,27 @@ TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Export SFTP klíče uživatele: {username}"
 TXT_SFTP_HLP_MAIL_RECIPIENTS = "Příjemci: {recipients}"
 TXT_SFTP_HLP_MAIL_PUBLIC_KEY = "Veřejný klíč:"
 TXT_SFTP_HLP_MAIL_PRIVATE_KEY = "Soukromý klíč:"
-TXT_SFTP_HLP_MAIL_PRIVATE_WARNING = "Tato zpráva obsahuje soukromý klíč. Zacházejte s ním opatrně."
-TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY = "U této položky není uložen soukromý klíč."
+TXT_SFTP_HLP_MAIL_PRIVATE_WARNING = "Přiložený archiv obsahuje soukromý klíč. Přenášejte a ukládejte jej bezpečně."
+TXT_SFTP_HLP_MAIL_NO_PRIVATE_KEY = "U této položky není uložen soukromý klíč; archiv obsahuje pouze veřejný klíč."
+TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED = "Soubory klíče a návod jsou přiloženy v archivu: {filename}"
+TXT_SFTP_HLP_MAIL_README_PRIVATE_LINE = "- {private_filename}: soukromý klíč; chraňte jej a nikdy jej nezveřejňujte."
+TXT_SFTP_HLP_MAIL_README_NO_PRIVATE_LINE = "- U této položky není uložen soukromý klíč."
+TXT_SFTP_HLP_MAIL_README_PRIVATE_NOT_AVAILABLE = "není součástí tohoto archivu"
+TXT_SFTP_HLP_MAIL_README = """Balíček SFTP/SSH klíče pro uživatele: {username}
+
+Soubory:
+- {public_filename}: veřejný klíč; tento soubor lze předat správci serveru.
+{private_line}
+
+Použití:
+1. Rozbalte tento ZIP archiv.
+2. Ve svém SSH/SFTP klientovi importujte nebo vyberte {private_usage}.
+3. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>
+4. Adresa serveru a případné samostatné heslo se předávají jiným kanálem.
+
+{generated_by}
+"""
+TXT_SFTP_HLP_MAIL_ZIP_FAILED = "ZIP přílohu s klíčem se nepodařilo vytvořit: {error}"
 TXT_SFTP_HLP_MAIL_GENERATED_BY = "Vygenerováno pomocí SFTP Manager - SysApp v{version}."
 TXT_SFTP_HLP_WITH_PRIVATE_KEY = "(se soukromým klíčem)"
 TXT_SFTP_HLP_BASE64_DECODE_FAILED = "Klíč ve formátu base64 se nepodařilo dekódovat"
