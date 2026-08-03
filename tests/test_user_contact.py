@@ -20,16 +20,15 @@ class UserContactTests(unittest.TestCase):
             pw_uid=os.getuid(),
             pw_gid=os.getgid(),
         )
-        self.patches = [
-            patch.object(user_contact.pwd, "getpwnam", return_value=self.record),
-            patch.object(user_contact.os, "chown"),
-        ]
-        for item in self.patches:
-            item.start()
+        self.patcher = patch.object(
+            user_contact.pwd,
+            "getpwnam",
+            return_value=self.record,
+        )
+        self.patcher.start()
 
     def tearDown(self):
-        for item in reversed(self.patches):
-            item.stop()
+        self.patcher.stop()
         self.temp_dir.cleanup()
 
     def test_set_get_and_clear_user_email(self):
@@ -57,6 +56,29 @@ class UserContactTests(unittest.TestCase):
         path.parent.mkdir(parents=True)
         path.write_text('{\n  // recipient\n  "email": "alice@example.test"\n}\n', encoding="utf-8")
         self.assertEqual(user_contact.get_user_email("alice"), "alice@example.test")
+
+    def test_symlink_app_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as outside_dir:
+            config_dir = self.home / ".config"
+            config_dir.mkdir()
+            os.symlink(outside_dir, config_dir / "jb_sys_apps")
+            ok, error = user_contact.set_user_email("alice", "alice@example.test")
+
+        self.assertFalse(ok)
+        self.assertTrue(error)
+
+    def test_symlink_contact_file_is_rejected(self):
+        with tempfile.TemporaryDirectory() as outside_dir:
+            app_dir = self.home / ".config" / "jb_sys_apps"
+            app_dir.mkdir(parents=True)
+            outside = Path(outside_dir) / "contact.jsonc"
+            outside.write_text('{"email":"outside@example.test"}\n', encoding="utf-8")
+            os.symlink(outside, app_dir / "contact.jsonc")
+            ok, data, error = user_contact.load_user_contact("alice")
+
+        self.assertFalse(ok)
+        self.assertEqual(data, {})
+        self.assertTrue(error)
 
 
 if __name__ == "__main__":
