@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+import json
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+from typing import Any
+
+import json5
+
+from libs.JBLibs.helper import getConfigPath
+from libs.app import g_def as defs
+
+
+CATALOG_NAME = "pluginy.jsonc"
+STATE_NAME = "plugins.jsonc"
+TOKENS_DIR = Path("assets/tokens")
+
+
+@dataclass(frozen=True)
+class PluginStatus:
+    plugin_id: str
+    enabled: bool
+    installed: bool
+    has_token: bool
+    private: bool
+    optional: bool
+    auto_update: bool
+    path: str | None
+    description: str
+
+
+class PluginRegistry:
+    """Combine the repository plugin catalog with local installation state."""
+
+    def __init__(self, root: str | Path):
+        self.root = Path(root).resolve()
+        self.catalog_path = self.root / CATALOG_NAME
+        self.state_path = getConfigPath(
+            fromEtc=True,
+            configName=STATE_NAME,
+            appName=defs.APP_NAME,
+            createIfNotExist=True,
+        )
+
+    def load_catalog(self) -> dict[str, dict[str, Any]]:
+        if not self.catalog_path.is_file():
+            return {}
+        data = json5.loads(self.catalog_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError(f"{CATALOG_NAME} must contain an object")
+        return {
+            str(plugin_id): value
+            for plugin_id, value in data.items()
+            if isinstance(value, dict)
+        }
+
+    def load_state(self) -> dict[str, dict[str, Any]]:
+        if not self.state_path.is_file():
+            return {}
+        try:
+            data = json5.loads(self.state_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            raise ValueError(f"Cannot read local plugin state {self.state_path}: {exc}") from exc
+        if not isinstance(data, dict):
+            raise ValueError(f"Local plugin state {self.state_path} must contain an object")
+        return {
+            str(plugin_id): value
+            for plugin_id, value in data.items()
+            if isinstance(value, dict)
+        }
+
+    def save_state(self, state: dict[str, dict[str, Any]]) -> None:
+        self.state_path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_path = tempfile.mkstemp(
+            prefix=f".{STATE_NAME}.",
+            dir=str(self.state_path.parent),
+            text=True,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(state, handle, ensure_ascii=False, indent=4, sort_keys=True)
+                handle.write("\n")
+            os.chmod(temp_path, 0o644)
+            os.replace(temp_path, self.state_path)
+        except Exception:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
+            raise
+
+    @staticmethod
+    def plugin_path(plugin: dict[str, Any]) -> str | None:
+        adr_name = plugin.get("adr_name")
+        if not isinstance(adr_name, str) or not adr_name.strip():
+            return None
+        return str(Path("libs/app/menus") / adr_name.strip())
+
+    def token_path(self, plugin_id: str) -> Path:
+        return self.root / TOKENS_DIR / f"{plugin_id}.cd"
+
+    def is_installed(self, plugin: dict[str, Any]) -> bool:
+        path = self.plugin_path(plugin)
+        return bool(path and (self.root / path / ".git").exists())
+
+    def is_enabled(
+        self,
+        plugin_id: str,
+        plugin: dict[str, Any],
+        state: dict[str, dict[str, Any]] | None = None,
+    ) -> bool:
+        local_state = state if state is not None else self.load_state()
+        plugin_state = local_state.get(plugin_id, {})
+        enabled = plugin_state.get("enabled")
+        if isinstance(enabled, bool):
+            return enabled
+        return bool(plugin.get("enabled_by_default", True))
+
+    def set_enabled(self, plugin_id: str, enabled: bool) -> None:
+        catalog = self.load_catalog()
+        if plugin_id not in catalog:
+            raise KeyError(f"Unknown plugin {plugin_id}")
+        state = self.load_state()
+        plugin_state = state.setdefault(plugin_id, {})
+        plugin_state["enabled"] = bool(enabled)
+        self.save_state(state)
+
+    def status(self, plugin_id: str, plugin: dict[str, Any]) -> PluginStatus:
+        path = self.plugin_path(plugin)
+        return PluginStatus(
+            plugin_id=plugin_id,
+            enabled=self.is_enabled(plugin_id, plugin),
+            installed=self.is_installed(plugin),
+            has_token=self.token_path(plugin_id).is_file(),
+            private=bool(plugin.get("private", False)),
+            optional=bool(plugin.get("optional", True)),
+            auto_update=bool(plugin.get("auto_update", True)),
+            path=path,
+            description=str(plugin.get("description") or ""),
+        )
+
+    def statuses(self) -> list[PluginStatus]:
+        catalog = self.load_catalog()
+        return [self.status(plugin_id, plugin) for plugin_id, plugin in catalog.items()]
+
+    def is_app_directory_enabled(self, app_dir: str) -> bool:
+        catalog = self.load_catalog()
+        state = self.load_state()
+        for plugin_id, plugin in catalog.items():
+            path = self.plugin_path(plugin)
+            if path and Path(path).name == app_dir:
+                return self.is_enabled(plugin_id, plugin, state)
+        return True
+
+    def uninstall(self, plugin_id: str) -> tuple[bool, str]:
+        catalog = self.load_catalog()
+        plugin = catalog.get(plugin_id)
+        if plugin is None:
+            return False, f"Unknown plugin {plugin_id}."
+        path = self.plugin_path(plugin)
+        if path is None:
+            return False, f"Plugin {plugin_id} has no valid path."
+
+        self.set_enabled(plugin_id, False)
+        if not self.is_installed(plugin):
+            return True, f"Plugin {plugin_id} is disabled and already not installed."
+
+        env = os.environ.copy()
+        env["GIT_TERMINAL_PROMPT"] = "0"
+        proc = subprocess.run(
+            ["git", "submodule", "deinit", "-f", "--", path],
+            cwd=str(self.root),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return False, (
+                f"Plugin {plugin_id} was disabled, but local uninstall failed: "
+                f"{proc.stdout.strip()}"
+            )
+        return True, (
+            f"Plugin {plugin_id} was disabled and uninstalled locally. "
+            "Its token was preserved. Restart sys_apps to unload it."
+        )
