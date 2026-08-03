@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "commit_message": "Localize SFTP user submenu",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        self.title=self.mainMenu.basicTitle(add=\" *** User details ***\", username=self.username)\n        \n        title = f\"User: {self.username}\"",
+      "new": "        self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_USER_DETAILS, username=self.username)\n\n        title = TXT_SFTP_MENU_USER_TITLE.format(username=self.username)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        current_mail = get_user_mail(self.mainMenu.cfg, self.username) or \"not set\"",
+      "new": "        current_mail = get_user_mail(self.mainMenu.cfg, self.username) or TXT_SFTP_MENU_NOT_SET",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "                text_color(\"Mail\", en_color.BRIGHT_YELLOW),",
+      "new": "                text_color(TXT_SFTP_MENU_MAIL, en_color.BRIGHT_YELLOW),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            c_menu_item(text_color(\"Delete user\", en_color.BRIGHT_RED), \"d\", self.delete_user),",
+      "new": "            c_menu_item(text_color(TXT_SFTP_MENU_DELETE_USER, en_color.BRIGHT_RED), \"d\", self.delete_user),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            c_menu_item(\"Manage mountpoints\", \"m\", m_user_mountpoints(self.username, self.mainMenu,self.user),atRight=\"qty: \"+str(len(usr.get(\"sftpmounts\", {})))),\n            c_menu_item(\"Manage keys\", \"k\", m_user_keys(self.username, self.mainMenu,self.user),atRight=\"qty: \"+str(len(usr.get(\"sftpcerts\", [])))),",
+      "new": "            c_menu_item(TXT_SFTP_MENU_MANAGE_MOUNTPOINTS, \"m\", m_user_mountpoints(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get(\"sftpmounts\", {})))),\n            c_menu_item(TXT_SFTP_MENU_MANAGE_KEYS, \"k\", m_user_keys(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get(\"sftpcerts\", [])))),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        if not confirm(f\"Really delete SFTP user '{self.username}'? [y/N]\"):\n            return ret.errRet(\"Cancelled.\")\n        if not hlp_delete_user(self.mainMenu.cfg, self.username):\n            return ret.errRet(f\"User '{self.username}' not found.\")",
+      "new": "        if not confirm(TXT_SFTP_MENU_DELETE_USER_CONFIRM.format(username=self.username)):\n            return ret.errRet(TXT_SFTP_MENU_CANCELLED)\n        if not hlp_delete_user(self.mainMenu.cfg, self.username):\n            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        prompt = \"Enter user email address (empty clears):\"\n        if current:\n            prompt = f\"Enter user email address [{current}] (empty clears):\"",
+      "new": "        prompt = TXT_SFTP_MENU_ENTER_USER_MAIL\n        if current:\n            prompt = TXT_SFTP_MENU_ENTER_USER_MAIL_CURRENT.format(mail=current)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        mail = get_input(\n            prompt,\n            accept_empty=True,\n            rgx=r\"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$\",\n            maxLen=254,\n            errTx=\"Invalid email address.\"\n        )\n        if mail is None:\n            return ret.errRet(\"Operation cancelled.\")",
+      "new": "        mail = get_input(\n            prompt,\n            accept_empty=True,\n            rgx=r\"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$\",\n            maxLen=254,\n            errTx=TXT_SFTP_MENU_INVALID_EMAIL\n        )\n        if mail is None:\n            return ret.errRet(TXT_SFTP_MENU_OPERATION_CANCELLED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            if current and not confirm(f\"Clear mail address for user '{self.username}'?\"):\n                return ret.errRet(\"Cancelled.\")",
+      "new": "            if current and not confirm(TXT_SFTP_MENU_CLEAR_USER_MAIL_CONFIRM.format(username=self.username)):\n                return ret.errRet(TXT_SFTP_MENU_CANCELLED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        return ret.okRet(\"User mail updated.\")",
+      "new": "        return ret.okRet(TXT_SFTP_MENU_USER_MAIL_UPDATED)",
+      "expected": 1
+    }
+  ]
+}
