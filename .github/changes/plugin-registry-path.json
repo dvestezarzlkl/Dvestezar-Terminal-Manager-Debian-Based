@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "commit_message": "Avoid logging side effect when resolving plugin state path",
+  "replacements": [
+    {
+      "path": "libs/app/plugin_manager.py",
+      "old": "from libs.JBLibs.helper import getConfigPath\nfrom libs.app import g_def as defs\n",
+      "new": "from libs.app import g_def as defs\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/plugin_manager.py",
+      "old": "        self.catalog_path = self.root / CATALOG_NAME\n        self.state_path = getConfigPath(\n            fromEtc=True,\n            configName=STATE_NAME,\n            appName=defs.APP_NAME,\n            createIfNotExist=False,\n        )\n",
+      "new": "        self.catalog_path = self.root / CATALOG_NAME\n        app_name = defs.APP_NAME.strip()\n        if not app_name.startswith(\"jb_\"):\n            app_name = \"jb_\" + app_name\n        self.state_path = Path(\"/etc\") / app_name / STATE_NAME\n",
+      "expected": 1
+    }
+  ]
+}
