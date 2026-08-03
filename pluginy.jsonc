@@ -6,12 +6,14 @@
         "git_repo_user":"dvestezarzlkl",
         "description":"ZLKL Plugin pro správu ZLKL nastavení a služeb",
         "private":true,
+        "optional":true,
+        "auto_update":true,
         "licence":"ZLKL licence",
         "access":{
             "type":"token"
             // token je uložen v souboru na disku v `assets/tokens/<název_property>.cd` tzn v tomto případě `assets/tokens/sys_apps_zlkl_plugin.cd`
             // cesta k souboru s přístupovým tokenem, obsahuje jeden řádek stringu "<jméno uživatele>:<token>"
-            // pokud neexistuje cd soubor tak nepůjde nainstalovat ani updatovat plugin
+            // pokud neexistuje cd soubor tak se privátní volitelný plugin nenainstaluje; pokud už je nainstalovaný, updater jej bez přístupu pouze přeskočí s varováním
         },
         "maintainer":{ // kontakt na správce licenčního pluginu, spravuje licence a přístup
             "name":"Jan Zedník",
