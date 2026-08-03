@@ -91,7 +91,7 @@ TXT_SSH_MAIL_PRIVATE_WARNING = "The attached archive contains a private key. Pro
 TXT_SSH_MAIL_NO_PRIVATE_KEY = "No private key is stored for this entry; the archive contains only the public key."
 TXT_SSH_MAIL_README_PRIVATE_LINE = "- {private_filename}: private key; keep it secret and never publish it."
 TXT_SSH_MAIL_README_NO_PRIVATE_LINE = "- No private key is stored for this entry."
-TXT_SSH_MAIL_README_PRIVATE_NOT_AVAILABLE = "not included in this archive"
+TXT_SSH_MAIL_PRIVATE_PROTECTION = "4. On Linux, protect the private key with: chmod 600 <private-key-file>"
 TXT_SSH_MAIL_CLIENT_INSTRUCTIONS = """Total Commander - Secure FTP/SFTP plugin:
 1. Set Private key file to {private_usage} in the connection settings.
 2. Set Public key file to the matching public key {public_filename}. The plugin requires both files.
@@ -119,7 +119,7 @@ General instructions:
 1. Extract this ZIP archive.
 2. The server address and any non-standard port are delivered separately. The default SFTP/SSH port is 22.
 3. Leave the password empty unless it was delivered separately.
-4. On Linux, protect the private key with: chmod 600 <private-key-file>
+{private_protection}
 
 {client_instructions}
 {generated_by}
