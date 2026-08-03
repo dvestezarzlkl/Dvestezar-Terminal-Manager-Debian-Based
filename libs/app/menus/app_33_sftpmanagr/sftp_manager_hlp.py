@@ -230,14 +230,22 @@ def build_key_mail_payload(
     )
 
     zip_items = [
-        mail_hlp.ZipItem(public_filename, public_key.rstrip() + "\n"),
+        mail_hlp.ZipItem(
+            public_filename,
+            (public_key.rstrip() + "\n").encode("utf-8"),
+        ),
     ]
     if private_key:
         zip_items.insert(
             0,
-            mail_hlp.ZipItem(private_filename, private_key.rstrip() + "\n"),
+            mail_hlp.ZipItem(
+                private_filename,
+                (private_key.rstrip() + "\n").encode("utf-8"),
+            ),
         )
-    zip_items.append(mail_hlp.ZipItem(readme_filename, readme))
+    zip_items.append(
+        mail_hlp.ZipItem(readme_filename, readme.encode("utf-8"))
+    )
 
     try:
         attachment = mail_hlp.create_zip_attachment(archive_filename, zip_items)
