@@ -2,6 +2,12 @@
 
 ## v1.9.7
 
+- ADD bezpečný self-updater aktualizuje hlavní repo, povinný JBLibs gitlink, povolené pluginy a spouští `setup.sh --no-run`
+- FIX nepovinný privátní plugin bez tokenu již nezablokuje aktualizaci core ani JBLibs; povinné kroky se po updatu ověřují
+- ADD `pluginy.jsonc` je katalog pluginů a `/etc/jb_sys_apps/plugins.jsonc` ukládá lokální enable/disable stav s vyšší prioritou než token
+- ADD Plugin settings zobrazuje tabulkový katalog, správu tokenů, enable/disable a lokální uninstall se zachováním tokenu
+- UPD dynamický loader nenačítá lokálně vypnuté pluginy a technické rozhraní je popsáno v `docs/plugin-system.md`
+- ADD `setup.sh --no-run` provede instalaci bez spuštění vnořené instance aplikace
 - FIX SFTP Apply před reloadem Samby odmountuje všechny spravované loopback CIFS mounty, aby `systemd-fstab-generator` nečekal na stale CIFS reconnect
 - UPD změny Samba mountpointů se dokončí v jedné transakci: reload Samba konfigurace, jeden `daemon-reload` a remount výsledného stavu z `/etc/fstab`
 - UPD SFTP Manager menu na verzi 1.2.1 a JBLibs submodul na 1.2.12

@@ -4,7 +4,9 @@ from typing import List
 from libs.app import cfg
 from libs.app import mail_hlp
 from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_item
-from libs.JBLibs.helper import getInterfaces
+from libs.JBLibs.helper import getInterfaces,getMainScriptDir
+from libs.app.plugin_manager import PluginRegistry
+from libs.app.plugin_settings import PluginSettingsMenu
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -44,6 +46,11 @@ class menuBoss(menu):
                 m_mail_settings(),
                 atRight=cfg.SERVER_URL or "not set",
             ),
+            c_menu_item(
+                text_color('Plugin settings', en_color.BRIGHT_CYAN),
+                'p',
+                PluginSettingsMenu(),
+            ),
         ])
         
         # return onSelReturn(err="test err",ok="ok test")
@@ -75,27 +82,19 @@ class menuBoss(menu):
         anyKey()
 
     def updateMe(self,selItem:c_menu_item) -> onSelReturn:
-        """
-        Update me
-        """
-        from libs.JBLibs.git import git
-        from libs.JBLibs.helper import getMainScriptDir
+        """Update core, mandatory libraries, enabled plugins and runtime."""
+        from libs.app.self_updater import update_application
+
         cls()
-        print("Checking for updates ...")
-        myPath=getMainScriptDir()
-        g=git(None)
-        if g.check(myPath,'root'):
-            print("Update available, updating ...")
-            err=g.update(myPath,'root')
-            if err:
-                print(f"Error updating: {err}")
-            else:
-                print("Update completed, application will exit now.")
-        else:
-            print("No update available")
+        report = update_application(getMainScriptDir())
+        report.print_summary()
         anyKey()
-        # ukončíme program - aplikaci
-        exit(0)    
+
+        if report.changed:
+            raise SystemExit(0)
+        if report.success:
+            return onSelReturn(ok="Application is already up to date.")
+        return onSelReturn().errRet(report.error or "Update failed.")
 
 
 class m_mail_settings(c_menu):
@@ -371,13 +370,23 @@ def init() -> bool:
     Initialize menu
     """
     global _items_
-    
+    _items_.clear()
+
     # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři
     root=os.path.dirname(__file__)
     app_dirs = os.listdir(root)
     app_dirs = [d for d in app_dirs if os.path.isdir(os.path.join(root,d)) and d.startswith('app_')]
     app_dirs = [d for d in app_dirs if os.path.isfile(os.path.join(root,d,'menu.py')) ]
-    
+
+    try:
+        plugin_registry = PluginRegistry(getMainScriptDir())
+        app_dirs = [
+            d for d in app_dirs
+            if plugin_registry.is_app_directory_enabled(d)
+        ]
+    except Exception as e:
+        print(f"Plugin state warning, loading discovered menus without filtering: {e}")
+
     # sort app_dirs alphabetically
     app_dirs.sort()
     

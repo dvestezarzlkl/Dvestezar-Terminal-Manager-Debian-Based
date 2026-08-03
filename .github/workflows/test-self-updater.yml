@@ -1,0 +1,57 @@
+name: Test self updater
+
+on:
+  pull_request:
+    paths:
+      - "libs/app/self_updater.py"
+      - "libs/app/plugin_manager.py"
+      - "libs/app/plugin_settings.py"
+      - "libs/app/menus/menuBoss.py"
+      - "pluginy.jsonc"
+      - "setup.sh"
+      - "tests/test_self_updater.py"
+      - ".github/workflows/test-self-updater.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Initialize mandatory JBLibs submodule
+        shell: bash
+        run: git submodule update --init --checkout -- libs/JBLibs
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install test dependencies
+        shell: bash
+        run: python -m pip install --disable-pip-version-check json5==0.9.27 psutil==6.1.0
+
+      - name: Check shell syntax
+        shell: bash
+        run: bash -n setup.sh
+
+      - name: Compile changed Python modules
+        shell: bash
+        run: |
+          python -m py_compile \
+            libs/app/self_updater.py \
+            libs/app/plugin_manager.py \
+            libs/app/plugin_settings.py \
+            libs/app/menus/menuBoss.py \
+            tests/test_self_updater.py
+
+      - name: Run updater unit tests
+        shell: bash
+        run: python -m unittest -v tests.test_self_updater
