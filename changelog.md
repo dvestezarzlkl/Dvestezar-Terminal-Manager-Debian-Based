@@ -2,6 +2,10 @@
 
 ## v1.9.7
 
+- ADD setup nyní kontroluje a instaluje systémovou závislost `cifs-utils` pro Samba-backed SFTP mountpointy
+- ADD SFTP menu zobrazuje červené upozornění, pokud není dostupný `mount.cifs`
+- FIX SFTP Apply zastaví systémové změny při chybějícím CIFS a ověřuje počet zpracovaných uživatelů i úklid nechtěných uživatelů
+- UPD SFTP Manager menu na verzi 1.1.1 a JBLibs submodul na 1.2.10
 - FIX SFTP Manager při prvním Apply vytvoří chybějící konfigurační soubor a chybu zápisu vrátí menu místo neošetřené výjimky
 - ADD UART loopback diagnostika přímo v UART menu pro rychlosti 9600 až 2 000 000 Bd
 - ADD testovací osmibajtové rámce s indexem pokusu a Modbus CRC16

@@ -28,6 +28,7 @@ from .sftp_manager_hlp import (
     add_key as hlp_add_key,
     delete_key as hlp_delete_key,
     apply_changes,
+    cifs_exists,
     get_mountpointReadOnlyStatus,
     set_mountpoint_readonly,
     get_printable_keys,
@@ -55,7 +56,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    __VERSION__ = "1.1.0"
+    __VERSION__ = "1.1.1"
 
     def basicTitle(self, add:str|list=None, username:str|None="not selected") -> c_menu_block_items:
         """Vytvoří základní titulní blok pro menu.
@@ -103,6 +104,14 @@ class menu(c_menu):
         title = f"{_MENU_NAME_} ({len(self.users)} users)"
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
+        ]
+        if not cifs_exists():
+            self.menu.append(
+                c_menu_title_label(
+                    text_color("!! CIFS support is missing - install package cifs-utils !!", en_color.BRIGHT_RED)
+                )
+            )
+        self.menu.extend([
             c_menu_item(text_color("Create new SFTP user", en_color.BRIGHT_GREEN), "n", self.create_user),
             c_menu_item(
                 text_color("Admin mail", en_color.BRIGHT_YELLOW),
@@ -111,7 +120,7 @@ class menu(c_menu):
                 atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or "not set",
             ),
             None
-        ]
+        ])
         # Enumerate users; assign numeric selection keys for ease of use.
         # FIXME jako u disku zobrazovat ve sloupcích
         for idx, usr in enumerate(self.users, start=1):

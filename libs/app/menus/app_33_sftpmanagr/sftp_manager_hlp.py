@@ -20,6 +20,20 @@ from libs.app import mail_hlp
 
 log = getLogger("sftpprs")
 
+def cifs_exists() -> bool:
+    """Return True when the mount.cifs helper is available."""
+    return smbHelp.checkCIFSInstalled()
+
+def config_requires_cifs(cfg: Dict) -> bool:
+    """Return True when at least one configured Samba vault has mountpoints."""
+    users = cfg.get("users", []) if isinstance(cfg, dict) else []
+    for user in users:
+        if not isinstance(user, dict):
+            continue
+        if user.get("sambaVault") is True and bool(user.get("sftpmounts")):
+            return True
+    return False
+
 def load_config(path: Optional[str] = None) -> Tuple[bool,Optional[str],Optional[Dict]]:
     """Load and parse the SFTP manager configuration.
 
@@ -774,13 +788,23 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
         if not exists:
             return False, f"Cannot determine JSON input file path: {cfg_path}"
 
+    if config_requires_cifs(cfg) and not cifs_exists():
+        return False, "CIFS utilities are not installed. Install package 'cifs-utils' before applying Samba-backed SFTP mountpoints."
+
     try:
         log.info(f"Applying configuration via sftpmanager lib with config file: {cfg_path}")
-        createUserFromJson()
+        created_users = createUserFromJson()
+        expected_users = len(cfg.get("users", []))
+        if not created_users:
+            return False, "No SFTP users were created or updated. Check the SFTP manager log for the underlying error."
+        if len(created_users) != expected_users:
+            return False, f"Only {len(created_users)} of {expected_users} SFTP users were created or updated."
+
         smbHelp.reloadSystemdDaemon()
 
         log.info("Uninstalling unwanted users who are not in the configuration...")
-        uninstallUnwantedUsers()
+        if not uninstallUnwantedUsers():
+            return False, "Failed to uninstall one or more SFTP users that are no longer present in the configuration."
 
         log.info("Restarting sshd after SFTP configuration changes...")
         if not restart_sshd():
