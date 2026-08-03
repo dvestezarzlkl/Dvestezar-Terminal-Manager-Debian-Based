@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+"""Plugin catalog and local-state interface.
+
+Permanent format documentation lives in docs/plugin-system.md.
+"""
+
 from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
-from typing import Any
+from typing import Any, TypedDict
 
 import json5
 
@@ -17,6 +22,47 @@ from libs.app import g_def as defs
 CATALOG_NAME = "pluginy.jsonc"
 STATE_NAME = "plugins.jsonc"
 TOKENS_DIR = Path("assets/tokens")
+
+
+class PluginAccessConfig(TypedDict, total=False):
+    """Authentication policy stored in one pluginy.jsonc entry."""
+
+    type: str
+
+
+class PluginMaintainerConfig(TypedDict, total=False):
+    """Informational maintainer metadata stored in pluginy.jsonc."""
+
+    name: str
+    email: str
+    company: str
+
+
+class PluginCatalogEntry(TypedDict, total=False):
+    """One plugin definition from the committed pluginy.jsonc catalog."""
+
+    adr_name: str
+    git_repo_name: str
+    git_repo_branch: str
+    git_repo_user: str
+    description: str
+    private: bool
+    optional: bool
+    auto_update: bool
+    enabled_by_default: bool
+    licence: str
+    access: PluginAccessConfig
+    maintainer: PluginMaintainerConfig
+
+
+class PluginLocalStateEntry(TypedDict, total=False):
+    """One local override from /etc/jb_sys_apps/plugins.jsonc."""
+
+    enabled: bool
+
+
+PluginCatalog = dict[str, PluginCatalogEntry]
+PluginLocalState = dict[str, PluginLocalStateEntry]
 
 
 @dataclass(frozen=True)
@@ -33,7 +79,7 @@ class PluginStatus:
 
 
 class PluginRegistry:
-    """Combine the repository plugin catalog with local installation state."""
+    """Combine the committed plugin catalog with local installation state."""
 
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
@@ -45,7 +91,7 @@ class PluginRegistry:
             createIfNotExist=False,
         )
 
-    def load_catalog(self) -> dict[str, dict[str, Any]]:
+    def load_catalog(self) -> PluginCatalog:
         if not self.catalog_path.is_file():
             return {}
         data = json5.loads(self.catalog_path.read_text(encoding="utf-8"))
@@ -57,7 +103,7 @@ class PluginRegistry:
             if isinstance(value, dict)
         }
 
-    def load_state(self) -> dict[str, dict[str, Any]]:
+    def load_state(self) -> PluginLocalState:
         if not self.state_path.is_file():
             return {}
         try:
@@ -101,7 +147,7 @@ class PluginRegistry:
                 pass
             raise
 
-    def save_state(self, state: dict[str, dict[str, Any]]) -> None:
+    def save_state(self, state: PluginLocalState) -> None:
         content = json.dumps(
             state,
             ensure_ascii=False,
@@ -111,7 +157,7 @@ class PluginRegistry:
         self._atomic_write(self.state_path, content, 0o644)
 
     @staticmethod
-    def plugin_path(plugin: dict[str, Any]) -> str | None:
+    def plugin_path(plugin: PluginCatalogEntry) -> str | None:
         adr_name = plugin.get("adr_name")
         if not isinstance(adr_name, str) or not adr_name.strip():
             return None
@@ -148,15 +194,15 @@ class PluginRegistry:
         token_path.unlink()
         return True
 
-    def is_installed(self, plugin: dict[str, Any]) -> bool:
+    def is_installed(self, plugin: PluginCatalogEntry) -> bool:
         path = self.plugin_path(plugin)
         return bool(path and (self.root / path / ".git").exists())
 
     def is_enabled(
         self,
         plugin_id: str,
-        plugin: dict[str, Any],
-        state: dict[str, dict[str, Any]] | None = None,
+        plugin: PluginCatalogEntry,
+        state: PluginLocalState | None = None,
     ) -> bool:
         local_state = state if state is not None else self.load_state()
         plugin_state = local_state.get(plugin_id, {})
@@ -174,7 +220,7 @@ class PluginRegistry:
         plugin_state["enabled"] = bool(enabled)
         self.save_state(state)
 
-    def status(self, plugin_id: str, plugin: dict[str, Any]) -> PluginStatus:
+    def status(self, plugin_id: str, plugin: PluginCatalogEntry) -> PluginStatus:
         path = self.plugin_path(plugin)
         return PluginStatus(
             plugin_id=plugin_id,
