@@ -51,6 +51,7 @@ class SshManagerMailTests(unittest.TestCase):
         )
         readme = files["alice_work-key_README.txt"]
         self.assertIn("22", readme)
+        self.assertIn("chmod 600", readme)
         self.assertIn("Total Commander", readme)
         self.assertIn("WinSCP", readme)
 
@@ -71,6 +72,7 @@ class SshManagerMailTests(unittest.TestCase):
             },
         )
         readme = files["alice_imported_README.txt"]
+        self.assertNotIn("chmod 600", readme)
         self.assertNotIn("Total Commander", readme)
         self.assertNotIn("WinSCP", readme)
         self.assertIn("alice_imported_id_ed25519.pub", readme)
