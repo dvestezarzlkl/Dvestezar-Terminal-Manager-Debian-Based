@@ -421,7 +421,7 @@ class ApplicationUpdater:
         has_token = self._token_path(plugin_id).is_file()
         access = plugin.get("access")
         access_type = access.get("type") if isinstance(access, dict) else None
-        requires_token = private and access_type == "token"
+        requires_token = private or access_type == "token"
 
         if requires_token and not has_token:
             install_state = "installed" if initialized else "not installed"

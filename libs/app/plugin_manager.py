@@ -161,7 +161,10 @@ class PluginRegistry:
         adr_name = plugin.get("adr_name")
         if not isinstance(adr_name, str) or not adr_name.strip():
             return None
-        return str(Path("libs/app/menus") / adr_name.strip())
+        adr_name = adr_name.strip()
+        if Path(adr_name).name != adr_name or not adr_name.startswith("app_"):
+            return None
+        return str(Path("libs/app/menus") / adr_name)
 
     def token_path(self, token_id: str) -> Path:
         token_id = str(token_id).strip()

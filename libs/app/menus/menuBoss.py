@@ -92,7 +92,7 @@ class menuBoss(menu):
 
         if report.success or report.core_changed:
             raise SystemExit(0)
-        return onSelReturn().errRet(report.error or "Update failed.")    
+        return onSelReturn().errRet(report.error or "Update failed.")
 
 
 class m_mail_settings(c_menu):
@@ -384,7 +384,7 @@ def init() -> bool:
         ]
     except Exception as e:
         print(f"Plugin state warning, loading discovered menus without filtering: {e}")
-    
+
     # sort app_dirs alphabetically
     app_dirs.sort()
     
