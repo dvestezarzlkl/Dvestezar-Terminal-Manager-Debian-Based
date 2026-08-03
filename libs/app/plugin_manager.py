@@ -15,7 +15,6 @@ from typing import Any, TypedDict
 
 import json5
 
-from libs.JBLibs.helper import getConfigPath
 from libs.app import g_def as defs
 
 
@@ -84,12 +83,10 @@ class PluginRegistry:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
         self.catalog_path = self.root / CATALOG_NAME
-        self.state_path = getConfigPath(
-            fromEtc=True,
-            configName=STATE_NAME,
-            appName=defs.APP_NAME,
-            createIfNotExist=False,
-        )
+        app_name = defs.APP_NAME.strip()
+        if not app_name.startswith("jb_"):
+            app_name = "jb_" + app_name
+        self.state_path = Path("/etc") / app_name / STATE_NAME
 
     def load_catalog(self) -> PluginCatalog:
         if not self.catalog_path.is_file():
