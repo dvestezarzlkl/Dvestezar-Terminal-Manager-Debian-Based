@@ -39,7 +39,8 @@ jobs:
             json5==0.9.27 \
             psutil==6.1.0 \
             paramiko==4.0.0 \
-            cryptography==46.0.7
+            cryptography==46.0.7 \
+            python-dateutil==2.9.0.post0
 
       - name: Prepare application log directory
         shell: bash
