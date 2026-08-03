@@ -1,0 +1,144 @@
+{
+  "version": 1,
+  "commit_message": "Localize SFTP helper key validation",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            name += \" \" + text_color(\"(with PK)\", en_color.BRIGHT_MAGENTA)",
+      "new": "            name += \" \" + text_color(TXT_SFTP_HLP_WITH_PRIVATE_KEY, en_color.BRIGHT_MAGENTA)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, \"Failed to decode base64 key\"",
+      "new": "            return False, TXT_SFTP_HLP_BASE64_DECODE_FAILED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, \"Invalid public key format: expected '<type> <base64> [comment]'\"",
+      "new": "        return False, TXT_SFTP_HLP_INVALID_PUBLIC_FORMAT",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, \"Invalid public key: base64 payload is malformed\"",
+      "new": "        return False, TXT_SFTP_HLP_INVALID_PUBLIC_BASE64",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, f\"Key type mismatch: declared '{key_type}', parsed '{pkey.get_name()}'\"",
+      "new": "            return False, TXT_SFTP_HLP_KEY_TYPE_MISMATCH.format(declared=key_type, parsed=pkey.get_name())",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, \"Invalid SSH public key: payload does not round-trip correctly\"",
+      "new": "            return False, TXT_SFTP_HLP_PUBLIC_ROUNDTRIP_FAILED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Unsupported SSH public key type: {key_type}\"",
+      "new": "        return False, TXT_SFTP_HLP_UNSUPPORTED_KEY_TYPE.format(key_type=key_type)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Invalid SSH public key: {e}\"",
+      "new": "        return False, TXT_SFTP_HLP_INVALID_PUBLIC_KEY.format(error=e)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Paramiko is not installed: {e}\"",
+      "new": "        return False, TXT_SFTP_HLP_PARAMIKO_MISSING.format(error=e)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, \"Failed to decode private key part\"",
+      "new": "            return False, TXT_SFTP_HLP_PRIVATE_DECODE_FAILED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "                    return False, \"Private key is encrypted and requires passphrase\"",
+      "new": "                    return False, TXT_SFTP_HLP_PRIVATE_ENCRYPTED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "                    return False, \"Private key type does not match public key\"",
+      "new": "                    return False, TXT_SFTP_HLP_PRIVATE_TYPE_MISMATCH",
+      "expected": 2
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "                    return False, \"Private key does not match provided public key\"",
+      "new": "                    return False, TXT_SFTP_HLP_PRIVATE_KEY_MISMATCH",
+      "expected": 2
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "                    return False, \"Failed to extract public key from private key\"",
+      "new": "                    return False, TXT_SFTP_HLP_EXTRACT_PUBLIC_FAILED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "                return False, f\"Invalid private key: {e}\"",
+      "new": "                return False, TXT_SFTP_HLP_INVALID_PRIVATE_KEY.format(error=e)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, \"User not found\"",
+      "new": "        return False, TXT_SFTP_HLP_USER_NOT_FOUND",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, \"Key already exists for user\"",
+      "new": "        return False, TXT_SFTP_HLP_KEY_ALREADY_EXISTS",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, None, f\"Failed to generate SSH key pair: {keys}\"",
+      "new": "            return False, None, TXT_SFTP_HLP_KEY_GENERATE_FAILED.format(error=keys)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, None, f\"Exception during SSH key generation: {e}\"",
+      "new": "        return False, None, TXT_SFTP_HLP_KEY_GENERATE_EXCEPTION.format(error=e)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Key pair generation failed: {err}\"",
+      "new": "        return False, TXT_SFTP_HLP_KEY_PAIR_GENERATION_FAILED.format(error=err)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Failed to add generated public key to user: {add_err}\"",
+      "new": "        return False, TXT_SFTP_HLP_ADD_GENERATED_KEY_FAILED.format(error=add_err)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "            return False, f\"Key validation failed: {prm}\"",
+      "new": "            return False, TXT_SFTP_HLP_KEY_VALIDATION_FAILED.format(error=prm)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        return False, f\"Exception during key processing: {e}\"",
+      "new": "        return False, TXT_SFTP_HLP_KEY_PROCESSING_EXCEPTION.format(error=e)",
+      "expected": 1
+    }
+  ]
+}
