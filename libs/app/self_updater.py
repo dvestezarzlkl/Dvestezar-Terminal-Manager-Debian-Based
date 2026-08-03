@@ -10,15 +10,13 @@ import tempfile
 from typing import Iterator, Sequence
 from urllib.parse import quote
 
-import json5
+from libs.app.plugin_manager import CATALOG_NAME as PLUGINS_CONFIG, PluginRegistry
 
 
 CORE_TOKEN_ID = "sys_apps"
 MANDATORY_SUBMODULES: dict[str, str] = {
     "libs/JBLibs": "JBLibs-python",
 }
-PLUGINS_CONFIG = "pluginy.jsonc"
-TOKENS_DIR = Path("assets/tokens")
 
 
 @dataclass
@@ -60,6 +58,7 @@ class ApplicationUpdater:
     def __init__(self, root: str | Path):
         self.root = Path(root).resolve()
         self.report = UpdateReport()
+        self.plugins = PluginRegistry(self.root)
         self._base_env = os.environ.copy()
         self._base_env["GIT_TERMINAL_PROMPT"] = "0"
 
@@ -142,6 +141,20 @@ class ApplicationUpdater:
     def _is_initialized_submodule(self, path: str) -> bool:
         return (self.root / path / ".git").exists()
 
+    def _submodule_tracked_changes(self, path: str) -> tuple[bool, str]:
+        code, output = self._capture(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=self.root / path,
+        )
+        if code != 0:
+            return False, f"Cannot read working tree state for {path}."
+        if output:
+            return False, (
+                f"Submodule {path} contains tracked local changes. "
+                "Commit or revert them before updating:\n" + output
+            )
+        return True, ""
+
     def _verify_clean_worktrees(self) -> bool:
         code, output = self._capture(
             [
@@ -162,28 +175,35 @@ class ApplicationUpdater:
             )
             return False
 
-        for path in sorted(self._configured_submodule_paths()):
+        relevant_paths = set(MANDATORY_SUBMODULES)
+        try:
+            catalog = self.plugins.load_catalog()
+            state = self.plugins.load_state()
+            for plugin_id, plugin in catalog.items():
+                if not self.plugins.is_enabled(plugin_id, plugin, state):
+                    continue
+                path = self.plugins.plugin_path(plugin)
+                if path:
+                    relevant_paths.add(path)
+        except Exception as exc:
+            self.report.error = f"Cannot read plugin policy before update: {exc}"
+            return False
+
+        for path in sorted(relevant_paths):
             if not self._is_initialized_submodule(path):
                 continue
-            code, sub_output = self._capture(
-                ["git", "status", "--porcelain", "--untracked-files=no"],
-                cwd=self.root / path,
-            )
-            if code != 0:
-                self.report.error = f"Cannot read working tree state for {path}."
-                return False
-            if sub_output:
-                self.report.error = (
-                    f"Submodule {path} contains tracked local changes. "
-                    "Commit or revert them before updating:\n" + sub_output
-                )
+            clean, detail = self._submodule_tracked_changes(path)
+            if not clean:
+                self.report.error = detail
                 return False
 
-        self.report.steps.append("Main and initialized submodule worktrees are clean")
+        self.report.steps.append(
+            "Main, mandatory and enabled plugin worktrees are clean"
+        )
         return True
 
     def _token_path(self, token_id: str) -> Path:
-        return self.root / TOKENS_DIR / f"{token_id}.cd"
+        return self.plugins.token_path(token_id)
 
     def _read_token(self, token_id: str) -> tuple[str, str] | None:
         token_path = self._token_path(token_id)
@@ -339,32 +359,16 @@ class ApplicationUpdater:
         return True
 
     def _load_plugins(self) -> dict[str, dict]:
-        config_path = self.root / PLUGINS_CONFIG
-        if not config_path.is_file():
-            return {}
         try:
-            data = json5.loads(config_path.read_text(encoding="utf-8"))
+            return self.plugins.load_catalog()
         except Exception as exc:
             self.report.warnings.append(
                 f"Plugin config {PLUGINS_CONFIG} cannot be read: {exc}"
             )
             return {}
-        if not isinstance(data, dict):
-            self.report.warnings.append(
-                f"Plugin config {PLUGINS_CONFIG} is not an object."
-            )
-            return {}
-        return {
-            str(plugin_id): value
-            for plugin_id, value in data.items()
-            if isinstance(value, dict)
-        }
 
     def _plugin_path(self, plugin: dict) -> str | None:
-        adr_name = plugin.get("adr_name")
-        if not isinstance(adr_name, str) or not adr_name.strip():
-            return None
-        return str(Path("libs/app/menus") / adr_name.strip())
+        return self.plugins.plugin_path(plugin)
 
     def _plugin_failure(self, plugin_id: str, optional: bool, message: str) -> bool:
         full_message = f"Plugin {plugin_id}: {message}"
@@ -378,6 +382,20 @@ class ApplicationUpdater:
         auto_update = bool(plugin.get("auto_update", True))
         optional = bool(plugin.get("optional", True))
         private = bool(plugin.get("private", False))
+
+        try:
+            enabled = self.plugins.is_enabled(plugin_id, plugin)
+        except Exception as exc:
+            return self._plugin_failure(
+                plugin_id,
+                optional,
+                f"local enabled state cannot be read: {exc}",
+            )
+        if not enabled:
+            self.report.warnings.append(
+                f"Plugin {plugin_id} is disabled by local plugin settings; skipped."
+            )
+            return True
 
         if not auto_update:
             self.report.warnings.append(
@@ -405,12 +423,18 @@ class ApplicationUpdater:
         access_type = access.get("type") if isinstance(access, dict) else None
         requires_token = private and access_type == "token"
 
-        if requires_token and not initialized and not has_token:
+        if requires_token and not has_token:
+            install_state = "installed" if initialized else "not installed"
             return self._plugin_failure(
                 plugin_id,
                 optional,
-                f"is private, not installed and has no {plugin_id}.cd token; skipped.",
+                f"is private, {install_state} and has no {plugin_id}.cd token; skipped.",
             )
+
+        if initialized:
+            clean, detail = self._submodule_tracked_changes(path)
+            if not clean:
+                return self._plugin_failure(plugin_id, optional, detail)
 
         before = self._head(self.root / path) if initialized else None
         if not self._run_live(
