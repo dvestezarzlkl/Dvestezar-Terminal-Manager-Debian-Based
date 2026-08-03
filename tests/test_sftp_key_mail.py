@@ -31,6 +31,7 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("team/user", subject)
         self.assertEqual(len(attachments), 1)
         self.assertEqual(attachments[0].safe_filename(), "team_user_sftp_keys.zip")
+        self.assertEqual(attachments[0].mime_type(), ("application", "zip"))
         self.assertNotIn(PUBLIC_KEY, text_body)
         self.assertNotIn(PRIVATE_KEY, text_body)
         self.assertNotIn(PUBLIC_KEY, html_body)
