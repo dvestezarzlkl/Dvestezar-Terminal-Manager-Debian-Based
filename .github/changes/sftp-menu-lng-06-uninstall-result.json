@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Propagate SFTP uninstall failures to menu",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        uninstall_all_users()\n        return onSelReturn(ok=TXT_SFTP_MENU_ALL_USERS_UNINSTALLED)",
+      "new": "        ok, msg = uninstall_all_users()\n        if not ok:\n            return onSelReturn().errRet(msg)\n        return onSelReturn(ok=TXT_SFTP_MENU_ALL_USERS_UNINSTALLED)",
+      "expected": 1
+    }
+  ]
+}
