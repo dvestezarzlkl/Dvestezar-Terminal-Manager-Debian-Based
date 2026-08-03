@@ -17,3 +17,7 @@
 - With `save=True`, validate first, then save to `getDefaultEtcConfigPath()` before checking file existence; `check_config_exists()` is only for apply operations that do not save.
 - Use `c_menu` properties like `choiceBack`, `choiceQuit`, and `ESC_is_quit` for submenu navigation instead of custom back/quit logic.
 - Keep changes aligned with the existing `c_menu` patterns and avoid introducing new menu frameworks.
+- Show a bright red informational warning in the top-level SFTP menu when `mount.cifs` is unavailable.
+- A Samba-backed Apply must save the valid config, then stop before system changes when `cifs-utils` is missing.
+- Apply must verify that `createUserFromJson()` processed every configured user and that unwanted-user cleanup succeeded before reporting success.
+- `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.

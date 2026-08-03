@@ -64,6 +64,24 @@ def check_and_install_7zip()->None:
         sys.exit(1)
 
 
+def check_and_install_cifs_utils()->None:
+    """Zkontroluje dostupnost mount.cifs a případně nainstaluje cifs-utils."""
+    from shutil import which
+
+    print("Kontroluji instalaci CIFS utilities (cifs-utils)...")
+    if which("mount.cifs") is not None:
+        print("CIFS utilities jsou již nainstalovány.")
+        return
+
+    print("CIFS utilities nejsou nainstalovány. Instaluji balík cifs-utils...")
+    try:
+        subprocess.run(["apt", "install", "-y", "cifs-utils"], check=True)
+        print("cifs-utils úspěšně nainstalováno.")
+    except subprocess.CalledProcessError as e:
+        print("Chyba při instalaci cifs-utils:\n", e)
+        sys.exit(1)
+
+
 def check_and_install_node():
     """Zkontroluje, zda je nainstalován Node.js (a ideálně i verze).
        Pokud ne, zkusí nainstalovat LTS 22."""
@@ -236,11 +254,15 @@ def main():
     print(" ---- Kontrola a instalace 7zip ----")
     check_and_install_7zip()
 
-    # 4) Kontrola a instalace Node.js
+    # 4) Kontrola a instalace CIFS utilities
+    print(" ---- Kontrola a instalace CIFS utilities ----")
+    check_and_install_cifs_utils()
+
+    # 5) Kontrola a instalace Node.js
     print(" ---- Kontrola a instalace Node.js ----")
     check_and_install_node()
 
-    # 5) Inicializace submodulů
+    # 6) Inicializace submodulů
     print(" ---- Inicializace git submodulů ----")
     update_submodules()
 
