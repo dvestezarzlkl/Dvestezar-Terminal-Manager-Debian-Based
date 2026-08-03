@@ -2,6 +2,7 @@
 
 ## v1.9.7
 
+- FIX SFTP Manager při prvním Apply vytvoří chybějící konfigurační soubor a chybu zápisu vrátí menu místo neošetřené výjimky
 - ADD UART loopback diagnostika přímo v UART menu pro rychlosti 9600 až 2 000 000 Bd
 - ADD testovací osmibajtové rámce s indexem pokusu a Modbus CRC16
 - ADD statistiky TX/RX, timeoutů, CRC chyb, rozdílů dat a cizích bajtů pro každou rychlost

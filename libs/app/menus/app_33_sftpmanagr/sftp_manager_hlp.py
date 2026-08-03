@@ -741,49 +741,44 @@ def delete_key(cfg: Dict, username: str, key: str) -> bool:
 
 
 
-def apply_changes(cfg: Optional[Dict] = None, save:bool=False) -> Tuple[bool, Optional[str]]:
-    """Apply configuration changes by invoking ``sftpmanager.py``.
-
-    This helper calls the underlying command line script with the
-    ``install`` subcommand.  If you installed ``sftpmanager.py``
-    system‑wide or inside a virtual environment you may need to adjust
-    the script discovery.  The helper attempts to locate the script in
-    several common locations and will silently return if no script is
-    found.
+def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool, Optional[str]]:
+    """Apply the SFTP configuration and optionally persist it first.
 
     Args:
-        cfg: Optional configuration to save before applying.  If
-            provided, it will be written to disk using :func:`save_config`.
-        path: Deprecated - nevyužívá se -  Optional override for the configuration path.  By
-            default :data:`CONFIG_PATH` is used.
-        save: If True, the configuration will be saved to disk before applying.  If False, the configuration will not be saved and the caller is responsible for ensuring that any changes are persisted.
-            
+        cfg: Configuration dictionary to validate and apply.
+        save: If True, save ``cfg`` to the default configuration path before
+            applying it. If False, an existing configuration file is required.
+
     Returns:
-        Tuple[bool, Optional[str]]: První prvek je True pokud se změny úspěšně aplikovaly, jinak False. Druhý prvek je chybová zpráva pokud se změny nepodařilo aplikovat, jinak None.
+        Tuple[bool, Optional[str]]: ``(True, None)`` on success, otherwise
+        ``(False, error_message)``.
     """
-    
     log.info("Applying configuration changes via sftpmanager ...")
-    
-    log.info("Checking configuration validity before applying...")
-    b,cfg_path = check_config_exists()
-    if not b:
-        return False, f"Cannot determine JSON input file path: {cfg_path}"
-    
+
     if cfg is None:
         return False, "No configuration provided to apply."
-    
-    ok,msg = check_config_valid(cfg)
+
+    log.info("Checking configuration validity before applying...")
+    ok, msg = check_config_valid(cfg)
     if not ok:
         return False, f"Configuration validation failed: {msg}"
-    
+
     if save:
-        save_config(cfg, cfg_path)
-        
+        cfg_path = getDefaultEtcConfigPath()
+        try:
+            save_config(cfg, cfg_path)
+        except Exception as e:
+            return False, f"Failed to save configuration: {e}"
+    else:
+        exists, cfg_path = check_config_exists()
+        if not exists:
+            return False, f"Cannot determine JSON input file path: {cfg_path}"
+
     try:
         log.info(f"Applying configuration via sftpmanager lib with config file: {cfg_path}")
         createUserFromJson()
         smbHelp.reloadSystemdDaemon()
-        
+
         log.info("Uninstalling unwanted users who are not in the configuration...")
         uninstallUnwantedUsers()
 
@@ -792,7 +787,7 @@ def apply_changes(cfg: Optional[Dict] = None, save:bool=False) -> Tuple[bool, Op
             return False, "Failed to restart sshd after applying SFTP configuration."
     except Exception as e:
         return False, f"Failed to apply configuration via sftpmanager.py: {e}"
-    
+
     return True, None
 
 def uninstall_all_users(user:str=None) -> Tuple[bool, Optional[str]]:

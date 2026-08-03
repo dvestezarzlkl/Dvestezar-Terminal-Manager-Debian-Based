@@ -14,5 +14,6 @@
 - If the SFTP user admin mail is missing, the global fallback admin mail from `libs.app.mail_hlp` may be used.
 - If neither app-specific admin mail nor fallback admin mail exists, mail actions must fail.
 - Apply/save flows should keep using `apply_changes(cfg=self.cfg, save=True)` and must restart SSHD through the shared helper.
+- With `save=True`, validate first, then save to `getDefaultEtcConfigPath()` before checking file existence; `check_config_exists()` is only for apply operations that do not save.
 - Use `c_menu` properties like `choiceBack`, `choiceQuit`, and `ESC_is_quit` for submenu navigation instead of custom back/quit logic.
 - Keep changes aligned with the existing `c_menu` patterns and avoid introducing new menu frameworks.
