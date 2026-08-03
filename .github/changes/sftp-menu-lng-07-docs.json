@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "commit_message": "Document complete SFTP localization",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- All new user-visible menu labels, warnings, prompts and result messages must use the relative `lng/default.py` plus optional locale override files loaded through `loadLng()`; do not add hard-coded display text to menu code.\n",
+      "new": "- All user-visible menu labels, warnings, prompts and result messages in `menu.py` must use the relative `lng/default.py` plus optional locale override files loaded through `loadLng()`; do not add hard-coded display text to menu code.\n- User-visible validation and operation results produced by `sftp_manager_hlp.py`, including key-export mail content, must use the independent `helper_lng/lng/default.py` catalog loaded through `helper_lng/__init__.py`; technical log messages may remain in English.\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "- FIX nové upozornění SFTP menu používá relativní jazykové soubory `lng/default.py` a `lng/cs-CZ.py` přes `loadLng()`\n- FIX SFTP Apply zastaví systémové změny při chybějícím CIFS a ověřuje počet zpracovaných uživatelů i úklid nechtěných uživatelů\n- UPD SFTP Manager menu na verzi 1.1.2 a JBLibs submodul na 1.2.10\n",
+      "new": "- UPD všechny uživatelské texty SFTP menu byly přesunuty do relativních jazykových souborů `lng/default.py` a `lng/cs-CZ.py`\n- UPD validační chyby, výsledky operací a exportní e-mail SFTP helperu používají samostatný katalog `helper_lng/lng`\n- FIX odinstalování všech SFTP uživatelů již nepohltí výjimku ani neohlásí falešný úspěch\n- FIX SFTP Apply zastaví systémové změny při chybějícím CIFS a ověřuje počet zpracovaných uživatelů i úklid nechtěných uživatelů\n- UPD SFTP Manager menu na verzi 1.2.0 a JBLibs submodul na 1.2.10\n",
+      "expected": 1
+    }
+  ]
+}
