@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Tighten plugin validation after review",
+  "replacements": [
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "        requires_token = private and access_type == \"token\"\n",
+      "new": "        requires_token = private or access_type == \"token\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/plugin_manager.py",
+      "old": "    @staticmethod\n    def plugin_path(plugin: PluginCatalogEntry) -> str | None:\n        adr_name = plugin.get(\"adr_name\")\n        if not isinstance(adr_name, str) or not adr_name.strip():\n            return None\n        return str(Path(\"libs/app/menus\") / adr_name.strip())\n",
+      "new": "    @staticmethod\n    def plugin_path(plugin: PluginCatalogEntry) -> str | None:\n        adr_name = plugin.get(\"adr_name\")\n        if not isinstance(adr_name, str) or not adr_name.strip():\n            return None\n        adr_name = adr_name.strip()\n        if Path(adr_name).name != adr_name or not adr_name.startswith(\"app_\"):\n            return None\n        return str(Path(\"libs/app/menus\") / adr_name)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        return onSelReturn().errRet(report.error or \"Update failed.\")    \n",
+      "new": "        return onSelReturn().errRet(report.error or \"Update failed.\")\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    except Exception as e:\n        print(f\"Plugin state warning, loading discovered menus without filtering: {e}\")\n    \n    # sort app_dirs alphabetically\n",
+      "new": "    except Exception as e:\n        print(f\"Plugin state warning, loading discovered menus without filtering: {e}\")\n\n    # sort app_dirs alphabetically\n",
+      "expected": 1
+    }
+  ]
+}
