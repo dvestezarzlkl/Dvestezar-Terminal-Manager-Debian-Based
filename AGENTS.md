@@ -9,6 +9,15 @@
 - Hlavní repozitář, `dvestezarzlkl/JBLibs-python` i `dvestezarzlkl/todo_md` používají pro společnou práci cílovou větev `main`.
 - Obecně použitelná funkčnost patří do `JBLibs-python`; následně aktualizuj odkaz submodulu `libs/JBLibs` v tomto repozitáři.
 
+## runtime prostředí, lokální data a testy
+
+- Integrační a fyzické testy na cílovém terminálu může provést uživatel. Připrav přesný scénář nebo příkazy, výsledek nepovažuj za fyzicky ověřený, dokud jej uživatel nepotvrdí, a potvrzený výsledek zapiš do `todo_md`.
+- `etc_jb_sys_apps` je unixový symlink na živou konfiguraci v systému. Obsah aktuálního `config.ini` nelze odvozovat z GitHubu; pokud je potřeba, vyžádej si od uživatele konkrétní obsah nebo výpis z terminálu.
+- `log` je unixový symlink na živý logovací adresář. Aktuální logy nejsou součástí repozitáře a při diagnostice je musí dodat uživatel.
+- `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.
+- `assets/tokens/readme.md` dokumentuje lokální přístupové tokeny. Soubory `assets/tokens/*.cd` jsou ignorované Gitem, obsahují citlivé údaje a nesmí se vypisovat do logu, chatu, diffu ani commitu.
+- Obrázky vložené do Markdown dokumentů přes VSCode Office Viewer se ukládají relativně jako `image/<nazev_md>/resources.*`; tuto strukturu zachovej při úpravách dokumentace.
+
 ## GitHub konektor a malé změny ve velkých souborech
 
 - GitHub konektor při přímé úpravě existujícího souboru vyžaduje kompletní nový obsah. Nepřepisuj proto velký soubor z neúplného nebo zkráceného výpisu.
