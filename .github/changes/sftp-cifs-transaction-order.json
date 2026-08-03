@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "Use one Samba CIFS transaction for SFTP Apply",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "    try:\n        log.info(f\"Applying configuration via sftpmanager lib with config file: {cfg_path}\")\n        created_users = createUserFromJson()\n        expected_users = len(cfg.get(\"users\", []))\n        if not created_users:\n            return False, TXT_SFTP_HLP_NO_USERS_PROCESSED\n        if len(created_users) != expected_users:\n            return False, TXT_SFTP_HLP_USERS_PARTIAL.format(created=len(created_users), expected=expected_users)\n\n        smbHelp.reloadSystemdDaemon()\n\n        log.info(\"Uninstalling unwanted users who are not in the configuration...\")\n        if not uninstallUnwantedUsers():\n            return False, TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED\n\n        log.info(\"Restarting sshd after SFTP configuration changes...\")\n        if not restart_sshd():\n            return False, TXT_SFTP_HLP_SSHD_RESTART_FAILED\n    except Exception as e:\n        return False, TXT_SFTP_HLP_APPLY_FAILED.format(error=e)\n\n    return True, None\n",
+      "new": "    apply_error: Optional[str] = None\n    transaction_ok = True\n\n    smbHelp.beginBatch()\n    try:\n        log.info(f\"Applying configuration via sftpmanager lib with config file: {cfg_path}\")\n        created_users = createUserFromJson()\n        expected_users = len(cfg.get(\"users\", []))\n        if not created_users:\n            apply_error = TXT_SFTP_HLP_NO_USERS_PROCESSED\n        elif len(created_users) != expected_users:\n            apply_error = TXT_SFTP_HLP_USERS_PARTIAL.format(\n                created=len(created_users),\n                expected=expected_users\n            )\n\n        if apply_error is None:\n            log.info(\"Uninstalling unwanted users who are not in the configuration...\")\n            if not uninstallUnwantedUsers():\n                apply_error = TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED\n    except Exception as e:\n        apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)\n    finally:\n        transaction_ok = smbHelp.endBatch()\n\n    if not transaction_ok:\n        return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED\n    if apply_error is not None:\n        return False, apply_error\n\n    log.info(\"Restarting sshd after SFTP configuration changes...\")\n    if not restart_sshd():\n        return False, TXT_SFTP_HLP_SSHD_RESTART_FAILED\n\n    return True, None\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/helper_lng/lng/default.py",
+      "old": "TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = \"Failed to uninstall one or more SFTP users that are no longer present in the configuration.\"\nTXT_SFTP_HLP_SSHD_RESTART_FAILED = \"Failed to restart sshd after applying SFTP configuration.\"\n",
+      "new": "TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = \"Failed to uninstall one or more SFTP users that are no longer present in the configuration.\"\nTXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED = \"Failed to finalize Samba/CIFS mountpoint changes.\"\nTXT_SFTP_HLP_SSHD_RESTART_FAILED = \"Failed to restart sshd after applying SFTP configuration.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/helper_lng/lng/cs-CZ.py",
+      "old": "TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = \"Nepodařilo se odinstalovat jednoho nebo více SFTP uživatelů, kteří již nejsou v konfiguraci.\"\nTXT_SFTP_HLP_SSHD_RESTART_FAILED = \"Po aplikování SFTP konfigurace se nepodařilo restartovat sshd.\"\n",
+      "new": "TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED = \"Nepodařilo se odinstalovat jednoho nebo více SFTP uživatelů, kteří již nejsou v konfiguraci.\"\nTXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED = \"Nepodařilo se dokončit změny Samba/CIFS mountpointů.\"\nTXT_SFTP_HLP_SSHD_RESTART_FAILED = \"Po aplikování SFTP konfigurace se nepodařilo restartovat sshd.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    __VERSION__ = \"1.2.0\"",
+      "new": "    __VERSION__ = \"1.2.1\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Apply must verify that `createUserFromJson()` processed every configured user and that unwanted-user cleanup succeeded before reporting success.\n- `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.\n",
+      "new": "- Apply must verify that `createUserFromJson()` processed every configured user and that unwanted-user cleanup succeeded before reporting success.\n- Wrap user synchronization and unwanted-user cleanup in one outer `smbHelp.beginBatch()` / `endBatch()` transaction; the menu helper must not call `daemon-reload` directly.\n- `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v1.9.7\n\n- ADD setup nyní kontroluje a instaluje systémovou závislost `cifs-utils` pro Samba-backed SFTP mountpointy\n",
+      "new": "## v1.9.7\n\n- FIX SFTP Apply před reloadem Samby odmountuje všechny spravované loopback CIFS mounty, aby `systemd-fstab-generator` nečekal na stale CIFS reconnect\n- UPD změny Samba mountpointů se dokončí v jedné transakci: reload Samba konfigurace, jeden `daemon-reload` a remount výsledného stavu z `/etc/fstab`\n- UPD SFTP Manager menu na verzi 1.2.1 a JBLibs submodul na 1.2.12\n- ADD setup nyní kontroluje a instaluje systémovou závislost `cifs-utils` pro Samba-backed SFTP mountpointy\n",
+      "expected": 1
+    }
+  ]
+}
