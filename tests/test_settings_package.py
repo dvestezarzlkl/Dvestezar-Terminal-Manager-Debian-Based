@@ -95,7 +95,9 @@ class SettingsPackageTests(unittest.TestCase):
     def test_legacy_hub_import_invalidates_current_central_hash(self):
         cfg.SETTINGS_LAST_REVISION = 42
         cfg.SETTINGS_LAST_SHA256 = "current-central-package"
-        legacy = export_legacy_hub_settings("password1")
+        legacy = export_legacy_hub_settings(
+            HubSettings.from_cfg(), "password1"
+        )
         decoded = decode_encrypted_settings(legacy, "password1")
         self.assertTrue(decoded.legacy)
         with patch("libs.app.settings_package.cfg.save"):
