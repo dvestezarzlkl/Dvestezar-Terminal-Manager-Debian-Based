@@ -3,6 +3,7 @@ name: Test self updater
 on:
   pull_request:
     paths:
+      - "libs/JBLibs"
       - "libs/app/self_updater.py"
       - "libs/app/plugin_manager.py"
       - "libs/app/plugin_settings.py"
@@ -37,6 +38,16 @@ jobs:
       - name: Install test dependencies
         shell: bash
         run: python -m pip install --disable-pip-version-check json5==0.9.27 psutil==6.1.0
+
+      - name: Verify mandatory JBLibs release
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          package_init = Path("libs/JBLibs/__init__.py").read_text(encoding="utf-8")
+          assert '__version__ = "1.2.16"' in package_init
+          PY
 
       - name: Check shell syntax
         shell: bash
