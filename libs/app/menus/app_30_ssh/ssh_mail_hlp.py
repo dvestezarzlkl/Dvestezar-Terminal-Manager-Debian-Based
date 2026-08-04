@@ -43,6 +43,7 @@ def build_key_mail_payload(
     readme = TXT_SSH_MAIL_README.format(
         username=username,
         key_name=key_name,
+        access_purpose=TXT_SSH_MAIL_ACCESS_PURPOSE,
         public_filename=names.public_filename,
         private_line=private_line,
         private_protection=private_protection,
@@ -69,6 +70,7 @@ def build_key_mail_payload(
 
     body_lines = [
         TXT_SSH_MAIL_EXPORT_FOR.format(username=username, key_name=key_name),
+        TXT_SSH_MAIL_ACCESS_PURPOSE,
         TXT_SSH_MAIL_RECIPIENT.format(recipient=recipient),
         "",
         TXT_SSH_MAIL_ARCHIVE_ATTACHED.format(filename=names.archive_filename),
@@ -91,6 +93,7 @@ def build_key_mail_payload(
                 )
             )
         ),
+        "    <p>{}</p>".format(html.escape(TXT_SSH_MAIL_ACCESS_PURPOSE)),
         "    <p>{}</p>".format(
             html.escape(TXT_SSH_MAIL_RECIPIENT.format(recipient=recipient))
         ),
