@@ -9,6 +9,8 @@ on:
       - "libs/app/disk_hlp.py"
       - "libs/app/instanceHelper.py"
       - "tests/test_node_red_handover_mail.py"
+      - "tests/test_mail_hlp.py"
+      - "tests/test_user_contact.py"
       - ".github/workflows/test-node-red-handover.yml"
   workflow_dispatch:
 
@@ -51,5 +53,9 @@ jobs:
             libs/app/menus/app_20_node_red/menu_edit_node_instance.py \
             tests/test_node_red_handover_mail.py
 
-      - name: Run Node-RED handover tests
-        run: python -m unittest tests.test_node_red_handover_mail
+      - name: Run Node-RED handover and shared mail tests
+        run: |
+          python -m unittest \
+            tests.test_node_red_handover_mail \
+            tests.test_mail_hlp \
+            tests.test_user_contact
