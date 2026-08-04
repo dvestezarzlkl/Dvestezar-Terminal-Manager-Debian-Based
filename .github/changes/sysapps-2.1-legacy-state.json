@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Invalidate central package hash after legacy import",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "        if decoded.revision > 0:\n            cfg.SETTINGS_LAST_REVISION = decoded.revision\n            cfg.SETTINGS_LAST_SHA256 = decoded.sha256\n        cfg.save()",
+      "new": "        if decoded.revision > 0:\n            cfg.SETTINGS_LAST_REVISION = decoded.revision\n            cfg.SETTINGS_LAST_SHA256 = decoded.sha256\n        elif decoded.legacy:\n            # A legacy Hub-only import changes one centrally managed section.\n            # Keep the anti-rollback revision, but force the current central\n            # package to be applied again on the next startup.\n            cfg.SETTINGS_LAST_SHA256 = \"\"\n        cfg.save()",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "from libs.app.hub.settings import HubSettings\nfrom libs.app.settings_package import (",
+      "new": "from libs.app.hub.config_package import export_encrypted_settings as export_legacy_hub_settings\nfrom libs.app.hub.settings import HubSettings\nfrom libs.app.settings_package import (",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_unknown_future_section_is_skipped_with_warning(self):",
+      "new": "    def test_legacy_hub_import_invalidates_current_central_hash(self):\n        cfg.SETTINGS_LAST_REVISION = 42\n        cfg.SETTINGS_LAST_SHA256 = \"current-central-package\"\n        legacy = export_legacy_hub_settings(\"password1\")\n        decoded = decode_encrypted_settings(legacy, \"password1\")\n        self.assertTrue(decoded.legacy)\n        with patch(\"libs.app.settings_package.cfg.save\"):\n            report = apply_decoded_settings(decoded, force=True)\n        self.assertTrue(report.changed)\n        self.assertEqual(cfg.SETTINGS_LAST_REVISION, 42)\n        self.assertEqual(cfg.SETTINGS_LAST_SHA256, \"\")\n\n    def test_unknown_future_section_is_skipped_with_warning(self):",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ruční import jako sekce `hub`. Automatický URL import legacy balíky nepřijímá.",
+      "new": "Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ruční import jako sekce `hub`. Automatický URL import legacy balíky nepřijímá. Legacy import zachová poslední anti-rollback revision, ale zneplatní uložený SHA centrálního balíku, aby se aktuální centrální konfigurace při dalším startu znovu aplikovala.",
+      "expected": 1
+    }
+  ]
+}
