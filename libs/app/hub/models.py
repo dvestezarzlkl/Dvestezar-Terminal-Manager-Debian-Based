@@ -91,10 +91,41 @@ class HubNodeRedInstance:
 
 
 @dataclass(frozen=True)
+class HubDisk:
+    ptuuid: str
+    device_name: str
+    device_path: str
+    display_name: str
+    name_updated_at: Optional[datetime]
+    size_bytes: int
+    device_type: str
+    partition_count: int
+    mountpoint_count: int
+    is_system_disk: bool
+
+
+@dataclass(frozen=True)
+class HubDiskNameUpdate:
+    ptuuid: str
+    display_name: str
+    updated_at: datetime
+
+
+HubProviderItem = HubNodeRedInstance | HubDisk
+HubRemoteUpdate = HubDiskNameUpdate
+
+
+@dataclass(frozen=True)
 class HubProviderSnapshot:
     source_key: str
     dataset: str
-    items: tuple[HubNodeRedInstance, ...]
+    items: tuple[HubProviderItem, ...]
+
+
+@dataclass(frozen=True)
+class HubProviderSyncResult:
+    item_count: int
+    remote_updates: tuple[HubRemoteUpdate, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -104,6 +135,13 @@ class HubContext:
 
 
 HubProviderCollector = Callable[[HubContext], HubProviderSnapshot]
+HubProviderApplier = Callable[[tuple[HubRemoteUpdate, ...]], None]
+
+
+@dataclass(frozen=True)
+class HubProviderRegistration:
+    collector: HubProviderCollector
+    applier: Optional[HubProviderApplier] = None
 
 
 @dataclass
