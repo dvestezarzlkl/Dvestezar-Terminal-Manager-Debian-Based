@@ -1,0 +1,44 @@
+name: Advance JBLibs submodule
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - ".github/workflows/advance-jblibs-submodule.yml"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: jblibs-submodule-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          submodules: false
+
+      - name: Advance mandatory JBLibs submodule
+        shell: bash
+        run: |
+          set -euo pipefail
+          git submodule sync -- libs/JBLibs
+          git submodule update --init --checkout -- libs/JBLibs
+          git -C libs/JBLibs fetch origin 2e1b3f976d96515c456082dd7380f01857ec48cc
+          git -C libs/JBLibs checkout 2e1b3f976d96515c456082dd7380f01857ec48cc
+          git add libs/JBLibs
+          git rm .github/workflows/advance-jblibs-submodule.yml
+          git config user.name "SysApp automation"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Update JBLibs submodule to 1.2.17"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
