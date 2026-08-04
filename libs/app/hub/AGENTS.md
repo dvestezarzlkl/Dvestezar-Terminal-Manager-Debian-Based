@@ -3,6 +3,7 @@
 - SysApps Hub is a central inventory. MySQL/MariaDB is the transport and storage layer, not the provider API.
 - Provider modules never receive a database connection, cursor, table name, SQL fragment, credentials, or migration access. They return typed snapshots only.
 - Dynamic `app_*` providers register through module-level `_HUB_PROVIDER_KEY_` and `hub_collect(context)`. Provider keys must be stable, unique, lowercase identifiers.
+- A bidirectional provider may additionally expose `hub_apply_remote(updates)`. The central writer returns typed updates only after its transaction commits; a provider must never read the database directly.
 - The central runtime maps a fixed dataset name to a fixed writer. A provider cannot select or construct a table name.
 - Table identifiers are built only from a strictly validated global prefix and a hard-coded suffix allowlist. All values use parameterized SQL.
 - Schema changes belong in ordered `migrations/NNN_name.sql` files. The only supported template placeholder is `{{PREFIX}}`; statements are separated by a line containing exactly `-- statement`.
@@ -13,3 +14,5 @@
 - Database passwords must not appear in repr output, logs, error messages, status text, mail, tests, or commits. Exported settings use the versioned password-encrypted one-line package; never add a fixed application encryption key.
 - The host identity is the existing `cfg.machineInfo.machine_id`, with `/etc/machine-id` only as a fallback. Do not invent another host ID.
 - Node-RED inventory contains editor/Admin API users and RW/R access only. Never export bcrypt hashes, plaintext passwords, credentials, or legacy `httpNodeAuth` as Dashboard users.
+- Disk identity is the normalized whole-disk PTUUID, never `/dev` name. A duplicate PTUUID on one host is a synchronization error because it usually indicates an unfinished clone.
+- Disk names synchronize by explicit UTC modification timestamps, including an empty-name tombstone. Host/device attachment records are separate from the global disk record.
