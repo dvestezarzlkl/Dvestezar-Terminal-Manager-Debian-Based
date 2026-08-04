@@ -17,7 +17,7 @@
     {
       "path": "libs/app/menus/menuBoss.py",
       "old": "            ),\n        ])\n        \n        # return onSelReturn(err=\"test err\",ok=\"ok test\")",
-      "new": "            ),\n        ])\n        self.menu.extend(other_items)\n        \n        # return onSelReturn(err=\"test err\",ok=\"ok test\")",
+      "new": "            ),\n        ])\n        self.menu.extend(other_items)\n\n        # return onSelReturn(err=\"test err\",ok=\"ok test\")",
       "expected": 1
     },
     {
