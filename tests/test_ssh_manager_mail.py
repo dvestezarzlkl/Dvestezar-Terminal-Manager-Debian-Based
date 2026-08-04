@@ -32,6 +32,7 @@ class SshManagerMailTests(unittest.TestCase):
         self.assertIn("alice", subject)
         self.assertIn("terminálu", subject)
         self.assertIn("interaktivní přihlášení do terminálu", text_body)
+        self.assertIn("interaktivní přihlášení do terminálu", html_body)
         self.assertIn("SCP/SFTP", text_body)
         self.assertNotIn(PUBLIC_KEY, text_body)
         self.assertNotIn(PRIVATE_KEY, text_body)
