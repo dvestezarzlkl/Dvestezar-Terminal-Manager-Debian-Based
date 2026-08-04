@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "commit_message": "Fix Node-RED editor and HTTP auth user semantics",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "    admin_users: tuple[NodeRedUserAccess, ...]\n    ui_user: str\n    project: NodeRedProjectInfo\n",
+      "new": "    editor_users: tuple[NodeRedUserAccess, ...]\n    project: NodeRedProjectInfo\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "def _admin_users(node_cfg: Any) -> tuple[NodeRedUserAccess, ...]:\n",
+      "new": "def _editor_users(node_cfg: Any) -> tuple[NodeRedUserAccess, ...]:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "    ui_user = \"\"\n    try:\n        ui_user = _text(node_cfg.getUIUserName())\n    except Exception:\n        pass\n\n    use_https = bool(getHttps(username) or existsSelfSignedCert(username))\n",
+      "new": "    use_https = bool(getHttps(username) or existsSelfSignedCert(username))\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "        admin_users=_admin_users(node_cfg),\n        ui_user=ui_user,\n",
+      "new": "        editor_users=_editor_users(node_cfg),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "    users = [f\"- {user.username}: {user.access}\" for user in data.admin_users]\n",
+      "new": "    users = [f\"- {user.username}: {user.access}\" for user in data.editor_users]\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "        TXT_HANDOVER_SECTION_USERS,\n        *users,\n        f\"{TXT_HANDOVER_UI_USER}: {_value(data.ui_user)}\",\n        \"\",\n",
+      "new": "        TXT_HANDOVER_SECTION_USERS,\n        *users,\n        \"\",\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "        for user in data.admin_users\n",
+      "new": "        for user in data.editor_users\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "        f\"<h3>{html.escape(TXT_HANDOVER_SECTION_USERS)}</h3><ul>{user_items}</ul><table>\",\n        row(TXT_HANDOVER_UI_USER, data.ui_user),\n        \"</table>\",\n",
+      "new": "        f\"<h3>{html.escape(TXT_HANDOVER_SECTION_USERS)}</h3><ul>{user_items}</ul>\",\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/cs-CZ.py",
+      "old": "TXT_HANDOVER_SECTION_USERS = \"Nastavení uživatelé\"\n",
+      "new": "TXT_HANDOVER_SECTION_USERS = \"Uživatelé editoru Node-RED\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/cs-CZ.py",
+      "old": "TXT_HANDOVER_UI_USER = \"Uživatel Dashboard/UI\"\n",
+      "new": "",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/cs-CZ.py",
+      "old": "TXT_MENU_INSTN_U_sec = \"Zabezpečený uživatel Dashboardu\"\nTXT_MENU_INSTN_U_ns = \"UI uživatel není nastaven\"\nTXT_MENU_INSTN_U_ovw = \"Přepsat uživatele Dashboardu\"\nTXT_MENU_INSTN_U_rem = \"Odebrat uživatele Dashboardu\"\n",
+      "new": "TXT_MENU_INSTN_U_sec = \"Nastavit HTTP Node Auth (Basic Auth)\"\nTXT_MENU_INSTN_U_ns = \"HTTP Node Auth není nastaven\"\nTXT_MENU_INSTN_U_ovw = \"Přepsat HTTP Node Auth\"\nTXT_MENU_INSTN_U_rem = \"Odebrat HTTP Node Auth\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/cs-CZ.py",
+      "old": "TXT_MENU_INSTN_u_i = \"nastavit uživatele UI\"\nTXT_MENU_INSTN_u_rem_rly = \"Opravdu odebrat uživatele UI?\"\n",
+      "new": "TXT_MENU_INSTN_u_i = \"uživatelské jméno pro HTTP Node Auth\"\nTXT_MENU_INSTN_u_rem_rly = \"Opravdu odebrat HTTP Node Auth?\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/default.py",
+      "old": "TXT_HANDOVER_SECTION_USERS = \"Configured users\"\n",
+      "new": "TXT_HANDOVER_SECTION_USERS = \"Node-RED editor users\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/default.py",
+      "old": "TXT_HANDOVER_UI_USER = \"Dashboard/UI user\"\n",
+      "new": "",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/default.py",
+      "old": "TXT_MENU_INSTN_U_sec    = \"Secure Dashboard User\"\nTXT_MENU_INSTN_U_ns     = \"UI user not set\"\nTXT_MENU_INSTN_U_ovw    = \"Overwrite Dashboard User\"\nTXT_MENU_INSTN_U_rem    = \"Remove Dashboard User\"\n",
+      "new": "TXT_MENU_INSTN_U_sec    = \"Set HTTP Node Auth (Basic Auth)\"\nTXT_MENU_INSTN_U_ns     = \"HTTP Node Auth is not set\"\nTXT_MENU_INSTN_U_ovw    = \"Overwrite HTTP Node Auth\"\nTXT_MENU_INSTN_U_rem    = \"Remove HTTP Node Auth\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/default.py",
+      "old": "TXT_MENU_INSTN_u_i      = \"set UI user\"\nTXT_MENU_INSTN_u_rem_rly = \"Really remove UI user ?\"\n",
+      "new": "TXT_MENU_INSTN_u_i      = \"username for HTTP Node Auth\"\nTXT_MENU_INSTN_u_rem_rly = \"Really remove HTTP Node Auth?\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/AGENTS.md",
+      "old": "- The protocol should contain service state, Node-RED and Node.js versions, system user, configured Node-RED admin users with RW/R access, optional dashboard user, active project, sanitized Git remote, hostname/FQDN, machine-id, system disk identity, generated timestamp, and SysApp version.\n",
+      "new": "- `cfg_data.admin_users` maps to Node-RED `adminAuth`: these are editor/Admin API users and the handover protocol labels them as Node-RED editor users with RW/R access.\n- `cfg_data.uiUser` maps to Node-RED `httpNodeAuth`: it is one Basic Auth account for HTTP node endpoints, not Dashboard 2 user management. Do not label or export it as a Dashboard user in the handover protocol. Dashboard 2 authentication is managed separately by its middleware/auth provider.\n- The protocol should contain service state, Node-RED and Node.js versions, system user, configured Node-RED editor users with RW/R access, active project, sanitized Git remote, hostname/FQDN, machine-id, system disk identity, generated timestamp, and SysApp version.\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_node_red_handover_mail.py",
+      "old": "    def getUIUserName(self):\n        return \"dashboard\"\n",
+      "new": "    def getUIUserName(self):\n        raise AssertionError(\"legacy httpNodeAuth must not be collected as a Dashboard user\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_node_red_handover_mail.py",
+      "old": "        self.assertIn(\"admin: RW\", text_body)\n        self.assertIn(\"viewer: R\", text_body)\n        self.assertIn(\"dashboard\", text_body)\n",
+      "new": "        self.assertIn(handover_mail.TXT_HANDOVER_SECTION_USERS, text_body)\n        self.assertIn(\"admin: RW\", text_body)\n        self.assertIn(\"viewer: R\", text_body)\n        self.assertNotIn(\"dashboard\", text_body.lower())\n        self.assertNotIn(\"dashboard\", html_body.lower())\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v1.9.7\n\n- ADD Node-RED Manager umí odeslat bezpečný předávací protokol instance bez hesel: URL, služba, Node-RED/Node.js verze, uživatelé RW/R, projekt a sanitizovaný Git remote i identita zařízení podle Disk Manageru\n",
+      "new": "## v1.9.7\n\n- FIX Node-RED uživatelé jsou správně rozlišeni: předávací protokol uvádí jen uživatele editoru z adminAuth; legacy httpNodeAuth již nevydává za Dashboard 2 uživatele a menu jej označuje jako HTTP Node Auth\n\n- ADD Node-RED Manager umí odeslat bezpečný předávací protokol instance bez hesel: URL, služba, Node-RED/Node.js verze, uživatelé RW/R, projekt a sanitizovaný Git remote i identita zařízení podle Disk Manageru\n",
+      "expected": 1
+    }
+  ]
+}
