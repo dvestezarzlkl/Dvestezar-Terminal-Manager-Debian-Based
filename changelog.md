@@ -2,6 +2,7 @@
 
 ## v2.0.0
 
+- FIX setup instaluje systémovou runtime závislost `lsof`; JBLibs 1.2.17 již při jejím chybění neukončí celou aplikaci během importu a chybu vrátí pouze při skutečné práci s mountpointem
 - ADD SysApps Hub jako centrální MySQL/MariaDB inventář hostů, síťových adres a administračních služeb s neblokujícím health-checkem v hlavní hlavičce
 - ADD verzované SQL migrace s jediným validovaným `{{PREFIX}}`, pevnou allowlist mapou tabulek, SHA-256 kontrolou a explicitní inicializací/upgrade schématu
 - ADD obecný provider kontrakt `_HUB_PROVIDER_KEY_` + `hub_collect(context)`; provideři vrací pouze typované snapshoty a synchronizují se v oddělených transakcích
