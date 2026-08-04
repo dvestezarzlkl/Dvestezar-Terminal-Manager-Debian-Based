@@ -52,6 +52,11 @@ class NodeRedHandoverMailTests(unittest.TestCase):
             "http://192.0.2.10:21880",
         )
 
+    def test_auth_labels_distinguish_editor_users_from_http_node_auth(self):
+        self.assertIn("Node-RED", handover_mail.TXT_HANDOVER_SECTION_USERS)
+        self.assertIn("HTTP Node Auth", handover_mail.TXT_MENU_INSTN_U_sec)
+        self.assertNotIn("Dashboard", handover_mail.TXT_MENU_INSTN_U_sec)
+
     @patch.object(handover_mail, "getUserHome", return_value="/home/competition")
     @patch.object(handover_mail, "_run_as_user")
     def test_active_project_reads_name_and_sanitizes_remote(self, run_as_user, _get_home):
