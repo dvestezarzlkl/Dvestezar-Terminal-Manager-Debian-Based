@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "commit_message": "Show component versions and mail progress",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "_items_:List[c_menu_item]=[]\n\nclass menuBoss(menu):",
+      "new": "_items_:List[c_menu_item]=[]\n\ndef _get_menu_version(menu_class: type) -> str:\n    \"\"\"Return the component version declared by a dynamic app menu.\"\"\"\n    for attr_name in (\"_VERSION_\", \"__VERSION__\", \"__version__\"):\n        value = getattr(menu_class, attr_name, None)\n        if value is None:\n            continue\n        version = str(value).strip()\n        if version:\n            return version\n    return \"\"\n\nclass menuBoss(menu):",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                # Přidá položku menu s dynamicky generovanou volbou\n                _items_.append(c_menu_item(mod._MENU_NAME_, choice, menu_class()))\n",
+      "new": "                # Přidá položku menu s dynamicky generovanou volbou\n                version = _get_menu_version(menu_class)\n                _items_.append(\n                    c_menu_item(\n                        mod._MENU_NAME_,\n                        choice,\n                        menu_class(),\n                        atRight=version or \"?\",\n                    )\n                )\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/menu.py",
+      "old": "class menu (nd_menu):\n    # own\n",
+      "new": "class menu (nd_menu):\n    _VERSION_: str = \"1.0.0\"\n\n    # own\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu.py",
+      "old": "class menu (ssh_menu):\n    choiceBack=None\n",
+      "new": "class menu (ssh_menu):\n    _VERSION_: str = \"1.0.0\"\n\n    choiceBack=None\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    __VERSION__ = \"1.2.4\"\n",
+      "new": "    _VERSION_: str = \"1.2.5\"\n    __VERSION__ = _VERSION_\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        menuVer=self.__VERSION__\n",
+      "new": "        menuVer=self._VERSION_\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "from libs.JBLibs.helper import getLogger\n",
+      "new": "from .lng.default import *\nfrom libs.JBLibs.helper import getLogger, loadLng\n\nloadLng()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "    safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None\n\n    ok, error = send_smtp_message(\n",
+      "new": "    safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None\n\n    print(TX_MAIL_SENDING, flush=True)\n    ok, error = send_smtp_message(\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/lng/default.py",
+      "old": "TX_ERROR            = \"ERROR\"\n",
+      "new": "TX_ERROR            = \"ERROR\"\nTX_MAIL_SENDING     = \"Sending e-mail...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/lng/cs-CZ.py",
+      "old": "TX_ERROR            = \"CHYBA\"\n",
+      "new": "TX_ERROR            = \"CHYBA\"\nTX_MAIL_SENDING     = \"Odesílám e-mail...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/default.py",
+      "old": "TXT_HANDOVER_SECRET_NOTICE = \"Passwords are intentionally not included and must be delivered through a separate channel.\"\n",
+      "new": "TXT_HANDOVER_SECRET_NOTICE = \"Passwords are intentionally not included and must be delivered through a separate channel.\"\nTXT_HANDOVER_GENERATING = \"Generating the Node-RED instance handover protocol...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/lng/cs-CZ.py",
+      "old": "TXT_HANDOVER_SECRET_NOTICE = \"Hesla nejsou záměrně součástí protokolu a předávají se jiným kanálem.\"\n",
+      "new": "TXT_HANDOVER_SECRET_NOTICE = \"Hesla nejsou záměrně součástí protokolu a předávají se jiným kanálem.\"\nTXT_HANDOVER_GENERATING = \"Generuji předávací protokol instance Node-RED...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/handover_mail.py",
+      "old": "    if not mail_hlp.is_valid_mail_address(recipient):\n        return False, TXT_HANDOVER_RECIPIENT_INVALID\n\n    data = collect_handover_data(username, node_cfg)\n",
+      "new": "    if not mail_hlp.is_valid_mail_address(recipient):\n        return False, TXT_HANDOVER_RECIPIENT_INVALID\n\n    print(TXT_HANDOVER_GENERATING, flush=True)\n    data = collect_handover_data(username, node_cfg)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/lng/default.py",
+      "old": "TXT_MENU3_TITLE_05 = \"Sending the SSH key by mail...\"\n",
+      "new": "TXT_MENU3_TITLE_05 = \"Generating the SSH key package...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/lng/cs-CZ.py",
+      "old": "TXT_MENU3_TITLE_05 = \"Odesílám SSH klíč mailem...\"\n",
+      "new": "TXT_MENU3_TITLE_05 = \"Generuji balíček SSH klíče...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_key_edit.py",
+      "old": "        cls()\n        print(TXT_MENU3_TITLE_05)\n        ok,error=ssh_mail_hlp.send_managed_key_by_mail(\n",
+      "new": "        cls()\n        ok,error=ssh_mail_hlp.send_managed_key_by_mail(\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/ssh_mail_hlp.py",
+      "old": "    if not mail_hlp.is_valid_mail_address(recipient):\n        return False, TXT_SSH_MAIL_INVALID_RECIPIENT\n\n    ok, key_pair, error = ssh_key_bundle.read_managed_key_pair(username, key_name)\n",
+      "new": "    if not mail_hlp.is_valid_mail_address(recipient):\n        return False, TXT_SSH_MAIL_INVALID_RECIPIENT\n\n    print(TXT_MENU3_TITLE_05, flush=True)\n    ok, key_pair, error = ssh_key_bundle.read_managed_key_pair(username, key_name)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/helper_lng/lng/default.py",
+      "old": "TXT_SFTP_HLP_KEY_PARSE_FAILED = \"Failed to parse key: {error}\"\n",
+      "new": "TXT_SFTP_HLP_KEY_PARSE_FAILED = \"Failed to parse key: {error}\"\nTXT_SFTP_HLP_MAIL_GENERATING = \"Generating the restricted SFTP key package...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/helper_lng/lng/cs-CZ.py",
+      "old": "TXT_SFTP_HLP_KEY_PARSE_FAILED = \"Klíč se nepodařilo zpracovat: {error}\"\n",
+      "new": "TXT_SFTP_HLP_KEY_PARSE_FAILED = \"Klíč se nepodařilo zpracovat: {error}\"\nTXT_SFTP_HLP_MAIL_GENERATING = \"Generuji balíček omezeného SFTP klíče...\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "    if user_mail is not None and not is_valid_mail_address(user_mail):\n        return False, TXT_SFTP_HLP_USER_MAIL_INVALID.format(username=username)\n\n    ok, printable = get_printable_keys(key)\n",
+      "new": "    if user_mail is not None and not is_valid_mail_address(user_mail):\n        return False, TXT_SFTP_HLP_USER_MAIL_INVALID.format(username=username)\n\n    print(TXT_SFTP_HLP_MAIL_GENERATING, flush=True)\n    ok, printable = get_printable_keys(key)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menu.md",
+      "old": "    - class `menu` musí mít definován atribut `_VERSION_` který se zobrazí v hlavním menu jako verze menu\n",
+      "new": "    - class `menu` musí mít definován atribut `_VERSION_` který se zobrazí v hlavním menu jako verze menu; při změně chování podaplikace se tato verze aktualizuje\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v1.9.7\n\n",
+      "new": "## v1.9.7\n\n- ADD hlavní dynamické menu zobrazuje vpravo vlastní verzi každé app_* podaplikace; Node-RED a SSH mají první explicitní verzi 1.0.0 a SFTP Manager je aktualizován na 1.2.5\n- UPD Node-RED, SSH a SFTP mailové akce zobrazují fázi generování obsahu a společný SMTP wrapper těsně před transportem vypíše `Odesílám e-mail...`\n\n",
+      "expected": 1
+    }
+  ]
+}
