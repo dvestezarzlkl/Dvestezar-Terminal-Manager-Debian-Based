@@ -55,6 +55,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -93,17 +106,26 @@ jobs:
             tests/test_hub_config_package.py \
             tests/test_hub_schema.py \
             tests/test_hub_runtime.py \
+            tests/test_hub_mysql_integration.py \
             tests/test_settings_package.py \
             tests/test_disk_hub_provider.py \
             tests/test_disk_settings_sync.py \
             tests/test_node_red_hub_provider.py
 
       - name: Run Hub and central settings tests
+        env:
+          SYSAPPS_TEST_MYSQL: "1"
+          SYSAPPS_TEST_MYSQL_HOST: "127.0.0.1"
+          SYSAPPS_TEST_MYSQL_PORT: "3306"
+          SYSAPPS_TEST_MYSQL_USER: "root"
+          SYSAPPS_TEST_MYSQL_PASSWORD: "root"
+          SYSAPPS_TEST_MYSQL_DATABASE: "sys_apps_ci"
         run: |
           python -m unittest -v \
             tests.test_hub_config_package \
             tests.test_hub_schema \
             tests.test_hub_runtime \
+            tests.test_hub_mysql_integration \
             tests.test_settings_package \
             tests.test_disk_hub_provider \
             tests.test_disk_settings_sync \
