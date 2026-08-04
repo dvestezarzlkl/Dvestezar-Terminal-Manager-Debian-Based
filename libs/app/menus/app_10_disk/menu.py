@@ -13,6 +13,15 @@ from libs.JBLibs.helper import getLogger
 log = getLogger("disk_mng")
 
 _MENU_NAME_:str = "Disk manager"
+_HUB_PROVIDER_KEY_:str = "disks"
+
+def hub_collect(context):
+    from .hub_provider import collect_disk_snapshot
+    return collect_disk_snapshot(context)
+
+def hub_apply_remote(updates):
+    from .hub_provider import apply_disk_updates
+    apply_disk_updates(updates)
 
 def basicTitle(add:str|list=None, dir:str|Path|None=None) -> c_menu_block_items:
     return c_other.basicTitle(
@@ -167,7 +176,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.5.0"
+    _VERSION_:str="3.6.0"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -438,32 +447,37 @@ class m_disk_oper(c_menu):
         return onSelReturn(endMenu=True) # je odpojen není možná další akce
     
     def rename_disk(self,selItem:c_menu_item) -> None|onSelReturn:
-        """Přejmenuje disk podle jeho PUUID na uživatelské jméno.
-        """
+        """Přejmenuje disk podle jeho PTUUID a změnu synchronizuje do Hubu."""
         ret = onSelReturn()
-        
+
         disk=self.diskInfo
         if disk is None:
             return ret.errRet("Neznámý disk.")
-        ptuuid=disk.ptuuid
-        if ptuuid is None:
-            return ret.errRet("Nelze zjistit PUUID disku.")
+        ptuuid=disk_settings.normalize_ptuuid(disk.ptuuid)
+        if not ptuuid:
+            return ret.errRet("Nelze zjistit PTUUID disku.")
         curName=disk_settings.find_disk_name(ptuuid)
         print(text_color(f"Aktuální jméno disku: {curName if curName else '<žádné>'}", color=en_color.YELLOW))
-        print(text_color("Poznámka: Jméno disku může obsahovat pouze znaky a-Z, 0-9, podtržítko a pomlčku.", color=en_color.CYAN))
+        print(text_color("Povolené znaky: a-Z, 0-9, podtržítko a pomlčka. Prázdná hodnota jméno odstraní.", color=en_color.CYAN))
         newName=get_input(
-            f"Zadejte nové jméno disku (PUUID: {ptuuid}): ",
-            rgx=r'^[a-zA-Z0-9_-]{1,25}$',
+            f"Zadejte nové jméno disku (PTUUID: {ptuuid}): ",
+            rgx=r'^(?:[a-zA-Z0-9_-]{1,25})?$',
             maxLen=25,
-            accept_empty=False,
+            accept_empty=True,
             minMessageWidth=self.minMenuWidth,
-            errTx="Jméno disku může obsahovat pouze znaky a-Z, 0-9, podtržítko a pomlčku v rozsahu 1-16 znaků."
+            errTx="Jméno disku může být prázdné nebo obsahovat 1-25 znaků a-Z, 0-9, podtržítko a pomlčku."
         )
         if newName is None:
-            return ret.errRet("Zrušeno uživatelem.")        
-        # povolené znaky, musí být safe pro filename, takže jen a-Z 0-9 a podtržítko
+            return ret.errRet("Zrušeno uživatelem.")
         disk_settings.set_disk_name(ptuuid, newName)
-        return ret.okRet(f"Disk přejmenován na: {newName}")
+        try:
+            from libs.app.hub.runtime import hub_runtime
+            hub_runtime.sync_provider_best_effort("disks")
+        except Exception:
+            log.warning("SysApps Hub disk sync failed after rename", exc_info=True)
+        if newName:
+            return ret.okRet(f"Disk přejmenován na: {newName}")
+        return ret.okRet("Jméno disku bylo odstraněno.")
     
     def backup_disk(self,selItem:c_menu_item) -> None|onSelReturn:
         """Zálohuje celý disk.
@@ -580,7 +594,12 @@ class m_disk_oper(c_menu):
         try:
             from libs.JBLibs.fs_smart_bkp import c_bkp_hlp
             c_bkp_hlp.generateNewDiskId(disk.name)
-            
+            try:
+                from libs.app.hub.runtime import hub_runtime
+                hub_runtime.sync_provider_best_effort("disks")
+            except Exception:
+                log.warning("SysApps Hub disk sync failed after ID change", exc_info=True)
+
             # pokud ok tak se musíme vrátit zpět ven aby se obnovilo info o disku, jinak nepůjde editovat partitiony
             return ret.okRet(f"Nové ID disku vygenerováno.", endMenu=True)
         except Exception as e:
