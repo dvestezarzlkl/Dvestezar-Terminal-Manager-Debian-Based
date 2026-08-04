@@ -5,10 +5,11 @@ TXT_SFTP_HLP_INVALID_USER_MAIL = "Invalid user mail address."
 TXT_SFTP_HLP_ADMIN_MAIL_NOT_CONFIGURED = "Admin mail is not configured."
 TXT_SFTP_HLP_USER_MAIL_INVALID = "User mail configured for '{username}' is invalid."
 TXT_SFTP_HLP_KEY_PARSE_FAILED = "Failed to parse key: {error}"
-TXT_SFTP_HLP_MAIL_SUBJECT = "SFTP key export for user: {username}"
+TXT_SFTP_HLP_MAIL_SUBJECT = "Restricted SFTP file-transfer access for user: {username}"
 TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC_PRIVATE = " (public + private)"
 TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC = " (public)"
-TXT_SFTP_HLP_MAIL_EXPORT_FOR = "SFTP key export for user: {username}"
+TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Restricted SFTP access for file transfer only - user: {username}"
+TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE = "This account is intended exclusively for SFTP file transfer. It is separate from an ordinary SSH account and does not allow an interactive shell or terminal login."
 TXT_SFTP_HLP_MAIL_RECIPIENTS = "Recipients: {recipients}"
 TXT_SFTP_HLP_MAIL_PUBLIC_KEY = "Public key:"
 TXT_SFTP_HLP_MAIL_PRIVATE_KEY = "Private key:"
@@ -18,7 +19,10 @@ TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED = "The key files and usage notes are attached
 TXT_SFTP_HLP_MAIL_README_PRIVATE_LINE = "- {private_filename}: private key; keep it secret and never publish it."
 TXT_SFTP_HLP_MAIL_README_NO_PRIVATE_LINE = "- No private key is stored for this entry."
 TXT_SFTP_HLP_MAIL_README_PRIVATE_NOT_AVAILABLE = "not included in this archive"
-TXT_SFTP_HLP_MAIL_README = """SFTP/SSH key package for user: {username}
+TXT_SFTP_HLP_MAIL_README = """Key package for restricted SFTP access for user: {username}
+
+Access purpose:
+{access_purpose}
 
 Files:
 - {public_filename}: public key; this file may be shared with the server administrator.

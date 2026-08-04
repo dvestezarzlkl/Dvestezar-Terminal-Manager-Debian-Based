@@ -29,6 +29,10 @@ class SftpKeyMailTests(unittest.TestCase):
         )
 
         self.assertIn("team/user", subject)
+        self.assertIn("Omezený SFTP přístup", subject)
+        self.assertIn("výhradně pro přenos souborů", text_body)
+        self.assertIn("výhradně pro přenos souborů", html_body)
+        self.assertIn("neumožňuje interaktivní shell ani přihlášení do terminálu", text_body)
         self.assertEqual(len(attachments), 1)
         self.assertEqual(attachments[0].safe_filename(), "team_user_sftp_keys.zip")
         self.assertEqual(attachments[0].mime_type(), ("application", "zip"))
@@ -48,17 +52,21 @@ class SftpKeyMailTests(unittest.TestCase):
         )
         self.assertEqual(files["team_user_id_ed25519"].strip(), PRIVATE_KEY)
         self.assertEqual(files["team_user_id_ed25519.pub"].strip(), PUBLIC_KEY)
-        self.assertIn("team_user_id_ed25519", files["team_user_README.txt"])
-        self.assertIn("chmod 600", files["team_user_README.txt"])
-        self.assertIn("Výchozí port SFTP je 22", files["team_user_README.txt"])
-        self.assertIn("Total Commander", files["team_user_README.txt"])
-        self.assertIn("Private key file", files["team_user_README.txt"])
-        self.assertIn("Public key file", files["team_user_README.txt"])
-        self.assertIn("WinSCP", files["team_user_README.txt"])
-        self.assertIn("Soubor se soukromým klíčem", files["team_user_README.txt"])
-        self.assertIn("Pole Password ponechte prázdné", files["team_user_README.txt"])
-        self.assertIn("Samba/SFTP sandbox", files["team_user_README.txt"])
-        self.assertIn("nelze nastavit práva", files["team_user_README.txt"])
+        readme = files["team_user_README.txt"]
+        self.assertIn("team_user_id_ed25519", readme)
+        self.assertIn("Balíček klíče pro omezený SFTP přístup", readme)
+        self.assertIn("výhradně pro přenos souborů", readme)
+        self.assertIn("neumožňuje interaktivní shell ani přihlášení do terminálu", readme)
+        self.assertIn("chmod 600", readme)
+        self.assertIn("Výchozí port SFTP je 22", readme)
+        self.assertIn("Total Commander", readme)
+        self.assertIn("Private key file", readme)
+        self.assertIn("Public key file", readme)
+        self.assertIn("WinSCP", readme)
+        self.assertIn("Soubor se soukromým klíčem", readme)
+        self.assertIn("Pole Password ponechte prázdné", readme)
+        self.assertIn("Samba/SFTP sandbox", readme)
+        self.assertIn("nelze nastavit práva", readme)
 
     def test_public_only_archive_has_no_private_file(self):
         _, text_body, html_body, attachments = sftp_hlp.build_key_mail_payload(
@@ -78,7 +86,9 @@ class SftpKeyMailTests(unittest.TestCase):
         )
         self.assertNotIn(PRIVATE_KEY, text_body)
         self.assertNotIn(PRIVATE_KEY, html_body)
+        self.assertIn("výhradně pro přenos souborů", text_body)
         self.assertIn("public-user_id_ed25519.pub", files["public-user_README.txt"])
+        self.assertIn("neumožňuje interaktivní shell", files["public-user_README.txt"])
 
     def test_rsa_key_uses_familiar_filename(self):
         rsa_public = "ssh-rsa AAAATestPayload rsa@example"

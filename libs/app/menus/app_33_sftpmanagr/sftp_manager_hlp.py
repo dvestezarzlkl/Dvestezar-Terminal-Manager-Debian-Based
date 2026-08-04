@@ -223,6 +223,7 @@ def build_key_mail_payload(
     )
     readme = TXT_SFTP_HLP_MAIL_README.format(
         username=username,
+        access_purpose=TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE,
         public_filename=public_filename,
         private_line=private_line,
         private_usage=private_usage,
@@ -261,6 +262,7 @@ def build_key_mail_payload(
 
     body_lines = [
         TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username),
+        TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE,
         TXT_SFTP_HLP_MAIL_RECIPIENTS.format(recipients=', '.join(recipients)),
         "",
         TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED.format(filename=archive_filename),
@@ -286,6 +288,9 @@ def build_key_mail_payload(
             )
         ),
         "    <p>{}</p>".format(
+            html.escape(TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE)
+        ),
+        "    <p>{}</p>".format(
             html.escape(
                 TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED.format(
                     filename=archive_filename
@@ -309,7 +314,7 @@ def build_key_mail_payload(
 
 
 def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional[str]]:
-    """Send an exported SSH key as a ZIP attachment to configured recipients."""
+    """Send a restricted SFTP access key as a ZIP attachment."""
     admin_mail = get_admin_mail(cfg) or mail_hlp.get_fallback_admin_mail()
     if not admin_mail:
         return False, TXT_SFTP_HLP_ADMIN_MAIL_NOT_CONFIGURED

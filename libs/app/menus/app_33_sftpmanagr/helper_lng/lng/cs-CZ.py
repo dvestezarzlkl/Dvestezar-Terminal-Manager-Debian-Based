@@ -5,10 +5,11 @@ TXT_SFTP_HLP_INVALID_USER_MAIL = "Neplatná e-mailová adresa uživatele."
 TXT_SFTP_HLP_ADMIN_MAIL_NOT_CONFIGURED = "E-mail administrátora není nastaven."
 TXT_SFTP_HLP_USER_MAIL_INVALID = "E-mail nastavený uživateli '{username}' je neplatný."
 TXT_SFTP_HLP_KEY_PARSE_FAILED = "Klíč se nepodařilo zpracovat: {error}"
-TXT_SFTP_HLP_MAIL_SUBJECT = "Export SFTP klíče uživatele: {username}"
+TXT_SFTP_HLP_MAIL_SUBJECT = "Omezený SFTP přístup pro přenos souborů - uživatel: {username}"
 TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC_PRIVATE = " (veřejný + soukromý)"
 TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC = " (veřejný)"
-TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Export SFTP klíče uživatele: {username}"
+TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Omezený SFTP přístup pouze pro přenos souborů - uživatel: {username}"
+TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE = "Tento účet je určen výhradně pro přenos souborů přes SFTP. Je oddělený od běžného SSH účtu a neumožňuje interaktivní shell ani přihlášení do terminálu."
 TXT_SFTP_HLP_MAIL_RECIPIENTS = "Příjemci: {recipients}"
 TXT_SFTP_HLP_MAIL_PUBLIC_KEY = "Veřejný klíč:"
 TXT_SFTP_HLP_MAIL_PRIVATE_KEY = "Soukromý klíč:"
@@ -18,7 +19,10 @@ TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED = "Soubory klíče a návod jsou přiloženy 
 TXT_SFTP_HLP_MAIL_README_PRIVATE_LINE = "- {private_filename}: soukromý klíč; chraňte jej a nikdy jej nezveřejňujte."
 TXT_SFTP_HLP_MAIL_README_NO_PRIVATE_LINE = "- U této položky není uložen soukromý klíč."
 TXT_SFTP_HLP_MAIL_README_PRIVATE_NOT_AVAILABLE = "není součástí tohoto archivu"
-TXT_SFTP_HLP_MAIL_README = """Balíček SFTP/SSH klíče pro uživatele: {username}
+TXT_SFTP_HLP_MAIL_README = """Balíček klíče pro omezený SFTP přístup uživatele: {username}
+
+Účel přístupu:
+{access_purpose}
 
 Soubory:
 - {public_filename}: veřejný klíč; tento soubor lze předat správci serveru.
