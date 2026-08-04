@@ -11,6 +11,18 @@ V souboru `menu.py` musí být:
 
 Volitelný provider SysApps Hub se registruje přímo v modulu `menu.py` pomocí stabilního `_HUB_PROVIDER_KEY_` a funkce `hub_collect(context)`. Provider vrací pouze typovaný snapshot; nedostává DB spojení, SQL ani název tabulky.
 
+Obousměrný provider může navíc definovat `hub_apply_remote(updates)`. Runtime jej zavolá jen tehdy, když centrální writer po úspěšném databázovém commitu vrátí typované změny určené pro lokální konfiguraci. Applier nesmí sahat do DB ani přijímat nevalidovaná obecná data.
+
+```python
+_HUB_PROVIDER_KEY_:str = "example"
+
+def hub_collect(context):
+    return typed_snapshot
+
+def hub_apply_remote(updates):
+    apply_validated_local_updates(updates)
+```
+
 Pořadí načtení není case sensitive ale abecední, takže pokud chceme pracovat s více menu  
 tak se doporučuje formát minimálně s dvěma čísly.
 
