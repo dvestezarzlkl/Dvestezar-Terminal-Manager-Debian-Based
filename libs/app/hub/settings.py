@@ -40,8 +40,7 @@ class HubSettings:
     def validate(self, require_enabled: bool = False) -> tuple[bool, str]:
         if require_enabled and not self.enabled:
             return False, "SysApps Hub is disabled."
-        connection_configured = bool(self.host or self.user or self.password)
-        if require_enabled or self.enabled or connection_configured:
+        if require_enabled or self.enabled:
             if not self.host:
                 return False, "Database host is not configured."
             if not self.user:
