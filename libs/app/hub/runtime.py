@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 from typing import Optional
 
 from libs.JBLibs.helper import getLogger
@@ -18,6 +19,7 @@ from .settings import HubSettings
 
 
 log = getLogger(__name__)
+_PROVIDER_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 
 class HubRuntime:
@@ -31,7 +33,7 @@ class HubRuntime:
 
     def register_provider(self, key: str, collector: HubProviderCollector) -> None:
         key = str(key or "").strip()
-        if not key or not callable(collector):
+        if not _PROVIDER_KEY_RE.fullmatch(key) or not callable(collector):
             raise ValueError("Invalid SysApps Hub provider registration.")
         if key in self._providers and self._providers[key] is not collector:
             raise ValueError(f"Duplicate SysApps Hub provider key: {key}")
