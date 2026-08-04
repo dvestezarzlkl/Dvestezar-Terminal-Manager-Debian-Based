@@ -52,7 +52,8 @@ jobs:
       - name: Install test dependencies
         run: >-
           python -m pip install --disable-pip-version-check
-          cryptography==46.0.7 json5==0.9.27 psutil==6.1.0 PyMySQL==1.2.0
+          cryptography==46.0.7 json5==0.9.27 psutil==6.1.0
+          PyMySQL==1.2.0 python-dateutil==2.9.0.post0
 
       - name: Prepare application log directory
         run: |
