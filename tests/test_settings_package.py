@@ -77,6 +77,15 @@ class SettingsPackageTests(unittest.TestCase):
         self.assertNotIn("database-secret", preview)
         self.assertNotIn("smtp-secret", preview)
 
+    def test_generated_revisions_strictly_increase(self):
+        first = decode_encrypted_settings(
+            export_encrypted_settings("password1"), "password1"
+        )
+        second = decode_encrypted_settings(
+            export_encrypted_settings("password1"), "password1"
+        )
+        self.assertGreater(second.revision, first.revision)
+
     def test_wrong_password_is_rejected(self):
         package = export_encrypted_settings("correct", revision=1)
         with self.assertRaisesRegex(ValueError, "Wrong package password"):
