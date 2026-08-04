@@ -22,13 +22,23 @@ class HubSchemaTests(unittest.TestCase):
             auto_sync=True,
         )
 
-    def test_initial_migration_uses_only_validated_prefix_placeholder(self):
+    def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1])
-        statements = migrations[0].render(self.settings.prefix)
-        self.assertEqual(len(statements), 7)
-        self.assertTrue(any("`hub_hosts`" in item for item in statements))
-        self.assertTrue(all("{{PREFIX}}" not in item for item in statements))
+        self.assertEqual([item.version for item in migrations], [1, 2])
+        initial = migrations[0].render(self.settings.prefix)
+        disks = migrations[1].render(self.settings.prefix)
+        self.assertEqual(len(initial), 7)
+        self.assertEqual(len(disks), 2)
+        self.assertTrue(any("`hub_hosts`" in item for item in initial))
+        self.assertTrue(any("`hub_disks`" in item for item in disks))
+        self.assertTrue(any("`hub_host_disks`" in item for item in disks))
+        self.assertTrue(
+            all(
+                "{{PREFIX}}" not in statement
+                for migration in migrations
+                for statement in migration.render(self.settings.prefix)
+            )
+        )
 
     def test_statement_marker_is_explicit(self):
         statements = split_migration_statements(
@@ -38,6 +48,10 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_table_identifier_accepts_only_fixed_suffixes(self):
         self.assertEqual(table_identifier(self.settings, "hosts"), "`hub_hosts`")
+        self.assertEqual(table_identifier(self.settings, "disks"), "`hub_disks`")
+        self.assertEqual(
+            table_identifier(self.settings, "host_disks"), "`hub_host_disks`"
+        )
         with self.assertRaises(ValueError):
             table_identifier(self.settings, "hosts;DROP TABLE users")
 
