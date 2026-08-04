@@ -4,6 +4,7 @@ from unittest.mock import patch
 from libs.app import cfg
 from libs.app.hub.settings import HubSettings
 from libs.app.settings_package import (
+    DecodedSettingsPackage,
     apply_decoded_settings,
     decode_encrypted_settings,
     export_encrypted_settings,
@@ -85,6 +86,27 @@ class SettingsPackageTests(unittest.TestCase):
             export_encrypted_settings("password1"), "password1"
         )
         self.assertGreater(second.revision, first.revision)
+
+    def test_unknown_future_section_is_skipped_with_warning(self):
+        package = export_encrypted_settings("password1", revision=43)
+        decoded = decode_encrypted_settings(package, "password1")
+        future = DecodedSettingsPackage(
+            revision=decoded.revision,
+            created_at=decoded.created_at,
+            sections={
+                **decoded.sections,
+                "sftp_backup": {
+                    "version": 1,
+                    "data": {"profile": "central_backup"},
+                },
+            },
+            sha256=decoded.sha256,
+        )
+        with patch("libs.app.settings_package.cfg.save"):
+            report = apply_decoded_settings(future)
+        self.assertEqual(set(report.applied_sections), {"hub", "smtp"})
+        self.assertEqual(report.skipped_sections, ("sftp_backup",))
+        self.assertTrue(any("sftp_backup" in item for item in report.warnings))
 
     def test_wrong_password_is_rejected(self):
         package = export_encrypted_settings("correct", revision=1)
