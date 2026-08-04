@@ -40,10 +40,12 @@ class HubSettings:
     def validate(self, require_enabled: bool = False) -> tuple[bool, str]:
         if require_enabled and not self.enabled:
             return False, "SysApps Hub is disabled."
-        if not self.host:
-            return False, "Database host is not configured."
-        if not self.user:
-            return False, "Database user is not configured."
+        connection_configured = bool(self.host or self.user or self.password)
+        if require_enabled or self.enabled or connection_configured:
+            if not self.host:
+                return False, "Database host is not configured."
+            if not self.user:
+                return False, "Database user is not configured."
         if not 1 <= self.port <= 65535:
             return False, "Database port must be between 1 and 65535."
         if not _DATABASE_RE.fullmatch(self.database):
@@ -64,7 +66,9 @@ class HubSettings:
         return asdict(self)
 
 
-def apply_settings(values: dict[str, Any]) -> HubSettings:
+def settings_from_dict(values: dict[str, Any]) -> HubSettings:
+    if not isinstance(values, dict):
+        raise TypeError("Hub settings must be an object.")
     candidate = HubSettings(
         enabled=bool(values.get("enabled", True)),
         host=str(values.get("host", "") or "").strip(),
@@ -79,6 +83,11 @@ def apply_settings(values: dict[str, Any]) -> HubSettings:
     ok, error = candidate.validate()
     if not ok:
         raise ValueError(error)
+    return candidate
+
+
+def apply_settings(values: dict[str, Any], save: bool = True) -> HubSettings:
+    candidate = settings_from_dict(values)
 
     cfg.HUB_ENABLED = candidate.enabled
     cfg.HUB_DB_HOST = candidate.host
@@ -89,5 +98,6 @@ def apply_settings(values: dict[str, Any]) -> HubSettings:
     cfg.HUB_DB_PREFIX = candidate.prefix
     cfg.HUB_CONNECT_TIMEOUT = candidate.connect_timeout
     cfg.HUB_AUTO_SYNC = candidate.auto_sync
-    cfg.save()
+    if save:
+        cfg.save()
     return candidate
