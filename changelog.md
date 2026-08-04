@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- ADD Node-RED Manager umí odeslat bezpečný předávací protokol instance bez hesel: URL, služba, Node-RED/Node.js verze, uživatelé RW/R, projekt a sanitizovaný Git remote i identita zařízení podle Disk Manageru
+
 - FIX společný SMTP transport nyní přidává povinnou RFC Date hlavičku ještě před odesláním; JBLibs submodul aktualizován na verzi 1.2.15
 
 - FIX mailové balíčky nyní jasně rozlišují běžný SSH účet s terminálovým přístupem a možností SCP/SFTP od omezeného SFTP účtu určeného pouze pro přenos souborů bez shellu; SFTP Manager 1.2.4

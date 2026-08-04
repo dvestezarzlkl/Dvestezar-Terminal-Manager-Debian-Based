@@ -16,6 +16,11 @@ from libs.app.install_instance import updateSettingsFileForUser
 from .menu_data_classes import menu_data
 from .menu_edit_node_instance_user import menuEdit_edit_nodeInstance_user
 from .menu_edit_node_instance_service import menuEdit_edit_nodeInstance_service
+from .handover_mail import (
+    get_handover_recipient,
+    send_handover_mail as send_handover_protocol_mail,
+    set_handover_recipient,
+)
 from .nd_menu import nd_menu
 from libs.app.update_instance import update_instance_node_red
 
@@ -72,11 +77,14 @@ class menuEdit_edit_nodeInstance(nd_menu):
         
         # instance
         bkgs=checkBackups(self.selectedSystemUSer)
+        handover_recipient = get_handover_recipient(self.selectedSystemUSer) or TXT_HANDOVER_RECIPIENT_NOT_SET
         self.menu.append(c_menu_item(''))
         self.menu.append(c_menu_title_label(TXT_MENU_INSTN_SC_GEN))
         self.menu.extend([
             c_menu_item(TXT_MENU_INSTN_tit_ch,'t',self.change_title),
             c_menu_item(TXT_MENU_INSTN_p_ch,'p',self.change_port,atRight=str(self.cfg.port)),
+            c_menu_item(TXT_MENU_INSTN_HANDOVER_RECIPIENT,'hr',self.change_handover_recipient,atRight=handover_recipient),
+            c_menu_item(text_color(TXT_MENU_INSTN_HANDOVER_SEND, en_color.BRIGHT_CYAN),'hm',self.send_handover_protocol),
             c_menu_item(TXT_MENU_INSTN_bkg,'b',self.backup_node_instance),
             c_menu_item(TXT_MENU_INSTN_bkg_del,'bs',self.backups,atRight=TXT_MENU_INSTN_bkg_del_c.format(cnt=bkgs)),
             c_menu_item(text_color(TXT_MENU_INSTN_set_upd, en_color.BRIGHT_CYAN),'cfg',self.updateSettingsFile),
@@ -152,6 +160,36 @@ class menuEdit_edit_nodeInstance(nd_menu):
         anyKey()
         return onSelReturn(endMenu=True)
     
+    def change_handover_recipient(self,selItem:c_menu_item) -> onSelReturn:
+        current = get_handover_recipient(self.selectedSystemUSer) or TXT_HANDOVER_RECIPIENT_NOT_SET
+        value = get_input(
+            TXT_HANDOVER_RECIPIENT_PROMPT,
+            titleNote=TXT_HANDOVER_RECIPIENT_NOTE.format(current=current),
+        )
+        if value is None:
+            return onSelReturn()
+        ok, error = set_handover_recipient(self.selectedSystemUSer, value)
+        if not ok:
+            return onSelReturn(err=error or TXT_HANDOVER_RECIPIENT_SAVE_FAILED)
+        if value.strip():
+            return onSelReturn(ok=TXT_HANDOVER_RECIPIENT_SAVED)
+        return onSelReturn(ok=TXT_HANDOVER_RECIPIENT_CLEARED)
+
+    def send_handover_protocol(self,selItem:c_menu_item) -> onSelReturn:
+        recipient = get_handover_recipient(self.selectedSystemUSer)
+        if not recipient:
+            return onSelReturn(err=TXT_HANDOVER_RECIPIENT_MISSING)
+        if not confirm(TXT_HANDOVER_SEND_CONFIRM.format(recipient=recipient)):
+            return onSelReturn(err=TXT_CANCELED_U)
+        ok, error = send_handover_protocol_mail(
+            self.selectedSystemUSer,
+            self.cfg,
+            recipient=recipient,
+        )
+        if not ok:
+            return onSelReturn(err=error or TXT_HANDOVER_SEND_FAILED)
+        return onSelReturn(ok=TXT_HANDOVER_SENT.format(recipient=recipient))
+
     def change_title(self,selItem:c_menu_item) -> onSelReturn:
         """
         Change title for node instance
