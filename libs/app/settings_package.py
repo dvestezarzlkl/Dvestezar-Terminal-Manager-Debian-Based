@@ -479,6 +479,11 @@ def apply_decoded_settings(
         if decoded.revision > 0:
             cfg.SETTINGS_LAST_REVISION = decoded.revision
             cfg.SETTINGS_LAST_SHA256 = decoded.sha256
+        elif decoded.legacy:
+            # A legacy Hub-only import changes one centrally managed section.
+            # Keep the anti-rollback revision, but force the current central
+            # package to be applied again on the next startup.
+            cfg.SETTINGS_LAST_SHA256 = ""
         cfg.save()
     except Exception:
         for key, value in previous.items():

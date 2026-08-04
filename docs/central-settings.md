@@ -65,7 +65,7 @@ V **App settings → Centralized settings** jsou akce:
 
 Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.
 
-Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ruční import jako sekce `hub`. Automatický URL import legacy balíky nepřijímá.
+Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ruční import jako sekce `hub`. Automatický URL import legacy balíky nepřijímá. Legacy import zachová poslední anti-rollback revision, ale zneplatní uložený SHA centrálního balíku, aby se aktuální centrální konfigurace při dalším startu znovu aplikovala.
 
 ## Import z URL
 

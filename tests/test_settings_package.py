@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from libs.app import cfg
+from libs.app.hub.config_package import export_encrypted_settings as export_legacy_hub_settings
 from libs.app.hub.settings import HubSettings
 from libs.app.settings_package import (
     DecodedSettingsPackage,
@@ -86,6 +87,18 @@ class SettingsPackageTests(unittest.TestCase):
             export_encrypted_settings("password1"), "password1"
         )
         self.assertGreater(second.revision, first.revision)
+
+    def test_legacy_hub_import_invalidates_current_central_hash(self):
+        cfg.SETTINGS_LAST_REVISION = 42
+        cfg.SETTINGS_LAST_SHA256 = "current-central-package"
+        legacy = export_legacy_hub_settings("password1")
+        decoded = decode_encrypted_settings(legacy, "password1")
+        self.assertTrue(decoded.legacy)
+        with patch("libs.app.settings_package.cfg.save"):
+            report = apply_decoded_settings(decoded, force=True)
+        self.assertTrue(report.changed)
+        self.assertEqual(cfg.SETTINGS_LAST_REVISION, 42)
+        self.assertEqual(cfg.SETTINGS_LAST_SHA256, "")
 
     def test_unknown_future_section_is_skipped_with_warning(self):
         package = export_encrypted_settings("password1", revision=43)
