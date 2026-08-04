@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commit_message": "Redact SysApps Hub database errors",
+  "replacements": [
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "            return HubStatus(HubState.OFFLINE, str(exc), checked_at)",
+      "new": "            return HubStatus(\n                HubState.OFFLINE,\n                self.settings.redact_error(exc),\n                checked_at,\n            )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def refresh_status(self) -> HubStatus:\n        try:\n            self.status = HubDatabase(HubSettings.from_cfg()).check_status()\n        except Exception as exc:\n            log.warning(\"SysApps Hub status check failed: %s\", exc)\n            self.status = HubStatus(\n                HubState.ERROR,\n                str(exc),\n                datetime.now().astimezone(),\n            )",
+      "new": "    def refresh_status(self) -> HubStatus:\n        settings = HubSettings.from_cfg()\n        try:\n            self.status = HubDatabase(settings).check_status()\n        except Exception as exc:\n            safe_error = settings.redact_error(exc)\n            log.warning(\"SysApps Hub status check failed: %s\", safe_error)\n            self.status = HubStatus(\n                HubState.ERROR,\n                safe_error,\n                datetime.now().astimezone(),\n            )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        except Exception as exc:\n            log.error(\"SysApps Hub schema initialization failed\", exc_info=True)\n            self.refresh_status()\n            return False, str(exc)",
+      "new": "        except Exception as exc:\n            safe_error = settings.redact_error(exc)\n            log.error(\"SysApps Hub schema initialization failed: %s\", safe_error)\n            self.refresh_status()\n            return False, safe_error",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def sync_all(self) -> HubSyncReport:\n        report = HubSyncReport()\n        try:\n            _, database = self._ready_database()",
+      "new": "    def sync_all(self) -> HubSyncReport:\n        report = HubSyncReport()\n        settings = HubSettings.from_cfg()\n        try:\n            _, database = self._ready_database()",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        except Exception as exc:\n            report.error = str(exc)\n            log.error(\"SysApps Hub core synchronization failed\", exc_info=True)\n            return report",
+      "new": "        except Exception as exc:\n            report.error = settings.redact_error(exc)\n            log.error(\"SysApps Hub core synchronization failed: %s\", report.error)\n            return report",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def sync_provider(self, key: str) -> tuple[bool, str]:\n        collector = self._providers.get(key)",
+      "new": "    def sync_provider(self, key: str) -> tuple[bool, str]:\n        settings = HubSettings.from_cfg()\n        collector = self._providers.get(key)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        except Exception as exc:\n            log.warning(\"SysApps Hub provider synchronization failed: %s\", key, exc_info=True)\n            return False, str(exc)",
+      "new": "        except Exception as exc:\n            safe_error = settings.redact_error(exc)\n            log.warning(\n                \"SysApps Hub provider synchronization failed for %s: %s\",\n                key,\n                safe_error,\n            )\n            return False, safe_error",
+      "expected": 1
+    }
+  ]
+}
