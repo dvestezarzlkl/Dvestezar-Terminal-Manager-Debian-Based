@@ -92,7 +92,11 @@ class HubDatabase:
                         "database does not exist",
                         checked_at,
                     )
-            return HubStatus(HubState.OFFLINE, str(exc), checked_at)
+            return HubStatus(
+                HubState.OFFLINE,
+                self.settings.redact_error(exc),
+                checked_at,
+            )
 
         if check.error:
             return HubStatus(

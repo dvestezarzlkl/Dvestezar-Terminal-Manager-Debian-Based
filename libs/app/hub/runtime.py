@@ -38,13 +38,15 @@ class HubRuntime:
         self._providers[key] = collector
 
     def refresh_status(self) -> HubStatus:
+        settings = HubSettings.from_cfg()
         try:
-            self.status = HubDatabase(HubSettings.from_cfg()).check_status()
+            self.status = HubDatabase(settings).check_status()
         except Exception as exc:
-            log.warning("SysApps Hub status check failed: %s", exc)
+            safe_error = settings.redact_error(exc)
+            log.warning("SysApps Hub status check failed: %s", safe_error)
             self.status = HubStatus(
                 HubState.ERROR,
-                str(exc),
+                safe_error,
                 datetime.now().astimezone(),
             )
         return self.status
@@ -73,9 +75,10 @@ class HubRuntime:
             self.refresh_status()
             return True, f"SysApps Hub schema is ready at version {version}."
         except Exception as exc:
-            log.error("SysApps Hub schema initialization failed", exc_info=True)
+            safe_error = settings.redact_error(exc)
+            log.error("SysApps Hub schema initialization failed: %s", safe_error)
             self.refresh_status()
-            return False, str(exc)
+            return False, safe_error
 
     def _ready_database(self) -> tuple[HubSettings, HubDatabase]:
         settings = HubSettings.from_cfg()
@@ -87,14 +90,15 @@ class HubRuntime:
 
     def sync_all(self) -> HubSyncReport:
         report = HubSyncReport()
+        settings = HubSettings.from_cfg()
         try:
             _, database = self._ready_database()
             host = collect_host_snapshot()
             database.sync_core(host)
             report.core_synced = True
         except Exception as exc:
-            report.error = str(exc)
-            log.error("SysApps Hub core synchronization failed", exc_info=True)
+            report.error = settings.redact_error(exc)
+            log.error("SysApps Hub core synchronization failed: %s", report.error)
             return report
 
         context = HubContext(
@@ -122,6 +126,7 @@ class HubRuntime:
         return report
 
     def sync_provider(self, key: str) -> tuple[bool, str]:
+        settings = HubSettings.from_cfg()
         collector = self._providers.get(key)
         if collector is None:
             return False, f"SysApps Hub provider is not registered: {key}"
@@ -142,8 +147,13 @@ class HubRuntime:
             self.refresh_status()
             return True, f"Synchronized {count} item(s) from {key}."
         except Exception as exc:
-            log.warning("SysApps Hub provider synchronization failed: %s", key, exc_info=True)
-            return False, str(exc)
+            safe_error = settings.redact_error(exc)
+            log.warning(
+                "SysApps Hub provider synchronization failed for %s: %s",
+                key,
+                safe_error,
+            )
+            return False, safe_error
 
     def sync_provider_best_effort(self, key: str) -> None:
         settings = HubSettings.from_cfg()
