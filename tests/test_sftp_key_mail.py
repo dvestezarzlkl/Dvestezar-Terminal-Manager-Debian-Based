@@ -31,6 +31,7 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("team/user", subject)
         self.assertIn("Omezený SFTP přístup", subject)
         self.assertIn("výhradně pro přenos souborů", text_body)
+        self.assertIn("výhradně pro přenos souborů", html_body)
         self.assertIn("neumožňuje interaktivní shell ani přihlášení do terminálu", text_body)
         self.assertEqual(len(attachments), 1)
         self.assertEqual(attachments[0].safe_filename(), "team_user_sftp_keys.zip")
