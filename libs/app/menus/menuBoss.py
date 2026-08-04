@@ -24,6 +24,11 @@ def _get_menu_version(menu_class: type) -> str:
             return version
     return ""
 
+def _format_menu_version(version: str) -> str:
+    """Format a component version for the main menu."""
+    version = str(version).strip()
+    return f"v. {version}" if version else "?"
+
 class menuBoss(menu):
     """
     Main APPs menu
@@ -438,7 +443,7 @@ def init() -> bool:
                         mod._MENU_NAME_,
                         choice,
                         menu_class(),
-                        atRight=version or "?",
+                        atRight=_format_menu_version(version),
                     )
                 )
                 

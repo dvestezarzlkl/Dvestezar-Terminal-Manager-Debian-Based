@@ -2,6 +2,7 @@
 
 ## v1.9.7
 
+- UPD verze podaplikací v hlavním menu mají jednoznačný prefix `v.`, například `(v. 3.5.0)`
 - ADD hlavní dynamické menu zobrazuje vpravo vlastní verzi každé app_* podaplikace; Node-RED a SSH mají první explicitní verzi 1.0.0 a SFTP Manager je aktualizován na 1.2.5
 - UPD Node-RED, SSH a SFTP mailové akce zobrazují fázi generování obsahu a společný SMTP wrapper těsně před transportem vypíše `Odesílám e-mail...`
 
