@@ -1,5 +1,6 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
+import re
 from libs.JBLibs.term import en_color, text_color
 from libs.JBLibs.input import select, select_item
 from libs.JBLibs.c_menu import c_menu_block_items
@@ -8,84 +9,171 @@ from libs.app import g_def as defs
 from libs.JBLibs.helper import getConfigPath
 
 __isINIT__:bool=False
-class disk_settings:        
+class disk_settings:
     MNT_DIR:str=Path("/mnt").resolve()
     BKP_DIR:str=Path("/var/backups").resolve()
-    
+
     diskNames:dict[str,str]={}
-    """Slovník pro mapování disků podle jejich PUUID na uživatelská jména."""
-    
-    # uloží komplet toto nastavení do souboru
+    """Mapování normalizovaného PTUUID na uživatelské jméno disku."""
+
+    diskNameUpdatedAt:dict[str,str]={}
+    """UTC ISO timestamp poslední lokální nebo vzdálené změny názvu."""
+
+    _NAME_RE=re.compile(r"^[a-zA-Z0-9_-]{1,25}$")
+
     @staticmethod
-    def save() -> None:
-        fl=getConfigPath(
+    def _config_path() -> Path:
+        return getConfigPath(
             configName=defs.DISK_CFG,
             appName=defs.APP_NAME,
             fromEtc=defs.CONFIG_ETC,
             createIfNotExist=True
         )
-        
-        # pokud neexistuje adresář vytvoříme jej
+
+    @staticmethod
+    def normalize_ptuuid(ptuuid:str|None) -> str:
+        return str(ptuuid or "").strip().lower()
+
+    @staticmethod
+    def _parse_timestamp(value:datetime|str|None) -> datetime|None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, datetime):
+            parsed=value
+        else:
+            try:
+                parsed=datetime.fromisoformat(str(value))
+            except ValueError as exc:
+                raise ValueError(f"Invalid disk name timestamp: {value}") from exc
+        if parsed.tzinfo is None:
+            parsed=parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    @staticmethod
+    def _timestamp_text(value:datetime|str|None=None) -> str:
+        parsed=disk_settings._parse_timestamp(value)
+        if parsed is None:
+            parsed=datetime.now(timezone.utc)
+        return parsed.isoformat(timespec="microseconds")
+
+    @staticmethod
+    def save() -> None:
+        fl=disk_settings._config_path()
         if not fl.parent.is_dir():
             fl.parent.mkdir(parents=True, exist_ok=True)
-            
-        # převedeme tento objekt na json
+
         import json
         data={
             "MNT_DIR": str(disk_settings.MNT_DIR),
             "BKP_DIR": str(disk_settings.BKP_DIR),
-            "diskNames": disk_settings.diskNames
+            "diskNames": disk_settings.diskNames,
+            "diskNameUpdatedAt": disk_settings.diskNameUpdatedAt,
         }
         with fl.open("w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
-            
-    # načte komplet toto nastavení ze souboru
+            json.dump(data, f, indent=4, sort_keys=True)
+
     @staticmethod
-    def load() -> None:        
-        fl=getConfigPath(
-            configName=defs.DISK_CFG,
-            appName=defs.APP_NAME,
-            fromEtc=defs.CONFIG_ETC,
-            createIfNotExist=True
-        )
-        
+    def load() -> None:
+        fl=disk_settings._config_path()
         if not fl.is_file():
             return
         import json
         with fl.open("r", encoding="utf-8") as f:
             data=json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Disk settings must contain a JSON object.")
         if "MNT_DIR" in data:
             disk_settings.MNT_DIR=Path(data["MNT_DIR"]).resolve()
         if "BKP_DIR" in data:
             disk_settings.BKP_DIR=Path(data["BKP_DIR"]).resolve()
-        if "diskNames" in data:
-            disk_settings.diskNames=data["diskNames"]
-            
+
+        raw_names=data.get("diskNames", {})
+        raw_updates=data.get("diskNameUpdatedAt", {})
+        if not isinstance(raw_names, dict) or not isinstance(raw_updates, dict):
+            raise ValueError("Invalid disk name settings.")
+
+        legacy_timestamp=datetime.fromtimestamp(fl.stat().st_mtime, timezone.utc)
+        names:dict[str,str]={}
+        updates:dict[str,str]={}
+        migrated=False
+        for raw_ptuuid, raw_name in raw_names.items():
+            ptuuid=disk_settings.normalize_ptuuid(raw_ptuuid)
+            if not ptuuid:
+                continue
+            name=str(raw_name or "")
+            names[ptuuid]=name
+            raw_updated=raw_updates.get(raw_ptuuid, raw_updates.get(ptuuid))
+            parsed=disk_settings._parse_timestamp(raw_updated)
+            if parsed is None:
+                parsed=legacy_timestamp
+                migrated=True
+            updates[ptuuid]=disk_settings._timestamp_text(parsed)
+
+        disk_settings.diskNames=names
+        disk_settings.diskNameUpdatedAt=updates
+        if migrated:
+            disk_settings.save()
+
     @staticmethod
     def find_disk_name(puuid:str) -> str|None:
-        """Najde uživatelské jméno disku podle jeho PUUID.
-        
-        Parameters:
-            puuid (str): PUUID disku
-            
-        Returns:
-            str|None: Uživatelské jméno disku nebo None pokud není nalezeno
-        """
-        if puuid in disk_settings.diskNames:
-            return disk_settings.diskNames[puuid]
-        return None
-    
+        key=disk_settings.normalize_ptuuid(puuid)
+        return disk_settings.diskNames.get(key)
+
     @staticmethod
-    def set_disk_name(puuid:str, name:str) -> None:
-        """Nastaví uživatelské jméno disku podle jeho PUUID.
-        
-        Parameters:
-            puuid (str): PUUID disku
-            name (str): Uživatelské jméno disku
-        """
-        disk_settings.diskNames[puuid]=name
-        disk_settings.save()
-        
+    def get_disk_name_updated_at(puuid:str) -> datetime|None:
+        key=disk_settings.normalize_ptuuid(puuid)
+        return disk_settings._parse_timestamp(
+            disk_settings.diskNameUpdatedAt.get(key)
+        )
+
+    @staticmethod
+    def set_disk_name(
+        ptuuid:str,
+        name:str,
+        updated_at:datetime|str|None=None,
+        save:bool=True,
+    ) -> None:
+        key=disk_settings.normalize_ptuuid(ptuuid)
+        if not key:
+            raise ValueError("PTUUID cannot be empty.")
+        name=str(name or "")
+        if name and not disk_settings._NAME_RE.fullmatch(name):
+            raise ValueError(
+                "Disk name may contain only letters, digits, underscore and dash."
+            )
+        disk_settings.diskNames[key]=name
+        disk_settings.diskNameUpdatedAt[key]=disk_settings._timestamp_text(updated_at)
+        if save:
+            disk_settings.save()
+
+    @staticmethod
+    def apply_remote_names(updates) -> None:
+        changed=False
+        for update in updates:
+            key=disk_settings.normalize_ptuuid(getattr(update, "ptuuid", ""))
+            if not key:
+                raise ValueError("Remote disk update is missing PTUUID.")
+            remote_updated=disk_settings._parse_timestamp(
+                getattr(update, "updated_at", None)
+            )
+            if remote_updated is None:
+                raise ValueError(f"Remote disk update {key} has no timestamp.")
+            local_updated=disk_settings.get_disk_name_updated_at(key)
+            remote_name=str(getattr(update, "display_name", "") or "")
+            if local_updated is not None and remote_updated < local_updated:
+                continue
+            if (
+                disk_settings.diskNames.get(key) == remote_name
+                and local_updated == remote_updated
+            ):
+                continue
+            disk_settings.set_disk_name(
+                key, remote_name, updated_at=remote_updated, save=False
+            )
+            changed=True
+        if changed:
+            disk_settings.save()
+
     @staticmethod
     def init() -> None:
         global __isINIT__

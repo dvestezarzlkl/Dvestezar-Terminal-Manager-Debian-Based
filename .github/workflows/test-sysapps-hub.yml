@@ -4,29 +4,49 @@ on:
   pull_request:
     paths:
       - "libs/app/hub/**"
+      - "libs/app/settings_package.py"
+      - "libs/app/settings_menu.py"
+      - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
       - "libs/app/c_cfg.py"
       - "libs/app/menus/menuBoss.py"
       - "libs/app/menus/menu.md"
+      - "libs/app/menus/app_10_disk/**"
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
+      - "tests/test_settings_package.py"
+      - "tests/test_disk_hub_provider.py"
+      - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
       - "changelog.md"
+      - "docs/sysapps-hub.md"
+      - "docs/central-settings.md"
       - ".github/workflows/test-sysapps-hub.yml"
   push:
     branches:
       - main
     paths:
       - "libs/app/hub/**"
+      - "libs/app/settings_package.py"
+      - "libs/app/settings_menu.py"
+      - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
       - "libs/app/c_cfg.py"
       - "libs/app/menus/menuBoss.py"
+      - "libs/app/menus/app_10_disk/**"
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
+      - "tests/test_settings_package.py"
+      - "tests/test_disk_hub_provider.py"
+      - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
+      - "readme.md"
+      - "changelog.md"
+      - "docs/sysapps-hub.md"
+      - "docs/central-settings.md"
       - ".github/workflows/test-sysapps-hub.yml"
 
 permissions:
@@ -35,6 +55,19 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -61,6 +94,11 @@ jobs:
         run: |
           python -m py_compile \
             libs/app/hub/*.py \
+            libs/app/settings_package.py \
+            libs/app/settings_menu.py \
+            libs/app/disk_hlp.py \
+            libs/app/menus/app_10_disk/hub_provider.py \
+            libs/app/menus/app_10_disk/menu.py \
             libs/app/menus/app_20_node_red/hub_provider.py \
             libs/app/menus/app_20_node_red/menu.py \
             libs/app/menus/menuBoss.py \
@@ -68,14 +106,29 @@ jobs:
             tests/test_hub_config_package.py \
             tests/test_hub_schema.py \
             tests/test_hub_runtime.py \
+            tests/test_hub_mysql_integration.py \
+            tests/test_settings_package.py \
+            tests/test_disk_hub_provider.py \
+            tests/test_disk_settings_sync.py \
             tests/test_node_red_hub_provider.py
 
-      - name: Run Hub tests
+      - name: Run Hub and central settings tests
+        env:
+          SYSAPPS_TEST_MYSQL: "1"
+          SYSAPPS_TEST_MYSQL_HOST: "127.0.0.1"
+          SYSAPPS_TEST_MYSQL_PORT: "3306"
+          SYSAPPS_TEST_MYSQL_USER: "root"
+          SYSAPPS_TEST_MYSQL_PASSWORD: "root"
+          SYSAPPS_TEST_MYSQL_DATABASE: "sys_apps_ci"
         run: |
           python -m unittest -v \
             tests.test_hub_config_package \
             tests.test_hub_schema \
             tests.test_hub_runtime \
+            tests.test_hub_mysql_integration \
+            tests.test_settings_package \
+            tests.test_disk_hub_provider \
+            tests.test_disk_settings_sync \
             tests.test_node_red_hub_provider
 
       - name: Verify version and provider contracts
@@ -87,14 +140,20 @@ jobs:
           cfg = Path("libs/app/cfg.py").read_text(encoding="utf-8")
           readme = Path("readme.md").read_text(encoding="utf-8")
           changelog = Path("changelog.md").read_text(encoding="utf-8")
-          menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
+          node_menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
+          disk_menu = Path("libs/app/menus/app_10_disk/menu.py").read_text(encoding="utf-8")
+          main_menu = Path("libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
-          assert version == "2.0.0"
+          assert version == "2.1.0"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
-          assert '_HUB_PROVIDER_KEY_:str = "node_red"' in menu
-          assert "def hub_collect(context):" in menu
+          assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
+          assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
+          assert "def hub_collect(context):" in disk_menu
+          assert "def hub_apply_remote(updates):" in disk_menu
+          assert 'Synchronize SysApps Hub' in main_menu
+          assert 'startup_settings_update()' in main_menu
           assert "PyMySQL==1.2.0" in requirements
           PY

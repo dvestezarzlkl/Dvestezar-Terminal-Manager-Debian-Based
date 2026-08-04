@@ -1,11 +1,13 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from libs.app.hub.models import (
+    HubDiskNameUpdate,
     HubHostSnapshot,
     HubNodeRedInstance,
     HubProviderSnapshot,
+    HubProviderSyncResult,
     HubState,
     HubStatus,
 )
@@ -14,6 +16,7 @@ from libs.app.hub.runtime import HubRuntime
 
 class FakeDatabase:
     instances = []
+    remote_updates = ()
 
     def __init__(self, settings):
         self.settings = settings
@@ -23,7 +26,7 @@ class FakeDatabase:
         FakeDatabase.instances.append(self)
 
     def check_status(self):
-        return HubStatus(HubState.READY, "ready", datetime.now().astimezone(), "8.0", 1)
+        return HubStatus(HubState.READY, "ready", datetime.now().astimezone(), "8.0", 2)
 
     def sync_core(self, host):
         self.core.append(host)
@@ -31,7 +34,7 @@ class FakeDatabase:
 
     def sync_provider(self, machine_id, snapshot):
         self.providers.append((machine_id, snapshot))
-        return len(snapshot.items)
+        return HubProviderSyncResult(len(snapshot.items), FakeDatabase.remote_updates)
 
     def record_source_error(self, machine_id, key, error):
         self.errors.append((machine_id, key, error))
@@ -40,6 +43,7 @@ class FakeDatabase:
 class HubRuntimeTests(unittest.TestCase):
     def setUp(self):
         FakeDatabase.instances.clear()
+        FakeDatabase.remote_updates = ()
         self.host = HubHostSnapshot(
             machine_id="machine-1",
             hostname="host",
@@ -49,8 +53,8 @@ class HubRuntimeTests(unittest.TestCase):
             architecture="x86_64",
             hardware_vendor="",
             hardware_model="",
-            sys_apps_version="2.0.0",
-            jblibs_version="1.2.16",
+            sys_apps_version="2.1.0",
+            jblibs_version="1.2.17",
         )
 
     def test_provider_key_must_be_a_stable_lowercase_identifier(self):
@@ -105,6 +109,27 @@ class HubRuntimeTests(unittest.TestCase):
         error_database = next(db for db in FakeDatabase.instances if db.errors)
         self.assertEqual(len(sync_database.providers), 1)
         self.assertEqual(error_database.errors[0][1], "broken")
+
+    def test_remote_updates_are_applied_after_database_commit(self):
+        runtime = HubRuntime()
+        applied = []
+        update = HubDiskNameUpdate(
+            "ptuuid-1", "backup_disk", datetime.now(timezone.utc)
+        )
+        FakeDatabase.remote_updates = (update,)
+        runtime.register_provider(
+            "disks",
+            lambda context: HubProviderSnapshot("disks", "disks", ()),
+            lambda updates: applied.extend(updates),
+        )
+
+        with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
+            "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ):
+            report = runtime.sync_all()
+
+        self.assertEqual(report.provider_counts, {"disks": 0})
+        self.assertEqual(applied, [update])
 
 
 if __name__ == "__main__":

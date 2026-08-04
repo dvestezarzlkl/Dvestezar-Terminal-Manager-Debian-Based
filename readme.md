@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.0.0
+v2.1.0
 
 [ENG](readme_en.md)
 
@@ -93,9 +93,16 @@ Podrobněji viz také [uart_tester.md](uart_tester.md).
 - ukládat konfiguraci vybraných pluginů do souborů mimo samotný kód
 - udržovat globální runtime konfiguraci aplikace v `/etc/jb_sys_apps/config.ini` přes `libs.app.cfg.load()` a `libs.app.cfg.save()`
 - konfigurovat hlavní `SERVER_URL` bez portu a mailing pro celou aplikaci v jednom `App settings` menu
-- synchronizovat přes SysApps Hub 2.0.0 základní identitu hosta, síťové adresy, administrační služby a Node-RED instance do centrální MySQL/MariaDB databáze
+- synchronizovat přes SysApps Hub 2.1 identitu hosta, síťové adresy, administrační služby, Node-RED instance a fyzické disky podle PTUUID do centrální MySQL/MariaDB databáze
+- přenášet společné Hub a SMTP nastavení šifrovaným balíkem, ručně nebo read-only z centrální HTTPS URL s revision/SHA ochranou
 - používat lokalizované texty přes `lng` soubory
 - rozšiřovat systém o další pluginy bez úprav hlavního menu
+
+### Technická dokumentace
+
+- [SysApps Hub 2.1](docs/sysapps-hub.md)
+- [Centralizovaná nastavení SysApps](docs/central-settings.md)
+- [Plugin systém](docs/plugin-system.md)
 
 ### Výzva k rozšíření
 

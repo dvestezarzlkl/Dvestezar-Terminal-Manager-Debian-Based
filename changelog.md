@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1.0
+
+- ADD dynamický šifrovaný globální settings package `SYSAPP1E:` se samostatně verzovanými sekcemi; první sekce společně přenášejí SysApps Hub a SMTP, původní `SYSHUB1E:` zůstává kompatibilní pro ruční import
+- ADD centrální read-only distribuce nastavení z HTTPS URL, ruční import z URL, automatický startup import pouze vyšší revision, SHA-256 ochrana stejné revision a bezpečný fallback na poslední lokální konfiguraci
+- ADD ruční `Synchronize SysApps Hub` přímo v hlavním menu; položka je viditelná při zapnutém Hubu a aktivní pouze ve stavu `READY`, nezávisle na `HUB_AUTO_SYNC`
+- ADD obousměrný Disk Manager provider: globální identita podle PTUUID, vazba disk-host-device, synchronizace názvů podle času změny a odmítnutí duplicitního PTUUID na jednom hostu jako pravděpodobného chybného klonu
+- ADD Hub migrace `002_disk_inventory.sql` vytváří tabulky `disks` a `host_disks`; Disk Manager aktualizován na 3.6.0
+- UPD hlavní verze aplikace na 2.1.0 a dokumentace centrálních nastavení, bezpečnostních pravidel a rozšiřitelného budoucího `sftp_backup` profilu
+
 ## v2.0.0
 
 - FIX setup instaluje systémovou runtime závislost `lsof`; JBLibs 1.2.17 již při jejím chybění neukončí celou aplikaci během importu a chybu vrátí pouze při skutečné práci s mountpointem

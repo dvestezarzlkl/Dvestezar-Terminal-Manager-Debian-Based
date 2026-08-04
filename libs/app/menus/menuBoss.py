@@ -10,6 +10,8 @@ from libs.app.plugin_settings import PluginSettingsMenu
 from libs.app.hub.menu import HubSettingsMenu
 from libs.app.hub.models import HubState
 from libs.app.hub.runtime import hub_runtime
+from libs.app.settings_menu import SettingsPackageMenu
+from libs.app.settings_package import startup_settings_update
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -55,10 +57,22 @@ class menuBoss(menu):
         ]
         self.menu.extend(_items_)
         self.menu.append(c_menu_title_label(text_color('Other options',color=en_color.CYAN)))
-        self.menu.extend([
+        other_items = [
             None,
             c_menu_item('System info','i',self.showSystemInfo),
             c_menu_item('Update me','u',self.updateMe),
+        ]
+        if cfg.HUB_ENABLED:
+            other_items.append(
+                c_menu_item(
+                    text_color('Synchronize SysApps Hub', en_color.BRIGHT_GREEN),
+                    'hs',
+                    self.syncHub,
+                    atRight=hub_runtime.status_text(),
+                    enabled=hub_runtime.status.state is HubState.READY,
+                )
+            )
+        other_items.extend([
             c_menu_item(
                 text_color('App settings', en_color.BRIGHT_GREEN),
                 'm',
@@ -71,13 +85,17 @@ class menuBoss(menu):
                 PluginSettingsMenu(),
             ),
         ])
-        
+        self.menu.extend(other_items)
+
         # return onSelReturn(err="test err",ok="ok test")
         
     def onShowMenu(self):
         """
         Show menu
         """
+        # Rebuild operational items after schema/settings actions so their
+        # visibility and enabled state reflect the current Hub status.
+        self.onEnterMenu()
         self._setAppHeader("HOME")
         
         if cfg.machineInfo.err:
@@ -106,6 +124,23 @@ class menuBoss(menu):
         """
         print(cfg.machineInfo)
         anyKey()
+
+    def syncHub(self, selItem:c_menu_item) -> onSelReturn:
+        """Run a manual full Hub synchronization without changing auto-sync policy."""
+        if not cfg.HUB_ENABLED:
+            return onSelReturn().errRet("SysApps Hub is disabled.")
+        if hub_runtime.refresh_status().state is not HubState.READY:
+            return onSelReturn().errRet(hub_runtime.status_text())
+        print("SysApps Hub: collecting and synchronizing inventory...")
+        report = hub_runtime.sync_all()
+        if report.error:
+            return onSelReturn().errRet(report.error)
+        for warning in report.warnings:
+            print(text_color(f"SysApps Hub warning: {warning}", en_color.BRIGHT_YELLOW))
+        if report.warnings:
+            anyKey()
+        total = sum(report.provider_counts.values())
+        return onSelReturn(ok=f"SysApps Hub synchronized core and {total} provider item(s).")
 
     def updateMe(self,selItem:c_menu_item) -> onSelReturn:
         """Update core, mandatory libraries, enabled plugins and runtime."""
@@ -158,6 +193,16 @@ class m_mail_settings(c_menu):
                 "b",
                 HubSettingsMenu(),
                 atRight=hub_runtime.status_text(),
+            ),
+            c_menu_item(
+                text_color("Centralized settings", en_color.BRIGHT_GREEN),
+                "g",
+                SettingsPackageMenu(),
+                atRight=(
+                    f"revision {cfg.SETTINGS_LAST_REVISION}"
+                    if cfg.SETTINGS_LAST_REVISION
+                    else (cfg.SETTINGS_URL or "not configured")
+                ),
             ),
             None,
             c_menu_title_label(text_color("Mail settings", color=en_color.CYAN)),
@@ -469,9 +514,12 @@ def init() -> bool:
 
                 provider_key = str(getattr(mod, "_HUB_PROVIDER_KEY_", "") or "").strip()
                 provider_collector = getattr(mod, "hub_collect", None)
+                provider_applier = getattr(mod, "hub_apply_remote", None)
                 if provider_key and callable(provider_collector):
                     try:
-                        hub_runtime.register_provider(provider_key, provider_collector)
+                        hub_runtime.register_provider(
+                            provider_key, provider_collector, provider_applier
+                        )
                     except Exception as provider_error:
                         print(f"SysApps Hub provider warning ({provider_key}): {provider_error}")
 
@@ -484,6 +532,7 @@ def init() -> bool:
             traceback.print_exc()                        
     
     if choice_counter:
+        startup_settings_update()
         hub_runtime.startup()
         x=menuBoss().run()
         if x:
