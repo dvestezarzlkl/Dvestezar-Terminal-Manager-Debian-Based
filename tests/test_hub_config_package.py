@@ -43,6 +43,13 @@ class HubConfigPackageTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("Table prefix", error)
 
+    def test_database_password_is_redacted_from_error_text(self):
+        error = self.settings.redact_error(
+            RuntimeError("authentication failed for database-secret")
+        )
+        self.assertNotIn("database-secret", error)
+        self.assertIn("***", error)
+
 
 if __name__ == "__main__":
     unittest.main()
