@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Fix legacy settings package test call",
+  "replacements": [
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        legacy = export_legacy_hub_settings(\"password1\")",
+      "new": "        legacy = export_legacy_hub_settings(\n            HubSettings.from_cfg(), \"password1\"\n        )",
+      "expected": 1
+    }
+  ]
+}
