@@ -55,6 +55,12 @@ class SettingsPackageMenu(c_menu):
                 atRight="set" if password_set else "not set",
             ),
             c_menu_item(
+                text_color("Clear settings password", en_color.BRIGHT_YELLOW),
+                "cp",
+                self.clear_password,
+                enabled=password_set,
+            ),
+            c_menu_item(
                 "Automatic update at startup",
                 "a",
                 self.toggle_auto_update,
@@ -118,15 +124,31 @@ class SettingsPackageMenu(c_menu):
 
     def edit_password(self, selItem: c_menu_item) -> onSelReturn:
         value = get_pwd(
-            "Central settings password (empty clears)",
+            "Central settings password",
             make_cls=False,
             minMessageWidth=0,
         )
         if value is None:
             return onSelReturn().errRet("Cancelled.")
+        confirmation = get_pwd(
+            "Confirm central settings password",
+            make_cls=False,
+            minMessageWidth=0,
+        )
+        if confirmation != value:
+            return onSelReturn().errRet("Passwords do not match.")
         cfg.SETTINGS_PASSWORD = value
         self._save()
         return onSelReturn(ok="Central settings password updated.")
+
+    def clear_password(self, selItem: c_menu_item) -> onSelReturn:
+        if not cfg.SETTINGS_PASSWORD:
+            return onSelReturn(ok="Central settings password is already empty.")
+        if not confirm("Clear the configured central settings password?"):
+            return onSelReturn().errRet("Cancelled.")
+        cfg.SETTINGS_PASSWORD = ""
+        self._save()
+        return onSelReturn(ok="Central settings password cleared.")
 
     def toggle_auto_update(self, selItem: c_menu_item) -> onSelReturn:
         cfg.SETTINGS_AUTO_UPDATE = not bool(cfg.SETTINGS_AUTO_UPDATE)
@@ -160,16 +182,15 @@ class SettingsPackageMenu(c_menu):
         self._save()
         return onSelReturn(ok="HTTP policy updated.")
 
-    def _package_password(self) -> str | None:
-        hint = "Package password"
-        if cfg.SETTINGS_PASSWORD:
-            hint += " (empty uses the configured central password)"
-        value = get_pwd(hint, make_cls=False, minMessageWidth=0)
-        if value is None:
-            return None
-        if not value:
-            value = str(cfg.SETTINGS_PASSWORD or "")
-        return value or None
+    def _package_password(self) -> tuple[str | None, bool]:
+        if cfg.SETTINGS_PASSWORD and confirm(
+            "Use the configured central settings password for this package?"
+        ):
+            return str(cfg.SETTINGS_PASSWORD), True
+        value = get_pwd(
+            "Package password", make_cls=False, minMessageWidth=0
+        )
+        return value, False
 
     def _print_preview(self, decoded: DecodedSettingsPackage) -> None:
         print(text_color("Settings package preview", en_color.BRIGHT_CYAN, bold=True))
@@ -209,16 +230,17 @@ class SettingsPackageMenu(c_menu):
         return onSelReturn(ok=f"Imported revision {revision}; sections: {sections}.")
 
     def export_package(self, selItem: c_menu_item) -> onSelReturn:
-        password = self._package_password()
+        password, configured = self._package_password()
         if not password:
             return onSelReturn().errRet("Package password is required.")
-        confirmation = get_pwd(
-            "Confirm package password",
-            make_cls=False,
-            minMessageWidth=0,
-        )
-        if confirmation != password:
-            return onSelReturn().errRet("Package passwords do not match.")
+        if not configured:
+            confirmation = get_pwd(
+                "Confirm package password",
+                make_cls=False,
+                minMessageWidth=0,
+            )
+            if confirmation != password:
+                return onSelReturn().errRet("Package passwords do not match.")
         try:
             package = export_encrypted_settings(password)
             decoded = decode_encrypted_settings(package, password)
@@ -237,7 +259,7 @@ class SettingsPackageMenu(c_menu):
         )
         if package is None:
             return onSelReturn().errRet("Cancelled.")
-        password = self._package_password()
+        password, _ = self._package_password()
         if not password:
             return onSelReturn().errRet("Package password is required.")
         try:
