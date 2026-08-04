@@ -63,6 +63,21 @@ jobs:
             libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py \
             tests/test_menu_mail_feedback.py
 
+      - name: Verify dynamic menu version contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          menu_doc = Path("libs/app/menus/menu.md").read_text(encoding="utf-8")
+          assert "_VERSION_" in menu_doc
+          for path in (
+              "libs/app/menus/app_20_node_red/menu.py",
+              "libs/app/menus/app_30_ssh/menu.py",
+              "libs/app/menus/app_33_sftpmanagr/menu.py",
+          ):
+              assert "_VERSION_" in Path(path).read_text(encoding="utf-8"), path
+          PY
+
       - name: Run menu and mail regression tests
         run: |
           python -m unittest \
