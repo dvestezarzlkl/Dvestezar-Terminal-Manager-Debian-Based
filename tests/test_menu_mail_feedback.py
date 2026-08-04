@@ -42,6 +42,8 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
 
         self.assertEqual(menuBoss._get_menu_version(LegacyMenu), "9.8.7")
         self.assertEqual(menuBoss._get_menu_version(MissingVersion), "")
+        self.assertEqual(menuBoss._format_menu_version("3.5.0"), "v. 3.5.0")
+        self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.5")
