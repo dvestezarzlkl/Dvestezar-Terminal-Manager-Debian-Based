@@ -19,6 +19,8 @@ _ALLOWED_TABLES = frozenset({
     "sync_sources",
     "node_red_instances",
     "node_red_editor_users",
+    "disks",
+    "host_disks",
 })
 
 
