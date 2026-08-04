@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "Run disk settings compatibility tests",
+  "replacements": [
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "      - \"tests/test_disk_hub_provider.py\"\n      - \"tests/test_node_red_hub_provider.py\"",
+      "new": "      - \"tests/test_disk_hub_provider.py\"\n      - \"tests/test_disk_settings_sync.py\"\n      - \"tests/test_node_red_hub_provider.py\"",
+      "expected": 2
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests/test_disk_hub_provider.py \\\n            tests/test_node_red_hub_provider.py",
+      "new": "            tests/test_disk_hub_provider.py \\\n            tests/test_disk_settings_sync.py \\\n            tests/test_node_red_hub_provider.py",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests.test_disk_hub_provider \\\n            tests.test_node_red_hub_provider",
+      "new": "            tests.test_disk_hub_provider \\\n            tests.test_disk_settings_sync \\\n            tests.test_node_red_hub_provider",
+      "expected": 1
+    }
+  ]
+}
