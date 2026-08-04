@@ -78,6 +78,7 @@ class SettingsUpdateResult:
 
 
 _SECTIONS: dict[str, SettingsSectionHandler] = {}
+_LAST_EXPORTED_REVISION = 0
 
 
 def register_settings_section(handler: SettingsSectionHandler) -> None:
@@ -119,8 +120,11 @@ def _package_sha256(package: str) -> str:
 
 
 def _next_revision() -> int:
+    global _LAST_EXPORTED_REVISION
     current = int(getattr(cfg, "SETTINGS_LAST_REVISION", 0) or 0)
-    return max(int(time.time()), current + 1)
+    revision = max(int(time.time()), current + 1, _LAST_EXPORTED_REVISION + 1)
+    _LAST_EXPORTED_REVISION = revision
+    return revision
 
 
 def _hub_export() -> dict[str, Any]:

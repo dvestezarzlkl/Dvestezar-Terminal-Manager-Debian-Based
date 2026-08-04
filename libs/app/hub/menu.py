@@ -53,10 +53,13 @@ class HubSettingsMenu(c_menu):
             None,
             c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), "t", self.test_connection),
             c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), "i", self.initialize_schema),
-            c_menu_item(text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN), "s", self.sync_all),
-            None,
-            c_menu_item(TXT_HUB_EXPORT, "exp", self.export_settings),
-            c_menu_item(TXT_HUB_IMPORT, "imp", self.import_settings),
+            c_menu_item(
+                text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN),
+                "s",
+                self.sync_all,
+                enabled=hub_runtime.status.state is HubState.READY,
+                atRight=hub_runtime.status_text(),
+            ),
         ]
 
     def toggle_enabled(self, selItem: c_menu_item) -> onSelReturn:
