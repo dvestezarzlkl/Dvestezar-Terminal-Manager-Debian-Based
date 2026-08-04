@@ -90,9 +90,11 @@ class HubRuntimeTests(unittest.TestCase):
         self.assertEqual(report.provider_counts, {"node_red": 1})
         self.assertEqual(len(report.warnings), 1)
         self.assertIn("broken provider", report.warnings[0])
-        database = FakeDatabase.instances[-1]
-        self.assertEqual(len(database.providers), 1)
-        self.assertEqual(database.errors[0][1], "broken")
+
+        sync_database = next(db for db in FakeDatabase.instances if db.providers)
+        error_database = next(db for db in FakeDatabase.instances if db.errors)
+        self.assertEqual(len(sync_database.providers), 1)
+        self.assertEqual(error_database.errors[0][1], "broken")
 
 
 if __name__ == "__main__":
