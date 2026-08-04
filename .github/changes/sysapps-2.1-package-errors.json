@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Normalize malformed settings package errors",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "import base64\nfrom dataclasses import dataclass",
+      "new": "import base64\nimport binascii\nfrom dataclasses import dataclass",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if package.startswith(LEGACY_HUB_PREFIX):\n        values = import_legacy_hub_settings(package, password)\n        normalized = _hub_validate(values)\n        return DecodedSettingsPackage(",
+      "new": "    if package.startswith(LEGACY_HUB_PREFIX):\n        try:\n            values = import_legacy_hub_settings(package, password)\n            normalized = _hub_validate(values)\n        except ValueError:\n            raise\n        except Exception as exc:\n            raise ValueError(\"Invalid legacy SysApps Hub settings package.\") from exc\n        return DecodedSettingsPackage(",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:",
+      "new": "    except (\n        KeyError,\n        TypeError,\n        ValueError,\n        json.JSONDecodeError,\n        binascii.Error,\n        UnicodeDecodeError,\n    ) as exc:",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_wrong_password_is_rejected(self):\n        package = export_encrypted_settings(\"correct\", revision=1)\n        with self.assertRaisesRegex(ValueError, \"Wrong package password\"):\n            decode_encrypted_settings(package, \"wrong\")\n",
+      "new": "    def test_wrong_password_is_rejected(self):\n        package = export_encrypted_settings(\"correct\", revision=1)\n        with self.assertRaisesRegex(ValueError, \"Wrong package password\"):\n            decode_encrypted_settings(package, \"wrong\")\n\n    def test_malformed_transport_is_reported_as_package_error(self):\n        with self.assertRaisesRegex(ValueError, \"Invalid SysApps settings package\"):\n            decode_encrypted_settings(\"SYSAPP1E:%%%not-base64%%%\", \"password1\")\n",
+      "expected": 1
+    }
+  ]
+}
