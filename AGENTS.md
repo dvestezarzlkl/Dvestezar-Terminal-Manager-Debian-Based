@@ -30,13 +30,15 @@
 
 ## changelog
 
-Po každé změně kódu je potřeba aktualizovat changelog.md v poslední verzi na začátku, verzi neměníme pokud není přímo řečeno, třeba s pushem změn.
-
-changelog je řazen nejnovější verze nahoře, takže při updatu je potřeba zkontrolovat jestli je verze v changelogu stejná jako v libs/app/cfg.py a readme.md, pokud ne tak je potřeba aktualizovat všechny tři verze na stejnou.
+Po každé změně kódu je potřeba aktualizovat `changelog.md` v poslední verzi na začátku. Changelog je řazen nejnovější verzí nahoře.
 
 ## verze
 
-hlavní app verze je v changelog a na to je navázána verze v libs/app/cfg.py a samozřejmě v readme.md, kde je verze v badge. Všechny tři verze musí být stejné, jinak to může způsobit problémy při update.
+- Větší změna, která patří pouze do hlavní aplikace `sys_apps` / hlavního menu a není samostatnou změnou pluginu ani JBLibs, má běžně zvýšit verzi hlavní aplikace.
+- Kompatibilní oprava nebo menší provozní změna používá patch verzi; větší nová funkce hlavní aplikace minor verzi; nekompatibilní nebo zásadní architektonická změna major verzi.
+- Drobné změny uvnitř právě rozpracované a dosud nevydané verze nemusí zakládat další verzi, ale musí být uvedené v jejím changelogu.
+- Hlavní verze je uvedená v `changelog.md`, `libs/app/cfg.py` a badge v `readme.md`. Všechny tři hodnoty musí být stejné, jinak může vzniknout problém při update.
+- Verze pluginů a JBLibs se spravují samostatně; jejich změna sama o sobě automaticky neznamená zvýšení hlavní verze, pokud nejde zároveň o větší uživatelskou změnu `sys_apps`.
 
 ## verze knihoven
 
