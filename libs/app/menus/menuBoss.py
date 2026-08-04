@@ -93,6 +93,9 @@ class menuBoss(menu):
         """
         Show menu
         """
+        # Rebuild operational items after schema/settings actions so their
+        # visibility and enabled state reflect the current Hub status.
+        self.onEnterMenu()
         self._setAppHeader("HOME")
         
         if cfg.machineInfo.err:
