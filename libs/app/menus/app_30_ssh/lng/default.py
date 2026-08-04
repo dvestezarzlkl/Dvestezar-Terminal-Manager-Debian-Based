@@ -81,10 +81,11 @@ TXT_MENU3_TITLE_06 = "The SSH key was sent successfully."
 TXT_SSH_MAIL_INVALID_RECIPIENT = "The mail recipient is invalid."
 TXT_SSH_MAIL_KEY_READ_FAILED = "Failed to read the key: {error}"
 TXT_SSH_MAIL_ZIP_FAILED = "Failed to create the ZIP key attachment: {error}"
-TXT_SSH_MAIL_SUBJECT = "SSH key for user {username}: {key_name}"
+TXT_SSH_MAIL_SUBJECT = "SSH terminal access for user {username}: {key_name}"
 TXT_SSH_MAIL_SUBJECT_PUBLIC_PRIVATE = " (public + private)"
 TXT_SSH_MAIL_SUBJECT_PUBLIC = " (public only)"
-TXT_SSH_MAIL_EXPORT_FOR = "SSH key export '{key_name}' for user: {username}"
+TXT_SSH_MAIL_EXPORT_FOR = "SSH terminal and file-transfer access - key '{key_name}', user: {username}"
+TXT_SSH_MAIL_ACCESS_PURPOSE = "This ordinary system account allows an interactive SSH terminal login and may also be used for SCP/SFTP file transfer. It is not a restricted SFTP-only account."
 TXT_SSH_MAIL_RECIPIENT = "Recipient: {recipient}"
 TXT_SSH_MAIL_ARCHIVE_ATTACHED = "The key files and instructions are attached in archive: {filename}"
 TXT_SSH_MAIL_PRIVATE_WARNING = "The attached archive contains a private key. Protect it and do not forward it through an unprotected channel."
@@ -92,7 +93,11 @@ TXT_SSH_MAIL_NO_PRIVATE_KEY = "No private key is stored for this entry; the arch
 TXT_SSH_MAIL_README_PRIVATE_LINE = "- {private_filename}: private key; keep it secret and never publish it."
 TXT_SSH_MAIL_README_NO_PRIVATE_LINE = "- No private key is stored for this entry."
 TXT_SSH_MAIL_PRIVATE_PROTECTION = "4. On Linux, protect the private key with: chmod 600 <private-key-file>"
-TXT_SSH_MAIL_CLIENT_INSTRUCTIONS = """Total Commander - Secure FTP/SFTP plugin:
+TXT_SSH_MAIL_CLIENT_INSTRUCTIONS = """Terminal / device management:
+1. Use the key for a normal SSH login, for example: ssh -i {private_usage} <user>@<server>.
+2. The same system account may also be used for SCP/SFTP file transfer.
+
+Total Commander - Secure FTP/SFTP plugin:
 1. Set Private key file to {private_usage} in the connection settings.
 2. Set Public key file to the matching public key {public_filename}. The plugin requires both files.
 3. Leave the Password field empty.
@@ -102,14 +107,16 @@ WinSCP:
 2. Select {private_usage} in Private key file; this is the file without the .pub suffix.
 3. If WinSCP offers to convert the key to PuTTY/PPK format, confirm the conversion and use the converted key.
 4. Leave the password field empty.
-5. For a Samba/SFTP sandbox, permissions are enforced by the server. Changing permissions from the client has no effect and the WinSCP warning can be disabled.
 """
-TXT_SSH_MAIL_CLIENT_INSTRUCTIONS_PUBLIC_ONLY = """This archive does not contain a private key and cannot be used by itself to log in. The public key may be sent to the server administrator or used to verify configuration.
+TXT_SSH_MAIL_CLIENT_INSTRUCTIONS_PUBLIC_ONLY = """This archive does not contain a private key and cannot be used by itself to log in. The public key is intended for authorized_keys on an ordinary SSH account with terminal access, or for configuration verification.
 """
-TXT_SSH_MAIL_README = """SSH key package
+TXT_SSH_MAIL_README = """SSH terminal access package
 
 System user: {username}
 SSH Manager key: {key_name}
+
+Access purpose:
+{access_purpose}
 
 Files:
 - {public_filename}: public key; this file may be shared with the server administrator.
@@ -117,7 +124,7 @@ Files:
 
 General instructions:
 1. Extract this ZIP archive.
-2. The server address and any non-standard port are delivered separately. The default SFTP/SSH port is 22.
+2. The server address and any non-standard port are delivered separately. The default SSH port is 22.
 3. Leave the password empty unless it was delivered separately.
 {private_protection}
 
