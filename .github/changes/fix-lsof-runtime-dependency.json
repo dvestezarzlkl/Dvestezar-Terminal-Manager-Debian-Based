@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "Install lsof and update JBLibs runtime dependency handling",
+  "replacements": [
+    {
+      "path": "setup.sh",
+      "old": "    # Kontrola a instalace podpůrných balíčků (i při existujícím Pythonu)\n    for pkg in python3.10-venv python3.10-distutils python3.10-dev; do\n",
+      "new": "    # Kontrola a instalace systémových runtime balíčků (i při existujícím Pythonu)\n    for pkg in python3.10-venv python3.10-distutils python3.10-dev lsof; do\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.0.0\n\n- ADD SysApps Hub jako centrální MySQL/MariaDB inventář hostů, síťových adres a administračních služeb s neblokujícím health-checkem v hlavní hlavičce\n",
+      "new": "## v2.0.0\n\n- FIX setup instaluje systémovou runtime závislost `lsof`; JBLibs 1.2.17 již při jejím chybění neukončí celou aplikaci během importu a chybu vrátí pouze při skutečné práci s mountpointem\n- ADD SysApps Hub jako centrální MySQL/MariaDB inventář hostů, síťových adres a administračních služeb s neblokujícím health-checkem v hlavní hlavičce\n",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.\n",
+      "new": "- `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.\n- Systémové utility potřebné za běhu musí instalovat `setup.sh`. Volitelná funkce nesmí kvůli chybějící utilitě ukončit celou aplikaci už při importu; konkrétní a bezpečnou chybu má vrátit až při použití dané funkce.\n",
+      "expected": 1
+    }
+  ]
+}
