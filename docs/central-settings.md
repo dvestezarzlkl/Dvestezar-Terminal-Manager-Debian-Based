@@ -20,6 +20,7 @@ SETTINGS_CONNECT_TIMEOUT = 5
 SETTINGS_ALLOW_HTTP = false
 SETTINGS_LAST_REVISION = 42
 SETTINGS_LAST_SHA256 = "..."
+SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
 ```
 
 Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo ani ochranu proti návratu na starší verzi.
@@ -87,7 +88,7 @@ Startup aktualizace běží po načtení lokálního `config.ini`, ale před Hub
 - stejná revision s jiným obsahem je chyba,
 - nižší revision se automaticky nikdy neaplikuje,
 - nedostupná URL, špatné heslo nebo vadný balík pouze vypíše varování a aplikace pokračuje s posledním lokálním nastavením,
-- úspěšný import uloží revision a SHA-256 lokálně.
+- úspěšný import uloží revision, SHA-256 a podpis skutečně aplikovaných sekcí; po update klienta se stejný balík znovu aplikuje, pokud nová verze nově podporuje dříve přeskočenou sekci.
 
 ## Přidání nové sekce
 

@@ -52,6 +52,7 @@ SETTINGS_CONNECT_TIMEOUT:int = 5                            # timeout stažení 
 SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN
 SETTINGS_LAST_REVISION:int = 0                              # poslední úspěšně aplikovaná vzdálená revision
 SETTINGS_LAST_SHA256:str  = ""                              # hash balíku chrání před změnou obsahu stejné revision
+SETTINGS_LAST_APPLIED:str = ""                              # podpis skutečně aplikovaných sekcí a jejich verzí
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu
 # zadáváme jako JSON string pole string-ů !!!

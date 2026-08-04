@@ -34,6 +34,7 @@ _CONFIG_KEYS = (
     "MAIL_TIMEOUT",
     "SETTINGS_LAST_REVISION",
     "SETTINGS_LAST_SHA256",
+    "SETTINGS_LAST_APPLIED",
 )
 
 
@@ -59,6 +60,7 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.MAIL_TIMEOUT = 20
         cfg.SETTINGS_LAST_REVISION = 0
         cfg.SETTINGS_LAST_SHA256 = ""
+        cfg.SETTINGS_LAST_APPLIED = ""
 
     def tearDown(self):
         for key, value in self.previous.items():

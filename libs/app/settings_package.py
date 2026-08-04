@@ -430,6 +430,14 @@ def _prepare_sections(
     return prepared, tuple(skipped), tuple(warnings)
 
 
+def _section_signature(
+    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]],
+) -> str:
+    return ",".join(
+        f"{handler.key}:{handler.version}" for handler, _ in prepared
+    )
+
+
 def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:
     prepared, skipped, warnings = _prepare_sections(decoded)
     lines = [
@@ -449,8 +457,11 @@ def apply_decoded_settings(
     allow_downgrade: bool = False,
     force: bool = False,
 ) -> SettingsApplyReport:
+    prepared, skipped, warnings = _prepare_sections(decoded)
+    signature = _section_signature(prepared)
     current_revision = int(getattr(cfg, "SETTINGS_LAST_REVISION", 0) or 0)
     current_hash = str(getattr(cfg, "SETTINGS_LAST_SHA256", "") or "")
+    current_applied = str(getattr(cfg, "SETTINGS_LAST_APPLIED", "") or "")
     if decoded.revision > 0:
         if decoded.revision < current_revision and not allow_downgrade:
             raise ValueError(
@@ -461,16 +472,23 @@ def apply_decoded_settings(
                 raise ValueError(
                     "The same settings revision has different content (SHA-256 mismatch)."
                 )
-            if current_hash == decoded.sha256 and not force:
+            if (
+                current_hash == decoded.sha256
+                and current_applied == signature
+                and not force
+            ):
                 return SettingsApplyReport(False, decoded.revision)
 
-    prepared, skipped, warnings = _prepare_sections(decoded)
     config_keys = {
         key
         for handler, _ in prepared
         for key in handler.config_keys
     }
-    config_keys.update({"SETTINGS_LAST_REVISION", "SETTINGS_LAST_SHA256"})
+    config_keys.update({
+        "SETTINGS_LAST_REVISION",
+        "SETTINGS_LAST_SHA256",
+        "SETTINGS_LAST_APPLIED",
+    })
     previous = {key: getattr(cfg, key) for key in config_keys}
 
     try:
@@ -479,6 +497,7 @@ def apply_decoded_settings(
         if decoded.revision > 0:
             cfg.SETTINGS_LAST_REVISION = decoded.revision
             cfg.SETTINGS_LAST_SHA256 = decoded.sha256
+            cfg.SETTINGS_LAST_APPLIED = signature
         elif decoded.legacy:
             # A legacy Hub-only import changes one centrally managed section.
             # Keep the anti-rollback revision, but force the current central
@@ -576,18 +595,21 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
             raise ValueError(
                 "The remote package reuses the current revision with different content."
             )
-        if current_hash == decoded.sha256:
-            return SettingsUpdateResult(
-                False, decoded.revision, "Central settings are already current."
-            )
 
     report = apply_decoded_settings(
         decoded,
         allow_downgrade=force,
         force=force,
     )
+    if not report.changed:
+        return SettingsUpdateResult(
+            False,
+            decoded.revision,
+            "Central settings are already current.",
+            report.warnings,
+        )
     return SettingsUpdateResult(
-        report.changed,
+        True,
         decoded.revision,
         f"Applied central settings revision {decoded.revision}.",
         report.warnings,
