@@ -1,0 +1,61 @@
+name: Test Node-RED handover mail
+
+on:
+  pull_request:
+    paths:
+      - "libs/app/menus/app_20_node_red/**"
+      - "libs/app/user_contact.py"
+      - "libs/app/mail_hlp.py"
+      - "libs/app/disk_hlp.py"
+      - "libs/app/instanceHelper.py"
+      - "tests/test_node_red_handover_mail.py"
+      - "tests/test_mail_hlp.py"
+      - "tests/test_user_contact.py"
+      - ".github/workflows/test-node-red-handover.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      - name: Initialize mandatory JBLibs submodule
+        run: |
+          git submodule sync -- libs/JBLibs
+          git submodule update --init --checkout -- libs/JBLibs
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Prepare application log directory
+        run: |
+          sudo mkdir -p /var/log/jb_sys_apps
+          sudo chown "$(id -u):$(id -g)" /var/log/jb_sys_apps
+
+      - name: Compile changed Python modules
+        run: |
+          python -m py_compile \
+            libs/app/menus/app_20_node_red/handover_mail.py \
+            libs/app/menus/app_20_node_red/menu_edit_node_instance.py \
+            tests/test_node_red_handover_mail.py
+
+      - name: Run Node-RED handover and shared mail tests
+        run: |
+          python -m unittest \
+            tests.test_node_red_handover_mail \
+            tests.test_mail_hlp \
+            tests.test_user_contact
