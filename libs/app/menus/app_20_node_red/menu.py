@@ -20,6 +20,8 @@ log = getLogger(__name__)
 _MENU_NAME_:str = TXT_MAIN_NAME
 
 class menu (nd_menu):
+    _VERSION_: str = "1.0.0"
+
     # own
     serviceVersion="1.1.1"
     

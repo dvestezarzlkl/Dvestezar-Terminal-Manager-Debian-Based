@@ -60,7 +60,8 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    __VERSION__ = "1.2.4"
+    _VERSION_: str = "1.2.5"
+    __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
         """Vytvoří základní titulní blok pro menu.
@@ -69,7 +70,7 @@ class menu(c_menu):
             c_menu_block_items: titulní blok menu
         """
         menuname=_MENU_NAME_
-        menuVer=self.__VERSION__
+        menuVer=self._VERSION_
         
         header=c_menu_block_items(blockColor=en_color.BRIGHT_CYAN )
         header.append( (menuname,'c') )

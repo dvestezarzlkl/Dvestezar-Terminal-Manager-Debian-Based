@@ -323,6 +323,7 @@ def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional
     if user_mail is not None and not is_valid_mail_address(user_mail):
         return False, TXT_SFTP_HLP_USER_MAIL_INVALID.format(username=username)
 
+    print(TXT_SFTP_HLP_MAIL_GENERATING, flush=True)
     ok, printable = get_printable_keys(key)
     if not ok:
         return False, TXT_SFTP_HLP_KEY_PARSE_FAILED.format(error=printable)

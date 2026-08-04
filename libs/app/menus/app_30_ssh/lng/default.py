@@ -75,7 +75,7 @@ TXT_MENU2_TITLE_46 = "The mail recipient was saved."
 TXT_MENU2_TITLE_47 = "The mail recipient was cleared."
 TXT_MENU3_TITLE_03 = "Send key by mail"
 TXT_MENU3_TITLE_04 = "No mail recipient is configured for this user."
-TXT_MENU3_TITLE_05 = "Sending the SSH key by mail..."
+TXT_MENU3_TITLE_05 = "Generating the SSH key package..."
 TXT_MENU3_TITLE_06 = "The SSH key was sent successfully."
 
 TXT_SSH_MAIL_INVALID_RECIPIENT = "The mail recipient is invalid."

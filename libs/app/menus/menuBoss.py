@@ -13,6 +13,17 @@ from libs.JBLibs.term import cls, text_color,en_color
 
 _items_:List[c_menu_item]=[]
 
+def _get_menu_version(menu_class: type) -> str:
+    """Return the component version declared by a dynamic app menu."""
+    for attr_name in ("_VERSION_", "__VERSION__", "__version__"):
+        value = getattr(menu_class, attr_name, None)
+        if value is None:
+            continue
+        version = str(value).strip()
+        if version:
+            return version
+    return ""
+
 class menuBoss(menu):
     """
     Main APPs menu
@@ -421,7 +432,15 @@ def init() -> bool:
                     choice = str(choice_counter - 26 + 1)
                 
                 # Přidá položku menu s dynamicky generovanou volbou
-                _items_.append(c_menu_item(mod._MENU_NAME_, choice, menu_class()))
+                version = _get_menu_version(menu_class)
+                _items_.append(
+                    c_menu_item(
+                        mod._MENU_NAME_,
+                        choice,
+                        menu_class(),
+                        atRight=version or "?",
+                    )
+                )
                 
                 choice_counter += 1  # Zvýšíme počítadlo pro další volbu
                 

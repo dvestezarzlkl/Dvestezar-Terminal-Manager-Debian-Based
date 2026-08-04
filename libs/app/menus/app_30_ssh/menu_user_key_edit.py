@@ -60,7 +60,6 @@ class menu_user_key_edit(ssh_menu):
         if not recipient:
             return TXT_MENU3_TITLE_04
         cls()
-        print(TXT_MENU3_TITLE_05)
         ok,error=ssh_mail_hlp.send_managed_key_by_mail(
             username,
             self._mData.selectedKey.fileName,
