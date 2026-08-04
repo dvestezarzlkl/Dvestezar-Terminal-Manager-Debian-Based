@@ -1,4 +1,4 @@
-# SysApps Hub 2.0.0
+# SysApps Hub 2.1.0
 
 SysApps Hub je centrální inventář instalací Terminal Manageru. MySQL/MariaDB slouží jako přenosová a úložná vrstva; lokální funkce aplikace musí zůstat použitelné i při výpadku Hubu.
 
@@ -20,7 +20,7 @@ HUB_AUTO_SYNC = true
 
 Prefix musí začínat malým písmenem a smí obsahovat pouze malá písmena, číslice a podtržítko. Název databáze smí obsahovat pouze písmena, číslice a podtržítko.
 
-Nastavení lze exportovat jako jeden heslem šifrovaný řádek s prefixem `SYSHUB1E:`. Base64url je pouze transportní obálka; obsah je šifrovaný AES-GCM a klíč se odvozuje ze zadaného hesla přes Scrypt. Aplikace neobsahuje žádný pevný šifrovací klíč.
+Původní balíky `SYSHUB1E:` lze dál ručně importovat. Nový obecný export/import používá dynamický balík `SYSAPP1E:` popsaný v [central-settings.md](central-settings.md) a společně přenáší Hub a SMTP.
 
 ## Schéma a migrace
 
@@ -35,20 +35,27 @@ Schéma je uloženo ve verzovaných souborech `libs/app/hub/migrations/NNN_name.
 
 Akce **Inicializovat/aktualizovat schéma Hubu** může vytvořit nakonfigurovanou databázi a aplikuje pouze migrace dodané s aplikací.
 
-## První datové sady
+Aktuální migrace:
+
+- `001_initial_schema.sql`: host, adresy, služby, zdroje synchronizace a Node-RED,
+- `002_disk_inventory.sql`: globální registr disků a vazby disk-host-device.
+
+## Datové sady
 
 - `hosts`: machine-id, hostname/FQDN, OS, kernel, architektura, hardware a verze sys_apps/JBLibs,
 - `host_addresses`: samostatný řádek pro každou IPv4/IPv6 adresu a rozhraní,
 - `host_services`: SSH, Webmin a ISPConfig včetně zjištěného portu/stavu,
 - `sync_sources`: poslední stav každého zdroje,
 - `node_red_instances`: instance, služby, URL, Node-RED/Node.js verze, projekt a sanitizovaný Git remote,
-- `node_red_editor_users`: uživatelé `adminAuth` a jejich RW/R oprávnění.
+- `node_red_editor_users`: uživatelé `adminAuth` a jejich RW/R oprávnění,
+- `disks`: globální disk podle jedinečného PTUUID, sdílený název a čas změny,
+- `host_disks`: aktuální vazba disku na host, `/dev` zařízení, velikost, partitiony, mounty a systémový příznak.
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 
 ## Provider kontrakt
 
-Dynamická podaplikace může v `menu.py` nabídnout:
+Dynamická podaplikace může v `menu.py` nabídnout jednosměrný provider:
 
 ```python
 _HUB_PROVIDER_KEY_ = "node_red"
@@ -57,7 +64,19 @@ def hub_collect(context):
     return typed_snapshot
 ```
 
-Provider nedostává DB spojení, kurzor, SQL ani názvy tabulek. Centrální runtime ověří zdroj a datovou sadu a zavolá pevně známý writer.
+Obousměrný provider navíc nabídne applier změn vrácených centrálním writerem:
+
+```python
+_HUB_PROVIDER_KEY_ = "disks"
+
+def hub_collect(context):
+    return typed_snapshot
+
+def hub_apply_remote(updates):
+    apply_validated_updates(updates)
+```
+
+Provider nedostává DB spojení, kurzor, SQL ani názvy tabulek. Centrální runtime ověří zdroj a datovou sadu a zavolá pevně známý writer. Zpětné změny se aplikují až po úspěšném commitu databázové transakce.
 
 Každý provider běží odděleně. Chyba provideru:
 
@@ -67,6 +86,18 @@ Každý provider běží odděleně. Chyba provideru:
 - zachová poslední úspěšná data provideru.
 
 Staré záznamy se mažou pouze po kompletním úspěšném snapshotu daného provideru.
+
+## Disk Manager a PTUUID
+
+PTUUID je globální identita celého disku. Název zařízení jako `sda` nebo `nvme0n1` je pouze aktuální lokální vazba.
+
+- tabulka `disks` má nad PTUUID unikátní klíč,
+- tabulka `host_disks` dovolí sledovat fyzický přesun stejného disku mezi servery,
+- lokální názvy se ukládají s UTC časem změny,
+- novější název vyhraje v obou směrech, včetně úmyslného vymazání názvu,
+- starý `diskNames` JSON zůstává kompatibilní a při prvním načtení dostane čas podle mtime souboru,
+- dva fyzické disky se stejným PTUUID na jednom hostu synchronizaci odmítnou jako pravděpodobně špatně dokončený klon,
+- loop zařízení se do globálního registru neposílají.
 
 ## Synchronizace
 
@@ -81,4 +112,6 @@ Při startu se provede krátký health-check. Stav je vidět v hlavní hlavičce
 - `READY`,
 - `ERROR`.
 
-Pokud je Hub `READY` a `HUB_AUTO_SYNC=true`, proběhne jeden startup `Sync all`. Ruční synchronizace je v App settings. Node-RED Save spouští best-effort synchronizaci Node-RED provideru; chyba Hubu nikdy nezmění úspěšný lokální Save na chybu.
+Pokud je Hub `READY` a `HUB_AUTO_SYNC=true`, proběhne jeden startup `Sync all`. Ruční synchronizace je přímo v hlavním menu, pokud je Hub zapnutý; položka je aktivní pouze ve stavu `READY`. `HUB_AUTO_SYNC=false` vypíná jen automatiku a ruční synchronizaci neblokuje.
+
+Node-RED Save a změna názvu nebo ID disku spouští best-effort synchronizaci svého provideru. Chyba Hubu nikdy nezmění úspěšnou lokální operaci na chybu.
