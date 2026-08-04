@@ -46,7 +46,7 @@ Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo a
 ```
 
 - `format_version` určuje kryptografickou a strukturální generaci balíku,
-- `revision` je kladná monotónní verze obsahu,
+- `revision` je kladná monotónní verze obsahu; ruční export generuje mikrosekundovou časovou revision, takže ani rychlé opakované exporty nepoužijí stejnou hodnotu,
 - každá sekce má vlastní nezávislou verzi,
 - neznámá budoucí sekce se přeskočí s varováním,
 - známá sekce s nepodporovanou verzí se neaplikuje,

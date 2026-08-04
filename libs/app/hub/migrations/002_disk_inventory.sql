@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `{{PREFIX}}host_disks` (
     `is_system_disk` TINYINT(1) NOT NULL DEFAULT 0,
     `last_seen_at` DATETIME(6) NOT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_host_disk` (`host_id`, `disk_id`),
+    UNIQUE KEY `uq_host_disk` (`disk_id`),
     UNIQUE KEY `uq_host_disk_device` (`host_id`, `device_name`),
     KEY `idx_host_disks_last_seen` (`last_seen_at`),
     FOREIGN KEY (`host_id`) REFERENCES `{{PREFIX}}hosts` (`id`) ON DELETE CASCADE,

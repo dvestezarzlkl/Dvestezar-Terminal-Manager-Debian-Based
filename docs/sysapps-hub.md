@@ -92,7 +92,7 @@ Staré záznamy se mažou pouze po kompletním úspěšném snapshotu daného pr
 PTUUID je globální identita celého disku. Název zařízení jako `sda` nebo `nvme0n1` je pouze aktuální lokální vazba.
 
 - tabulka `disks` má nad PTUUID unikátní klíč,
-- tabulka `host_disks` dovolí sledovat fyzický přesun stejného disku mezi servery,
+- tabulka `host_disks` drží jedinou aktuální vazbu disku; synchronizace na novém hostu automaticky nahradí starý host a dovolí sledovat fyzický přesun,
 - lokální názvy se ukládají s UTC časem změny,
 - novější název vyhraje v obou směrech, včetně úmyslného vymazání názvu,
 - starý `diskNames` JSON zůstává kompatibilní a při prvním načtení dostane čas podle mtime souboru,

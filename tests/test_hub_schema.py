@@ -32,6 +32,7 @@ class HubSchemaTests(unittest.TestCase):
         self.assertTrue(any("`hub_hosts`" in item for item in initial))
         self.assertTrue(any("`hub_disks`" in item for item in disks))
         self.assertTrue(any("`hub_host_disks`" in item for item in disks))
+        self.assertTrue(any("UNIQUE KEY `uq_host_disk` (`disk_id`)" in item for item in disks))
         self.assertTrue(
             all(
                 "{{PREFIX}}" not in statement

@@ -541,9 +541,9 @@ class HubDatabase:
                             )
 
                         cursor.execute(
-                            f"DELETE FROM {host_disks} WHERE host_id=%s "
-                            "AND (disk_id=%s OR device_name=%s)",
-                            (host_id, disk_id, item.device_name),
+                            f"DELETE FROM {host_disks} WHERE disk_id=%s "
+                            "OR (host_id=%s AND device_name=%s)",
+                            (disk_id, host_id, item.device_name),
                         )
                         cursor.execute(
                             f"INSERT INTO {host_disks} "
