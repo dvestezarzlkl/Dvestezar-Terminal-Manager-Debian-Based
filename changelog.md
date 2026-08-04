@@ -2,6 +2,9 @@
 
 ## v1.9.7
 
+- ADD hlavní dynamické menu zobrazuje vpravo vlastní verzi každé app_* podaplikace; Node-RED a SSH mají první explicitní verzi 1.0.0 a SFTP Manager je aktualizován na 1.2.5
+- UPD Node-RED, SSH a SFTP mailové akce zobrazují fázi generování obsahu a společný SMTP wrapper těsně před transportem vypíše `Odesílám e-mail...`
+
 - FIX Node-RED uživatelé jsou správně rozlišeni: předávací protokol uvádí jen uživatele editoru z adminAuth; legacy httpNodeAuth již nevydává za Dashboard 2 uživatele a menu jej označuje jako HTTP Node Auth
 
 - ADD Node-RED Manager umí odeslat bezpečný předávací protokol instance bez hesel: URL, služba, Node-RED/Node.js verze, uživatelé RW/R, projekt a sanitizovaný Git remote i identita zařízení podle Disk Manageru

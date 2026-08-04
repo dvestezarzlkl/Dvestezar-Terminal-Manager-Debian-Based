@@ -436,6 +436,7 @@ def send_handover_mail(
     if not mail_hlp.is_valid_mail_address(recipient):
         return False, TXT_HANDOVER_RECIPIENT_INVALID
 
+    print(TXT_HANDOVER_GENERATING, flush=True)
     data = collect_handover_data(username, node_cfg)
     subject, text_body, html_body = render_handover_mail(data, recipient)
     return mail_hlp.send_mail(

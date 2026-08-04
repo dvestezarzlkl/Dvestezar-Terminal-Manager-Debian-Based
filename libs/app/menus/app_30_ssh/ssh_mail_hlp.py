@@ -127,6 +127,7 @@ def send_managed_key_by_mail(
     if not mail_hlp.is_valid_mail_address(recipient):
         return False, TXT_SSH_MAIL_INVALID_RECIPIENT
 
+    print(TXT_MENU3_TITLE_05, flush=True)
     ok, key_pair, error = ssh_key_bundle.read_managed_key_pair(username, key_name)
     if not ok or key_pair is None:
         return False, TXT_SSH_MAIL_KEY_READ_FAILED.format(error=error or "unknown error")

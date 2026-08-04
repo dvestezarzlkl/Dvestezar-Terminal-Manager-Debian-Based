@@ -8,7 +8,7 @@ TXT_MENU2_TITLE_46 = "E-mail příjemce byl uložen."
 TXT_MENU2_TITLE_47 = "E-mail příjemce byl zrušen."
 TXT_MENU3_TITLE_03 = "Odeslat klíč mailem"
 TXT_MENU3_TITLE_04 = "Uživatel nemá nastaveného e-mail příjemce."
-TXT_MENU3_TITLE_05 = "Odesílám SSH klíč mailem..."
+TXT_MENU3_TITLE_05 = "Generuji balíček SSH klíče..."
 TXT_MENU3_TITLE_06 = "SSH klíč byl úspěšně odeslán."
 
 TXT_SSH_MAIL_INVALID_RECIPIENT = "E-mail příjemce není platný."

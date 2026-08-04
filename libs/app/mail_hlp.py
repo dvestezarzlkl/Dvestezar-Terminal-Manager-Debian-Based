@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-from libs.JBLibs.helper import getLogger
+from .lng.default import *
+from libs.JBLibs.helper import getLogger, loadLng
+
+loadLng()
 from libs.JBLibs.mail import (
     MailAttachment,
     SmtpSettings,
@@ -212,6 +215,7 @@ def send_mail(
     port = get_smtp_port()
     safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None
 
+    print(TX_MAIL_SENDING, flush=True)
     ok, error = send_smtp_message(
         smtp_settings=get_smtp_settings(),
         mail_from=get_mail_from(),

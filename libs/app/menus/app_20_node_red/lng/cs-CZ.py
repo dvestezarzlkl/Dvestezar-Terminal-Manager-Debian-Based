@@ -87,6 +87,7 @@ TXT_HANDOVER_SENT = "Předávací protokol Node-RED byl odeslán na {recipient}.
 TXT_HANDOVER_SUBJECT = "Předávací protokol instance Node-RED - {title} ({hostname})"
 TXT_HANDOVER_DOCUMENT_TITLE = "PŘEDÁVACÍ PROTOKOL INSTANCE NODE-RED"
 TXT_HANDOVER_SECRET_NOTICE = "Hesla nejsou záměrně součástí protokolu a předávají se jiným kanálem."
+TXT_HANDOVER_GENERATING = "Generuji předávací protokol instance Node-RED..."
 TXT_HANDOVER_SECTION_DEVICE = "Identita zařízení"
 TXT_HANDOVER_SECTION_INSTANCE = "Instance Node-RED"
 TXT_HANDOVER_SECTION_USERS = "Uživatelé editoru Node-RED"

@@ -7,7 +7,7 @@ V těchto adresářích se hledá jediný soubor `menu.py`
 V souboru `menu.py` musí být:
     - definována property `_MENU_NAME_` která se zobrazí jako název menu v hlavním menu
     - definována class `menu` která je potomkem `c_menu` a která definuje samotné menu
-    - class `menu` musí mít definován atribut `_VERSION_` který se zobrazí v hlavním menu jako verze menu
+    - class `menu` musí mít definován atribut `_VERSION_` který se zobrazí v hlavním menu jako verze menu; při změně chování podaplikace se tato verze aktualizuje
 
 Pořadí načtení není case sensitive ale abecední, takže pokud chceme pracovat s více menu  
 tak se doporučuje formát minimálně s dvěma čísly.
