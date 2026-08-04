@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Document central settings and bidirectional provider rules",
+  "replacements": [
+    {
+      "path": "AGENTS.md",
+      "old": "- Systémové utility potřebné za běhu musí instalovat `setup.sh`. Volitelná funkce nesmí kvůli chybějící utilitě ukončit celou aplikaci už při importu; konkrétní a bezpečnou chybu má vrátit až při použití dané funkce.\n- `assets/tokens/readme.md`",
+      "new": "- Systémové utility potřebné za běhu musí instalovat `setup.sh`. Volitelná funkce nesmí kvůli chybějící utilitě ukončit celou aplikaci už při importu; konkrétní a bezpečnou chybu má vrátit až při použití dané funkce.\n- Přenositelné globální konfigurace přidávej jako samostatně verzované handlery v `libs/app/settings_package.py`; handler musí mít export, úplnou validaci/normalizaci, apply bez vlastního `cfg.save()`, seznam měněných config klíčů pro rollback a bezpečný preview bez tajných hodnot.\n- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, auto-update, lokální revision a SHA-256 se nikdy nesmí stát importovatelnou sekcí centrálního balíku. Klient z centrální URL pouze čte a export/upload na URL neimplementuj.\n- Obousměrný Hub provider může vedle `hub_collect(context)` nabídnout `hub_apply_remote(updates)`. Provider nedostává DB/SQL a zpětné změny se smějí aplikovat až po úspěšném databázovém commitu.\n- `assets/tokens/readme.md`",
+      "expected": 1
+    }
+  ]
+}
