@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- FIX společný SMTP transport nyní přidává povinnou RFC Date hlavičku ještě před odesláním; JBLibs submodul aktualizován na verzi 1.2.15
+
 - FIX mailové balíčky nyní jasně rozlišují běžný SSH účet s terminálovým přístupem a možností SCP/SFTP od omezeného SFTP účtu určeného pouze pro přenos souborů bez shellu; SFTP Manager 1.2.4
 
 - ADD SSH Manager ukládá per-user e-mail kontakt do `~/.config/jb_sys_apps/contact.jsonc` a umí odeslat vybraný pár klíčů přes společný SMTP/ZIP transport; public-only importy neposílají dummy soukromý klíč
