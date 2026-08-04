@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "1.9.7"
+VERSION = "2.0.0"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -32,6 +32,17 @@ MAIL_SMTP_MODE:str        = "starttls"                      # plain / starttls /
 MAIL_FROM:str             = ""                              # odesílatel, pokud je prázdný použije se SMTP user
 MAIL_FALLBACK_ADMIN:str   = ""                              # výchozí admin mail pro aplikace bez vlastního admin mail
 MAIL_TIMEOUT:int          = 20                              # timeout pro SMTP spojení v sekundách
+
+# SysApps Hub - centrální MySQL/MariaDB inventář
+HUB_ENABLED:bool          = False                           # zapne health-check a synchronizaci Hubu
+HUB_DB_HOST:str           = ""                            # MySQL/MariaDB host
+HUB_DB_PORT:int           = 3306                            # MySQL/MariaDB port
+HUB_DB_USER:str           = ""                            # databázový uživatel
+HUB_DB_PASSWORD:str       = ""                            # databázové heslo
+HUB_DB_NAME:str           = "sys_apps"                    # výchozí databáze Hubu
+HUB_DB_PREFIX:str         = "sysapps_"                    # validovaný prefix tabulek
+HUB_CONNECT_TIMEOUT:int   = 3                               # krátký startup/connect timeout
+HUB_AUTO_SYNC:bool        = True                            # automatický sync po úspěšném startup health-checku
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu
 # zadáváme jako JSON string pole string-ů !!!

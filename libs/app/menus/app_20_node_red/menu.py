@@ -18,6 +18,11 @@ from libs.JBLibs.helper import getLogger
 log = getLogger(__name__)
 
 _MENU_NAME_:str = TXT_MAIN_NAME
+_HUB_PROVIDER_KEY_:str = "node_red"
+
+def hub_collect(context):
+    from .hub_provider import collect_node_red_snapshot
+    return collect_node_red_snapshot(context)
 
 class menu (nd_menu):
     _VERSION_: str = "1.0.0"

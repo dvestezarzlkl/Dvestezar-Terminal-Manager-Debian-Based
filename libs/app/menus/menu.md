@@ -9,6 +9,8 @@ V souboru `menu.py` musí být:
     - definována class `menu` která je potomkem `c_menu` a která definuje samotné menu
     - class `menu` musí mít definován atribut `_VERSION_` jako samotné číslo verze bez prefixu, například `1.0.0`; hlavní loader jej zobrazí jako `v. 1.0.0` a při změně chování podaplikace se tato verze aktualizuje
 
+Volitelný provider SysApps Hub se registruje přímo v modulu `menu.py` pomocí stabilního `_HUB_PROVIDER_KEY_` a funkce `hub_collect(context)`. Provider vrací pouze typovaný snapshot; nedostává DB spojení, SQL ani název tabulky.
+
 Pořadí načtení není case sensitive ale abecední, takže pokud chceme pracovat s více menu  
 tak se doporučuje formát minimálně s dvěma čísly.
 

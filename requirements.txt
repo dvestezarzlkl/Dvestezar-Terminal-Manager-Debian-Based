@@ -6,6 +6,7 @@ json5==0.9.27
 paramiko==4.0.0
 psutil==6.1.0
 pycparser==3.0
+PyMySQL==1.2.0
 PyNaCl==1.6.2
 pyserial==3.5
 python-dateutil==2.9.0.post0

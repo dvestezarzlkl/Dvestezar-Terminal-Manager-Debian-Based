@@ -7,6 +7,9 @@ from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_ite
 from libs.JBLibs.helper import getInterfaces,getMainScriptDir
 from libs.app.plugin_manager import PluginRegistry
 from libs.app.plugin_settings import PluginSettingsMenu
+from libs.app.hub.menu import HubSettingsMenu
+from libs.app.hub.models import HubState
+from libs.app.hub.runtime import hub_runtime
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -83,11 +86,18 @@ class menuBoss(menu):
                 c_menu_title_label(cfg.machineInfo.err)
             ]
         else:
+            if hub_runtime.status.state is HubState.READY:
+                hub_color = en_color.BRIGHT_GREEN
+            elif hub_runtime.status.state in {HubState.DISABLED, HubState.NOT_CONFIGURED}:
+                hub_color = en_color.BRIGHT_BLACK
+            else:
+                hub_color = en_color.BRIGHT_RED
             self.afterTitle=[
                 "Distro: "+cfg.machineInfo.operating_system,
                 "Kernel: "+cfg.machineInfo.kernel,
                 "FQDN: "+cfg.machineInfo.hostname_full,
                 "JBLibs: "+libsVersion,
+                "SysApps Hub: "+text_color(hub_runtime.status_text(), hub_color),
             ]
         
     def showSystemInfo(self,selItem:c_menu_item) -> onSelReturn:
@@ -132,6 +142,7 @@ class m_mail_settings(c_menu):
         self.subTitle.append(("URL", cfg.SERVER_URL or "not set"))
         self.subTitle.append(("SMTP", mail_hlp.get_status_text()))
         self.subTitle.append(("Fallback admin", mail_hlp.get_fallback_admin_mail() or "not set"))
+        self.subTitle.append(("SysApps Hub", hub_runtime.status_text()))
         self.menu = [
             c_menu_title_label(text_color("App settings", color=en_color.CYAN)),
             c_menu_item(
@@ -139,6 +150,14 @@ class m_mail_settings(c_menu):
                 "s",
                 self.edit_server_url,
                 atRight=cfg.SERVER_URL or "not set",
+            ),
+            None,
+            c_menu_title_label(text_color("SysApps Hub", color=en_color.CYAN)),
+            c_menu_item(
+                text_color("SysApps Hub settings", en_color.BRIGHT_CYAN),
+                "b",
+                HubSettingsMenu(),
+                atRight=hub_runtime.status_text(),
             ),
             None,
             c_menu_title_label(text_color("Mail settings", color=en_color.CYAN)),
@@ -387,6 +406,7 @@ def init() -> bool:
     """
     global _items_
     _items_.clear()
+    hub_runtime.clear_providers()
 
     # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři
     root=os.path.dirname(__file__)
@@ -446,7 +466,15 @@ def init() -> bool:
                         atRight=_format_menu_version(version),
                     )
                 )
-                
+
+                provider_key = str(getattr(mod, "_HUB_PROVIDER_KEY_", "") or "").strip()
+                provider_collector = getattr(mod, "hub_collect", None)
+                if provider_key and callable(provider_collector):
+                    try:
+                        hub_runtime.register_provider(provider_key, provider_collector)
+                    except Exception as provider_error:
+                        print(f"SysApps Hub provider warning ({provider_key}): {provider_error}")
+
                 choice_counter += 1  # Zvýšíme počítadlo pro další volbu
                 
         except Exception as e:
@@ -456,6 +484,7 @@ def init() -> bool:
             traceback.print_exc()                        
     
     if choice_counter:
+        hub_runtime.startup()
         x=menuBoss().run()
         if x:
             if isinstance(x,str):

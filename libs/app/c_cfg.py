@@ -208,6 +208,13 @@ class cfg_data:
                     
         print(TX_CFG_SV_DONE)
         self.changed=False
+
+        # Hub je best-effort nadstavba: lokální Save zůstává úspěšný i při nedostupné DB.
+        try:
+            from libs.app.hub.runtime import hub_runtime
+            hub_runtime.sync_provider_best_effort("node_red")
+        except Exception:
+            log.warning("SysApps Hub Node-RED sync failed after Save", exc_info=True)
         
     def restart_service(self,prn:bool=False) -> str:
         """
