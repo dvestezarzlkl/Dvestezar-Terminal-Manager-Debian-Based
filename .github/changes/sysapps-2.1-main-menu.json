@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "Integrate central settings and Hub sync into main menu",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "from libs.app.hub.runtime import hub_runtime\nimport os,string",
+      "new": "from libs.app.hub.runtime import hub_runtime\nfrom libs.app.settings_menu import SettingsPackageMenu\nfrom libs.app.settings_package import startup_settings_update\nimport os,string",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        self.menu.extend([\n            None,\n            c_menu_item('System info','i',self.showSystemInfo),\n            c_menu_item('Update me','u',self.updateMe),\n            c_menu_item(\n                text_color('App settings', en_color.BRIGHT_GREEN),",
+      "new": "        other_items = [\n            None,\n            c_menu_item('System info','i',self.showSystemInfo),\n            c_menu_item('Update me','u',self.updateMe),\n        ]\n        if cfg.HUB_ENABLED:\n            other_items.append(\n                c_menu_item(\n                    text_color('Synchronize SysApps Hub', en_color.BRIGHT_GREEN),\n                    'hs',\n                    self.syncHub,\n                    atRight=hub_runtime.status_text(),\n                    enabled=hub_runtime.status.state is HubState.READY,\n                )\n            )\n        other_items.extend([\n            c_menu_item(\n                text_color('App settings', en_color.BRIGHT_GREEN),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "            ),\n        ])\n        \n        # return onSelReturn(err=\"test err\",ok=\"ok test\")",
+      "new": "            ),\n        ])\n        self.menu.extend(other_items)\n        \n        # return onSelReturn(err=\"test err\",ok=\"ok test\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    def updateMe(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "new": "    def syncHub(self, selItem:c_menu_item) -> onSelReturn:\n        \"\"\"Run a manual full Hub synchronization without changing auto-sync policy.\"\"\"\n        if not cfg.HUB_ENABLED:\n            return onSelReturn().errRet(\"SysApps Hub is disabled.\")\n        if hub_runtime.refresh_status().state is not HubState.READY:\n            return onSelReturn().errRet(hub_runtime.status_text())\n        print(\"SysApps Hub: collecting and synchronizing inventory...\")\n        report = hub_runtime.sync_all()\n        if report.error:\n            return onSelReturn().errRet(report.error)\n        for warning in report.warnings:\n            print(text_color(f\"SysApps Hub warning: {warning}\", en_color.BRIGHT_YELLOW))\n        if report.warnings:\n            anyKey()\n        total = sum(report.provider_counts.values())\n        return onSelReturn(ok=f\"SysApps Hub synchronized core and {total} provider item(s).\")\n\n    def updateMe(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "            c_menu_item(\n                text_color(\"SysApps Hub settings\", en_color.BRIGHT_CYAN),\n                \"b\",\n                HubSettingsMenu(),\n                atRight=hub_runtime.status_text(),\n            ),\n            None,\n            c_menu_title_label(text_color(\"Mail settings\", color=en_color.CYAN)),",
+      "new": "            c_menu_item(\n                text_color(\"SysApps Hub settings\", en_color.BRIGHT_CYAN),\n                \"b\",\n                HubSettingsMenu(),\n                atRight=hub_runtime.status_text(),\n            ),\n            c_menu_item(\n                text_color(\"Centralized settings\", en_color.BRIGHT_GREEN),\n                \"g\",\n                SettingsPackageMenu(),\n                atRight=(\n                    f\"revision {cfg.SETTINGS_LAST_REVISION}\"\n                    if cfg.SETTINGS_LAST_REVISION\n                    else (cfg.SETTINGS_URL or \"not configured\")\n                ),\n            ),\n            None,\n            c_menu_title_label(text_color(\"Mail settings\", color=en_color.CYAN)),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                provider_key = str(getattr(mod, \"_HUB_PROVIDER_KEY_\", \"\") or \"\").strip()\n                provider_collector = getattr(mod, \"hub_collect\", None)\n                if provider_key and callable(provider_collector):\n                    try:\n                        hub_runtime.register_provider(provider_key, provider_collector)\n                    except Exception as provider_error:",
+      "new": "                provider_key = str(getattr(mod, \"_HUB_PROVIDER_KEY_\", \"\") or \"\").strip()\n                provider_collector = getattr(mod, \"hub_collect\", None)\n                provider_applier = getattr(mod, \"hub_apply_remote\", None)\n                if provider_key and callable(provider_collector):\n                    try:\n                        hub_runtime.register_provider(\n                            provider_key, provider_collector, provider_applier\n                        )\n                    except Exception as provider_error:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    if choice_counter:\n        hub_runtime.startup()\n        x=menuBoss().run()",
+      "new": "    if choice_counter:\n        startup_settings_update()\n        hub_runtime.startup()\n        x=menuBoss().run()",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "            None,\n            c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), \"t\", self.test_connection),\n            c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), \"i\", self.initialize_schema),\n            c_menu_item(text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN), \"s\", self.sync_all),\n            None,\n            c_menu_item(TXT_HUB_EXPORT, \"exp\", self.export_settings),\n            c_menu_item(TXT_HUB_IMPORT, \"imp\", self.import_settings),\n        ]",
+      "new": "            None,\n            c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), \"t\", self.test_connection),\n            c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), \"i\", self.initialize_schema),\n            c_menu_item(\n                text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN),\n                \"s\",\n                self.sync_all,\n                enabled=hub_runtime.status.state is HubState.READY,\n                atRight=hub_runtime.status_text(),\n            ),\n        ]",
+      "expected": 1
+    }
+  ]
+}
