@@ -30,6 +30,9 @@ class SshManagerMailTests(unittest.TestCase):
         )
 
         self.assertIn("alice", subject)
+        self.assertIn("terminálu", subject)
+        self.assertIn("interaktivní přihlášení do terminálu", text_body)
+        self.assertIn("SCP/SFTP", text_body)
         self.assertNotIn(PUBLIC_KEY, text_body)
         self.assertNotIn(PRIVATE_KEY, text_body)
         self.assertNotIn(PUBLIC_KEY, html_body)
@@ -50,10 +53,15 @@ class SshManagerMailTests(unittest.TestCase):
             },
         )
         readme = files["alice_work-key_README.txt"]
-        self.assertIn("22", readme)
+        self.assertIn("Balíček SSH přístupu k terminálu", readme)
+        self.assertIn("interaktivní přihlášení do terminálu", readme)
+        self.assertIn("Nejde o omezený SFTP účet", readme)
+        self.assertIn("Výchozí port SSH je 22", readme)
         self.assertIn("chmod 600", readme)
+        self.assertIn("Terminál / správa zařízení", readme)
         self.assertIn("Total Commander", readme)
         self.assertIn("WinSCP", readme)
+        self.assertNotIn("Samba/SFTP sandbox", readme)
 
     def test_public_only_mail_has_no_private_file_or_client_setup_steps(self):
         _, _, _, attachments = ssh_mail_hlp.build_key_mail_payload(
@@ -75,6 +83,8 @@ class SshManagerMailTests(unittest.TestCase):
         self.assertNotIn("chmod 600", readme)
         self.assertNotIn("Total Commander", readme)
         self.assertNotIn("WinSCP", readme)
+        self.assertIn("authorized_keys", readme)
+        self.assertIn("terminálovým přístupem", readme)
         self.assertIn("alice_imported_id_ed25519.pub", readme)
 
     def test_send_uses_only_configured_recipient(self):
