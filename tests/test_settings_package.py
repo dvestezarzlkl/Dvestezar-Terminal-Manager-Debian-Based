@@ -1,11 +1,13 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from libs.app import cfg
+from libs.app import settings_package as settings_package_module
 from libs.app.hub.config_package import export_encrypted_settings as export_legacy_hub_settings
 from libs.app.hub.settings import HubSettings
 from libs.app.settings_package import (
     DecodedSettingsPackage,
+    SettingsSectionHandler,
     apply_decoded_settings,
     decode_encrypted_settings,
     export_encrypted_settings,
@@ -122,6 +124,33 @@ class SettingsPackageTests(unittest.TestCase):
         self.assertEqual(set(report.applied_sections), {"hub", "smtp"})
         self.assertEqual(report.skipped_sections, ("sftp_backup",))
         self.assertTrue(any("sftp_backup" in item for item in report.warnings))
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1,smtp:1")
+
+        apply_sftp = Mock()
+        handler = SettingsSectionHandler(
+            key="sftp_backup",
+            label="SFTP backup",
+            version=1,
+            config_keys=(),
+            exporter=lambda: {},
+            validator=lambda data: dict(data),
+            applier=apply_sftp,
+            previewer=lambda data: "configured",
+        )
+        with patch.dict(
+            settings_package_module._SECTIONS,
+            {"sftp_backup": handler},
+            clear=False,
+        ), patch("libs.app.settings_package.cfg.save"):
+            upgraded = apply_decoded_settings(future)
+        self.assertTrue(upgraded.changed)
+        self.assertEqual(
+            set(upgraded.applied_sections), {"hub", "smtp", "sftp_backup"}
+        )
+        self.assertEqual(
+            cfg.SETTINGS_LAST_APPLIED, "hub:1,sftp_backup:1,smtp:1"
+        )
+        apply_sftp.assert_called_once_with({"profile": "central_backup"})
 
     def test_wrong_password_is_rejected(self):
         package = export_encrypted_settings("correct", revision=1)
