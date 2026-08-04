@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Refresh main menu items from current Hub state",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    def onShowMenu(self):\n        \"\"\"\n        Show menu\n        \"\"\"\n        self._setAppHeader(\"HOME\")",
+      "new": "    def onShowMenu(self):\n        \"\"\"\n        Show menu\n        \"\"\"\n        # Rebuild operational items after schema/settings actions so their\n        # visibility and enabled state reflect the current Hub status.\n        self.onEnterMenu()\n        self._setAppHeader(\"HOME\")",
+      "expected": 1
+    }
+  ]
+}
