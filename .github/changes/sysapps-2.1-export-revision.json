@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "commit_message": "Keep generated settings revisions monotonic",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "_SECTIONS: dict[str, SettingsSectionHandler] = {}\n",
+      "new": "_SECTIONS: dict[str, SettingsSectionHandler] = {}\n_LAST_EXPORTED_REVISION = 0\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def _next_revision() -> int:\n    current = int(getattr(cfg, \"SETTINGS_LAST_REVISION\", 0) or 0)\n    return max(int(time.time()), current + 1)\n",
+      "new": "def _next_revision() -> int:\n    global _LAST_EXPORTED_REVISION\n    current = int(getattr(cfg, \"SETTINGS_LAST_REVISION\", 0) or 0)\n    revision = max(int(time.time()), current + 1, _LAST_EXPORTED_REVISION + 1)\n    _LAST_EXPORTED_REVISION = revision\n    return revision\n",
+      "expected": 1
+    }
+  ]
+}
