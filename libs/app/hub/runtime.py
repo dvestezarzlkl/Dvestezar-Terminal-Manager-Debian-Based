@@ -10,7 +10,10 @@ from .core_provider import collect_host_snapshot
 from .database import HubDatabase
 from .models import (
     HubContext,
+    HubProviderApplier,
     HubProviderCollector,
+    HubProviderRegistration,
+    HubProviderSyncResult,
     HubState,
     HubStatus,
     HubSyncReport,
@@ -24,20 +27,29 @@ _PROVIDER_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 
 class HubRuntime:
     def __init__(self) -> None:
-        self._providers: dict[str, HubProviderCollector] = {}
+        self._providers: dict[str, HubProviderRegistration] = {}
         self.status = HubStatus(HubState.DISABLED, "disabled")
         self.last_sync_at: Optional[datetime] = None
 
     def clear_providers(self) -> None:
         self._providers.clear()
 
-    def register_provider(self, key: str, collector: HubProviderCollector) -> None:
+    def register_provider(
+        self,
+        key: str,
+        collector: HubProviderCollector,
+        applier: HubProviderApplier | None = None,
+    ) -> None:
         key = str(key or "").strip()
         if not _PROVIDER_KEY_RE.fullmatch(key) or not callable(collector):
             raise ValueError("Invalid SysApps Hub provider registration.")
-        if key in self._providers and self._providers[key] is not collector:
+        if applier is not None and not callable(applier):
+            raise ValueError("Invalid SysApps Hub provider applier.")
+        registration = HubProviderRegistration(collector, applier)
+        current = self._providers.get(key)
+        if current is not None and current != registration:
             raise ValueError(f"Duplicate SysApps Hub provider key: {key}")
-        self._providers[key] = collector
+        self._providers[key] = registration
 
     def refresh_status(self) -> HubStatus:
         settings = HubSettings.from_cfg()
@@ -90,6 +102,36 @@ class HubRuntime:
             raise RuntimeError(self.status_text())
         return settings, HubDatabase(settings)
 
+    def _sync_registration(
+        self,
+        database: HubDatabase,
+        machine_id: str,
+        key: str,
+        registration: HubProviderRegistration,
+    ) -> int:
+        snapshot = registration.collector(
+            HubContext(
+                generated_at=datetime.now().astimezone(),
+                machine_id=machine_id,
+            )
+        )
+        if snapshot.source_key != key:
+            raise ValueError(
+                f"Provider {key} returned source key {snapshot.source_key}."
+            )
+        result = database.sync_provider(machine_id, snapshot)
+        if isinstance(result, int):
+            result = HubProviderSyncResult(result)
+        if not isinstance(result, HubProviderSyncResult):
+            raise TypeError(f"Provider {key} returned an invalid sync result.")
+        if result.remote_updates:
+            if registration.applier is None:
+                raise RuntimeError(
+                    f"Provider {key} received remote updates but has no local applier."
+                )
+            registration.applier(result.remote_updates)
+        return result.item_count
+
     def sync_all(self) -> HubSyncReport:
         report = HubSyncReport()
         settings = HubSettings.from_cfg()
@@ -103,19 +145,13 @@ class HubRuntime:
             log.error("SysApps Hub core synchronization failed: %s", report.error)
             return report
 
-        context = HubContext(
-            generated_at=datetime.now().astimezone(),
-            machine_id=host.machine_id,
-        )
-        for key, collector in sorted(self._providers.items()):
+        for key, registration in sorted(self._providers.items()):
             try:
-                snapshot = collector(context)
-                if snapshot.source_key != key:
-                    raise ValueError(
-                        f"Provider {key} returned source key {snapshot.source_key}."
-                    )
-                report.provider_counts[key] = database.sync_provider(
-                    host.machine_id, snapshot
+                report.provider_counts[key] = self._sync_registration(
+                    database,
+                    host.machine_id,
+                    key,
+                    registration,
                 )
             except Exception as exc:
                 warning = f"Provider {key}: {exc}"
@@ -129,22 +165,19 @@ class HubRuntime:
 
     def sync_provider(self, key: str) -> tuple[bool, str]:
         settings = HubSettings.from_cfg()
-        collector = self._providers.get(key)
-        if collector is None:
+        registration = self._providers.get(key)
+        if registration is None:
             return False, f"SysApps Hub provider is not registered: {key}"
         try:
             _, database = self._ready_database()
             host = collect_host_snapshot()
             database.sync_core(host)
-            snapshot = collector(
-                HubContext(
-                    generated_at=datetime.now().astimezone(),
-                    machine_id=host.machine_id,
-                )
+            count = self._sync_registration(
+                database,
+                host.machine_id,
+                key,
+                registration,
             )
-            if snapshot.source_key != key:
-                raise ValueError("Provider returned a different source key.")
-            count = database.sync_provider(host.machine_id, snapshot)
             self.last_sync_at = datetime.now().astimezone()
             self.refresh_status()
             return True, f"Synchronized {count} item(s) from {key}."
