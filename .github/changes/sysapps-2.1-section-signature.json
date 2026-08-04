@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "commit_message": "Reapply central packages when section support changes",
+  "replacements": [
+    {
+      "path": "libs/app/cfg.py",
+      "old": "SETTINGS_LAST_SHA256:str  = \"\"                              # hash balíku chrání před změnou obsahu stejné revision\n",
+      "new": "SETTINGS_LAST_SHA256:str  = \"\"                              # hash balíku chrání před změnou obsahu stejné revision\nSETTINGS_LAST_APPLIED:str = \"\"                              # podpis skutečně aplikovaných sekcí a jejich verzí\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:",
+      "new": "def _section_signature(\n    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]],\n) -> str:\n    return \",\".join(\n        f\"{handler.key}:{handler.version}\" for handler, _ in prepared\n    )\n\n\ndef preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    current_revision = int(getattr(cfg, \"SETTINGS_LAST_REVISION\", 0) or 0)\n    current_hash = str(getattr(cfg, \"SETTINGS_LAST_SHA256\", \"\") or \"\")\n    if decoded.revision > 0:",
+      "new": "    prepared, skipped, warnings = _prepare_sections(decoded)\n    signature = _section_signature(prepared)\n    current_revision = int(getattr(cfg, \"SETTINGS_LAST_REVISION\", 0) or 0)\n    current_hash = str(getattr(cfg, \"SETTINGS_LAST_SHA256\", \"\") or \"\")\n    current_applied = str(getattr(cfg, \"SETTINGS_LAST_APPLIED\", \"\") or \"\")\n    if decoded.revision > 0:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "            if current_hash == decoded.sha256 and not force:\n                return SettingsApplyReport(False, decoded.revision)\n\n    prepared, skipped, warnings = _prepare_sections(decoded)\n    config_keys = {",
+      "new": "            if (\n                current_hash == decoded.sha256\n                and current_applied == signature\n                and not force\n            ):\n                return SettingsApplyReport(False, decoded.revision)\n\n    config_keys = {",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    config_keys.update({\"SETTINGS_LAST_REVISION\", \"SETTINGS_LAST_SHA256\"})",
+      "new": "    config_keys.update({\n        \"SETTINGS_LAST_REVISION\",\n        \"SETTINGS_LAST_SHA256\",\n        \"SETTINGS_LAST_APPLIED\",\n    })",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "        if decoded.revision > 0:\n            cfg.SETTINGS_LAST_REVISION = decoded.revision\n            cfg.SETTINGS_LAST_SHA256 = decoded.sha256\n        elif decoded.legacy:",
+      "new": "        if decoded.revision > 0:\n            cfg.SETTINGS_LAST_REVISION = decoded.revision\n            cfg.SETTINGS_LAST_SHA256 = decoded.sha256\n            cfg.SETTINGS_LAST_APPLIED = signature\n        elif decoded.legacy:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if decoded.revision == current_revision and not force:\n        if current_hash and current_hash != decoded.sha256:\n            raise ValueError(\n                \"The remote package reuses the current revision with different content.\"\n            )\n        if current_hash == decoded.sha256:\n            return SettingsUpdateResult(\n                False, decoded.revision, \"Central settings are already current.\"\n            )\n\n    report = apply_decoded_settings(",
+      "new": "    if decoded.revision == current_revision and not force:\n        if current_hash and current_hash != decoded.sha256:\n            raise ValueError(\n                \"The remote package reuses the current revision with different content.\"\n            )\n\n    report = apply_decoded_settings(",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    return SettingsUpdateResult(\n        report.changed,\n        decoded.revision,\n        f\"Applied central settings revision {decoded.revision}.\",\n        report.warnings,\n    )",
+      "new": "    if not report.changed:\n        return SettingsUpdateResult(\n            False,\n            decoded.revision,\n            \"Central settings are already current.\",\n            report.warnings,\n        )\n    return SettingsUpdateResult(\n        True,\n        decoded.revision,\n        f\"Applied central settings revision {decoded.revision}.\",\n        report.warnings,\n    )",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    \"SETTINGS_LAST_SHA256\",\n)",
+      "new": "    \"SETTINGS_LAST_SHA256\",\n    \"SETTINGS_LAST_APPLIED\",\n)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.SETTINGS_LAST_SHA256 = \"\"\n",
+      "new": "        cfg.SETTINGS_LAST_SHA256 = \"\"\n        cfg.SETTINGS_LAST_APPLIED = \"\"\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "SETTINGS_LAST_SHA256 = \"...\"\n```",
+      "new": "SETTINGS_LAST_SHA256 = \"...\"\nSETTINGS_LAST_APPLIED = \"hub:1,smtp:1\"\n```",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "- úspěšný import uloží revision a SHA-256 lokálně.",
+      "new": "- úspěšný import uloží revision, SHA-256 a podpis skutečně aplikovaných sekcí; po update klienta se stejný balík znovu aplikuje, pokud nová verze nově podporuje dříve přeskočenou sekci.",
+      "expected": 1
+    }
+  ]
+}
