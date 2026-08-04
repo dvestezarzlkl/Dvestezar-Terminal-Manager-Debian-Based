@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Document applied section signature as bootstrap state",
+  "replacements": [
+    {
+      "path": "AGENTS.md",
+      "old": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, auto-update, lokální revision a SHA-256 se nikdy nesmí stát importovatelnou sekcí centrálního balíku. Klient z centrální URL pouze čte a export/upload na URL neimplementuj.",
+      "new": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, auto-update, lokální revision, SHA-256 a podpis aplikovaných sekcí se nikdy nesmí stát importovatelnou sekcí centrálního balíku. Klient z centrální URL pouze čte a export/upload na URL neimplementuj.",
+      "expected": 1
+    }
+  ]
+}
