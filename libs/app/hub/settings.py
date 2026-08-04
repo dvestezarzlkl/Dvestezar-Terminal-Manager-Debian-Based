@@ -54,6 +54,12 @@ class HubSettings:
             return False, "Connect timeout must be between 1 and 30 seconds."
         return True, ""
 
+    def redact_error(self, value: object) -> str:
+        text = str(value or "")
+        if self.password:
+            text = text.replace(self.password, "***")
+        return text
+
     def export_dict(self) -> dict[str, Any]:
         return asdict(self)
 
