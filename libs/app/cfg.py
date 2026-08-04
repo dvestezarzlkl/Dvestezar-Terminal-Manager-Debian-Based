@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -16,9 +16,9 @@ LANGUAGE: str             = "en-US"                         # jazyk aplikace
 SERVER_URL:str            = "moje.domena.fake"              # jen doména/IP/popř sub path, bez portu
 DEFAULT_NODE_ARCHIVE: str = "/home/defaultNodeInstance.7z"  # cesta k archivu s instancí např s výchozí instalací plugin, uzlů flow atd.
 DEFAULT_JS_CONFIG: str    = "muj-node-config.default.js"    # v assets
-TEMP_DIRECTORY: str       = "/tmp/default_node"             # kam se dočasně rozbalí archiv
-BACKUP_DIRECTORY: str     = "/var/backups"                  # kam se budou ukládat zálohy
-INSTANCE_INFO: str        = ""                              # kam se budou ukládat informace o instancích, pro vypnutí nastavíme "" nebo null
+TEMP_DIRECTORY: str      = "/tmp/default_node"             # kam se dočasně rozbalí archiv
+BACKUP_DIRECTORY: str    = "/var/backups"                  # kam se budou ukládat zálohy
+INSTANCE_INFO: str       = ""                              # kam se budou ukládat informace o instancích, pro vypnutí nastavíme "" nebo null
 INSTANCE_INFO_COPY_PHP:bool = False                # pokud je True tak se bude kopírovat do assets/php/node_red_instances.php do adresáře jako je JSON
 SITE_NAME: str            = "Dvestezar Terminal Manager"  # název webu, pro hlavičku a titulky
 LOG_DIR:str               = "/var/log/jb_sys_apps"         # adresář pro logy
@@ -43,6 +43,15 @@ HUB_DB_NAME:str           = "sys_apps"                    # výchozí databáze 
 HUB_DB_PREFIX:str         = "sysapps_"                    # validovaný prefix tabulek
 HUB_CONNECT_TIMEOUT:int   = 3                               # krátký startup/connect timeout
 HUB_AUTO_SYNC:bool        = True                            # automatický sync po úspěšném startup health-checku
+
+# Centrální distribuce přenositelných nastavení
+SETTINGS_URL:str          = ""                              # HTTPS URL s jedním šifrovaným SYSAPP1E balíkem
+SETTINGS_PASSWORD:str     = ""                              # lokální bootstrap heslo, nikdy se neimportuje z balíku
+SETTINGS_AUTO_UPDATE:bool = False                           # při startu použije pouze vyšší revision
+SETTINGS_CONNECT_TIMEOUT:int = 5                            # timeout stažení v sekundách
+SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN
+SETTINGS_LAST_REVISION:int = 0                              # poslední úspěšně aplikovaná vzdálená revision
+SETTINGS_LAST_SHA256:str  = ""                              # hash balíku chrání před změnou obsahu stejné revision
 
 # seznam CIDR adres, které budou mít přístup k PHP skriptu
 # zadáváme jako JSON string pole string-ů !!!
