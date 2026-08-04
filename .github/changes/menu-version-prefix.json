@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "commit_message": "Label component versions in main menu",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    return \"\"\n\nclass menuBoss(menu):",
+      "new": "    return \"\"\n\ndef _format_menu_version(version: str) -> str:\n    \"\"\"Format a component version for the main menu.\"\"\"\n    version = str(version).strip()\n    return f\"v. {version}\" if version else \"?\"\n\nclass menuBoss(menu):",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                        atRight=version or \"?\",",
+      "new": "                        atRight=_format_menu_version(version),",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(LegacyMenu), \"9.8.7\")\n        self.assertEqual(menuBoss._get_menu_version(MissingVersion), \"\")\n        self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), \"1.0.0\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(LegacyMenu), \"9.8.7\")\n        self.assertEqual(menuBoss._get_menu_version(MissingVersion), \"\")\n        self.assertEqual(menuBoss._format_menu_version(\"3.5.0\"), \"v. 3.5.0\")\n        self.assertEqual(menuBoss._format_menu_version(\"\"), \"?\")\n        self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), \"1.0.0\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menu.md",
+      "old": "    - class `menu` musí mít definován atribut `_VERSION_` který se zobrazí v hlavním menu jako verze menu; při změně chování podaplikace se tato verze aktualizuje",
+      "new": "    - class `menu` musí mít definován atribut `_VERSION_` jako samotné číslo verze bez prefixu, například `1.0.0`; hlavní loader jej zobrazí jako `v. 1.0.0` a při změně chování podaplikace se tato verze aktualizuje",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "- ADD hlavní dynamické menu zobrazuje vpravo vlastní verzi každé app_* podaplikace; Node-RED a SSH mají první explicitní verzi 1.0.0 a SFTP Manager je aktualizován na 1.2.5\n- UPD Node-RED, SSH a SFTP mailové akce zobrazují fázi generování obsahu a společný SMTP wrapper těsně před transportem vypíše `Odesílám e-mail...`",
+      "new": "- UPD verze podaplikací v hlavním menu mají jednoznačný prefix `v.`, například `(v. 3.5.0)`\n- ADD hlavní dynamické menu zobrazuje vpravo vlastní verzi každé app_* podaplikace; Node-RED a SSH mají první explicitní verzi 1.0.0 a SFTP Manager je aktualizován na 1.2.5\n- UPD Node-RED, SSH a SFTP mailové akce zobrazují fázi generování obsahu a společný SMTP wrapper těsně před transportem vypíše `Odesílám e-mail...`",
+      "expected": 1
+    }
+  ]
+}
