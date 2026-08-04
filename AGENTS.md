@@ -15,6 +15,7 @@
 - `etc_jb_sys_apps` je unixový symlink na živou konfiguraci v systému. Obsah aktuálního `config.ini` nelze odvozovat z GitHubu; pokud je potřeba, vyžádej si od uživatele konkrétní obsah nebo výpis z terminálu.
 - `log` je unixový symlink na živý logovací adresář. Aktuální logy nejsou součástí repozitáře a při diagnostice je musí dodat uživatel.
 - `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.
+- Systémové utility potřebné za běhu musí instalovat `setup.sh`. Volitelná funkce nesmí kvůli chybějící utilitě ukončit celou aplikaci už při importu; konkrétní a bezpečnou chybu má vrátit až při použití dané funkce.
 - `assets/tokens/readme.md` dokumentuje lokální přístupové tokeny. Soubory `assets/tokens/*.cd` jsou ignorované Gitem, obsahují citlivé údaje a nesmí se vypisovat do logu, chatu, diffu ani commitu.
 - Plugin systém má čtyři oddělené zdroje stavu: `.gitmodules` pro Git cestu/URL, `pluginy.jsonc` pro katalog a výchozí politiku, `/etc/jb_sys_apps/plugins.jsonc` pro lokální enable/disable a `assets/tokens/<id>.cd` pro přístup. Formát a postupy udržuj v `docs/plugin-system.md`; token nikdy nesmí implicitně přebít lokální `enabled: false`.
 - Obrázky vložené do Markdown dokumentů přes VSCode Office Viewer se ukládají relativně jako `image/<nazev_md>/resources.*`; tuto strukturu zachovej při úpravách dokumentace.
@@ -29,13 +30,15 @@
 
 ## changelog
 
-Po každé změně kódu je potřeba aktualizovat changelog.md v poslední verzi na začátku, verzi neměníme pokud není přímo řečeno, třeba s pushem změn.
-
-changelog je řazen nejnovější verze nahoře, takže při updatu je potřeba zkontrolovat jestli je verze v changelogu stejná jako v libs/app/cfg.py a readme.md, pokud ne tak je potřeba aktualizovat všechny tři verze na stejnou.
+Po každé změně kódu je potřeba aktualizovat `changelog.md` v poslední verzi na začátku. Changelog je řazen nejnovější verzí nahoře.
 
 ## verze
 
-hlavní app verze je v changelog a na to je navázána verze v libs/app/cfg.py a samozřejmě v readme.md, kde je verze v badge. Všechny tři verze musí být stejné, jinak to může způsobit problémy při update.
+- Větší změna, která patří pouze do hlavní aplikace `sys_apps` / hlavního menu a není samostatnou změnou pluginu ani JBLibs, má běžně zvýšit verzi hlavní aplikace.
+- Kompatibilní oprava nebo menší provozní změna používá patch verzi; větší nová funkce hlavní aplikace minor verzi; nekompatibilní nebo zásadní architektonická změna major verzi.
+- Drobné změny uvnitř právě rozpracované a dosud nevydané verze nemusí zakládat další verzi, ale musí být uvedené v jejím changelogu.
+- Hlavní verze je uvedená v `changelog.md`, `libs/app/cfg.py` a badge v `readme.md`. Všechny tři hodnoty musí být stejné, jinak může vzniknout problém při update.
+- Verze pluginů a JBLibs se spravují samostatně; jejich změna sama o sobě automaticky neznamená zvýšení hlavní verze, pokud nejde zároveň o větší uživatelskou změnu `sys_apps`.
 
 ## verze knihoven
 

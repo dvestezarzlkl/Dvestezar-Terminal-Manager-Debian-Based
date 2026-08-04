@@ -1,0 +1,68 @@
+name: Test runtime dependencies
+
+on:
+  pull_request:
+    paths:
+      - "setup.sh"
+      - "libs/JBLibs"
+      - ".github/workflows/test-runtime-dependencies.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "setup.sh"
+      - "libs/JBLibs"
+      - ".github/workflows/test-runtime-dependencies.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Initialize mandatory JBLibs submodule
+        run: git submodule update --init --checkout -- libs/JBLibs
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install project runtime requirements
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Prepare application log directory
+        run: |
+          sudo mkdir -p /var/log/jb_sys_apps
+          sudo chown "$(id -u):$(id -g)" /var/log/jb_sys_apps
+
+      - name: Validate setup and lsof failure handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n setup.sh
+          grep -Eq 'for pkg in .*lsof' setup.sh
+          python - <<'PY'
+          from unittest.mock import patch
+
+          from libs.JBLibs import __version__
+          from libs.JBLibs.sftp import mounts
+
+          assert __version__ == "1.2.17"
+
+          with patch.object(mounts.os.path, "ismount", return_value=True), patch.object(
+              mounts.subprocess, "run", side_effect=FileNotFoundError
+          ):
+              try:
+                  mounts.can_umount("/mnt/test")
+              except RuntimeError as exc:
+                  assert "sudo apt install lsof" in str(exc)
+              else:
+                  raise AssertionError("Missing lsof must raise a focused RuntimeError")
+          PY

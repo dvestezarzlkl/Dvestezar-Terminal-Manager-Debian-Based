@@ -52,8 +52,8 @@ check_and_install_python310() {
         echo "Python 3.10 je již nainstalován."
     fi
 
-    # Kontrola a instalace podpůrných balíčků (i při existujícím Pythonu)
-    for pkg in python3.10-venv python3.10-distutils python3.10-dev; do
+    # Kontrola a instalace systémových runtime balíčků (i při existujícím Pythonu)
+    for pkg in python3.10-venv python3.10-distutils python3.10-dev lsof; do
         if ! dpkg -s "$pkg" &>/dev/null; then
             echo "Instaluji chybějící balík: $pkg"
             sudo apt install -y "$pkg"
