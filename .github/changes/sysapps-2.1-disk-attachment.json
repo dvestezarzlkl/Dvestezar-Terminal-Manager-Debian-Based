@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Keep one current host attachment per physical disk",
+  "replacements": [
+    {
+      "path": "libs/app/hub/migrations/002_disk_inventory.sql",
+      "old": "    UNIQUE KEY `uq_host_disk` (`host_id`, `disk_id`),\n    UNIQUE KEY `uq_host_disk_device` (`host_id`, `device_name`),",
+      "new": "    UNIQUE KEY `uq_host_disk` (`disk_id`),\n    UNIQUE KEY `uq_host_disk_device` (`host_id`, `device_name`),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                        cursor.execute(\n                            f\"DELETE FROM {host_disks} WHERE host_id=%s \"\n                            \"AND (disk_id=%s OR device_name=%s)\",\n                            (host_id, disk_id, item.device_name),\n                        )",
+      "new": "                        cursor.execute(\n                            f\"DELETE FROM {host_disks} WHERE disk_id=%s \"\n                            \"OR (host_id=%s AND device_name=%s)\",\n                            (disk_id, host_id, item.device_name),\n                        )",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertTrue(any(\"`hub_host_disks`\" in item for item in disks))",
+      "new": "        self.assertTrue(any(\"`hub_host_disks`\" in item for item in disks))\n        self.assertTrue(any(\"UNIQUE KEY `uq_host_disk` (`disk_id`)\" in item for item in disks))",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "- tabulka `host_disks` dovolí sledovat fyzický přesun stejného disku mezi servery,",
+      "new": "- tabulka `host_disks` drží jedinou aktuální vazbu disku; synchronizace na novém hostu automaticky nahradí starý host a dovolí sledovat fyzický přesun,",
+      "expected": 1
+    }
+  ]
+}
