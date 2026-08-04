@@ -135,7 +135,7 @@ class NodeRedHandoverMailTests(unittest.TestCase):
         self.assertIn("Competition image 03", text_body)
         self.assertIn("arena-control", text_body)
         self.assertIn("git@git.example.test:node-red/arena-control.git", text_body)
-        self.assertIn("Hesla", text_body)
+        self.assertIn(handover_mail.TXT_HANDOVER_SECRET_NOTICE, text_body)
         self.assertIn("Competition arena", html_body)
         self.assertNotIn("$2b$secret-hash", text_body)
         self.assertNotIn("$2b$secret-hash", html_body)
