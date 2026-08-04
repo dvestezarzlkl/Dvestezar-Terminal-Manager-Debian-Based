@@ -53,6 +53,16 @@ class HubRuntimeTests(unittest.TestCase):
             jblibs_version="1.2.16",
         )
 
+    def test_provider_key_must_be_a_stable_lowercase_identifier(self):
+        runtime = HubRuntime()
+        collector = lambda context: None
+        runtime.register_provider("node_red", collector)
+
+        for invalid in ("", "NodeRed", "node-red", "../node", "node red"):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "Invalid SysApps Hub provider"):
+                    runtime.register_provider(invalid, collector)
+
     def test_provider_failure_does_not_block_other_provider(self):
         runtime = HubRuntime()
         item = HubNodeRedInstance(
