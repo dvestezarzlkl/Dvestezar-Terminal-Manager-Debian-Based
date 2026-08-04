@@ -82,6 +82,10 @@ class SettingsPackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Wrong package password"):
             decode_encrypted_settings(package, "wrong")
 
+    def test_malformed_transport_is_reported_as_package_error(self):
+        with self.assertRaisesRegex(ValueError, "Invalid SysApps settings package"):
+            decode_encrypted_settings("SYSAPP1E:%%%not-base64%%%", "password1")
+
     def test_same_revision_with_different_content_is_rejected(self):
         first = export_encrypted_settings("pw", revision=7)
         decoded_first = decode_encrypted_settings(first, "pw")

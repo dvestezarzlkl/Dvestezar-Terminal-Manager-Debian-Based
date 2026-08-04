@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
@@ -319,8 +320,13 @@ def decode_encrypted_settings(package: str, password: str) -> DecodedSettingsPac
     package_hash = _package_sha256(package)
 
     if package.startswith(LEGACY_HUB_PREFIX):
-        values = import_legacy_hub_settings(package, password)
-        normalized = _hub_validate(values)
+        try:
+            values = import_legacy_hub_settings(package, password)
+            normalized = _hub_validate(values)
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError("Invalid legacy SysApps Hub settings package.") from exc
         return DecodedSettingsPackage(
             revision=0,
             created_at="",
@@ -345,7 +351,14 @@ def decode_encrypted_settings(package: str, password: str) -> DecodedSettingsPac
         decoded = json.loads(payload.decode("utf-8"))
     except InvalidTag as exc:
         raise ValueError("Wrong package password or damaged package.") from exc
-    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError,
+        binascii.Error,
+        UnicodeDecodeError,
+    ) as exc:
         if isinstance(exc, ValueError) and str(exc) in {
             "Unsupported package version.",
             "Invalid package parameters.",
