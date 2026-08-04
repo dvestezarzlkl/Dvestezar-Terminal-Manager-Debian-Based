@@ -62,8 +62,7 @@ class NodeRedHandoverData:
     node_red_version: str
     node_js_version: str
     node_js_global: Optional[bool]
-    admin_users: tuple[NodeRedUserAccess, ...]
-    ui_user: str
+    editor_users: tuple[NodeRedUserAccess, ...]
     project: NodeRedProjectInfo
     hostname: str
     fqdn: str
@@ -232,7 +231,7 @@ def _safe_service_bool(service: Any, method_name: str) -> Optional[bool]:
         return None
 
 
-def _admin_users(node_cfg: Any) -> tuple[NodeRedUserAccess, ...]:
+def _editor_users(node_cfg: Any) -> tuple[NodeRedUserAccess, ...]:
     result: list[NodeRedUserAccess] = []
     for user in getattr(node_cfg, "admin_users", []) or []:
         username = _text(getattr(user, "user", ""))
@@ -264,12 +263,6 @@ def collect_handover_data(
     fqdn = _text(getattr(machine, "hostname_full", ""), socket.getfqdn())
     machine_id = _text(getattr(machine, "machine_id", ""))
 
-    ui_user = ""
-    try:
-        ui_user = _text(node_cfg.getUIUserName())
-    except Exception:
-        pass
-
     use_https = bool(getHttps(username) or existsSelfSignedCert(username))
     return NodeRedHandoverData(
         generated_at=generated_at,
@@ -286,8 +279,7 @@ def collect_handover_data(
         node_red_version=instanceVersion(username),
         node_js_version=node_version,
         node_js_global=node_global_value,
-        admin_users=_admin_users(node_cfg),
-        ui_user=ui_user,
+        editor_users=_editor_users(node_cfg),
         project=get_active_project_info(username),
         hostname=hostname,
         fqdn=fqdn,
@@ -337,7 +329,7 @@ def render_handover_mail(
         hostname=data.hostname,
     )
 
-    users = [f"- {user.username}: {user.access}" for user in data.admin_users]
+    users = [f"- {user.username}: {user.access}" for user in data.editor_users]
     if not users:
         users = [f"- {TXT_HANDOVER_NOT_AVAILABLE}"]
 
@@ -365,7 +357,6 @@ def render_handover_mail(
         "",
         TXT_HANDOVER_SECTION_USERS,
         *users,
-        f"{TXT_HANDOVER_UI_USER}: {_value(data.ui_user)}",
         "",
         TXT_HANDOVER_SECTION_PROJECT,
         f"{TXT_HANDOVER_PROJECT_NAME}: {_value(data.project.name)}",
@@ -385,7 +376,7 @@ def render_handover_mail(
 
     user_items = "".join(
         f"<li>{html.escape(user.username)}: {html.escape(user.access)}</li>"
-        for user in data.admin_users
+        for user in data.editor_users
     ) or f"<li>{html.escape(TXT_HANDOVER_NOT_AVAILABLE)}</li>"
 
     html_body = "".join([
@@ -409,9 +400,7 @@ def render_handover_mail(
         row(TXT_HANDOVER_NODE_RED_VERSION, data.node_red_version),
         row(TXT_HANDOVER_NODE_JS_VERSION, _node_js_value(data)),
         "</table>",
-        f"<h3>{html.escape(TXT_HANDOVER_SECTION_USERS)}</h3><ul>{user_items}</ul><table>",
-        row(TXT_HANDOVER_UI_USER, data.ui_user),
-        "</table>",
+        f"<h3>{html.escape(TXT_HANDOVER_SECTION_USERS)}</h3><ul>{user_items}</ul>",
         f"<h3>{html.escape(TXT_HANDOVER_SECTION_PROJECT)}</h3><table>",
         row(TXT_HANDOVER_PROJECT_NAME, data.project.name),
         row(TXT_HANDOVER_PROJECT_REMOTE, data.project.remote),

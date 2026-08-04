@@ -2,6 +2,8 @@
 
 ## v1.9.7
 
+- FIX Node-RED uživatelé jsou správně rozlišeni: předávací protokol uvádí jen uživatele editoru z adminAuth; legacy httpNodeAuth již nevydává za Dashboard 2 uživatele a menu jej označuje jako HTTP Node Auth
+
 - ADD Node-RED Manager umí odeslat bezpečný předávací protokol instance bez hesel: URL, služba, Node-RED/Node.js verze, uživatelé RW/R, projekt a sanitizovaný Git remote i identita zařízení podle Disk Manageru
 
 - FIX společný SMTP transport nyní přidává povinnou RFC Date hlavičku ještě před odesláním; JBLibs submodul aktualizován na verzi 1.2.15

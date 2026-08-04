@@ -27,7 +27,7 @@ class FakeNodeConfig:
     ]
 
     def getUIUserName(self):
-        return "dashboard"
+        raise AssertionError("legacy httpNodeAuth must not be collected as a Dashboard user")
 
 
 class NodeRedHandoverMailTests(unittest.TestCase):
@@ -129,9 +129,11 @@ class NodeRedHandoverMailTests(unittest.TestCase):
         self.assertIn("Node-RED", text_body)
         self.assertIn("4.1.1", text_body)
         self.assertIn("22.23.1", text_body)
+        self.assertIn(handover_mail.TXT_HANDOVER_SECTION_USERS, text_body)
         self.assertIn("admin: RW", text_body)
         self.assertIn("viewer: R", text_body)
-        self.assertIn("dashboard", text_body)
+        self.assertNotIn("dashboard", text_body.lower())
+        self.assertNotIn("dashboard", html_body.lower())
         self.assertIn("Competition image 03", text_body)
         self.assertIn("arena-control", text_body)
         self.assertIn("git@git.example.test:node-red/arena-control.git", text_body)
