@@ -1,0 +1,100 @@
+name: Test SysApps Hub
+
+on:
+  pull_request:
+    paths:
+      - "libs/app/hub/**"
+      - "libs/app/cfg.py"
+      - "libs/app/c_cfg.py"
+      - "libs/app/menus/menuBoss.py"
+      - "libs/app/menus/menu.md"
+      - "libs/app/menus/app_20_node_red/**"
+      - "tests/test_hub_*.py"
+      - "tests/test_node_red_hub_provider.py"
+      - "requirements.txt"
+      - "readme.md"
+      - "changelog.md"
+      - ".github/workflows/test-sysapps-hub.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "libs/app/hub/**"
+      - "libs/app/cfg.py"
+      - "libs/app/c_cfg.py"
+      - "libs/app/menus/menuBoss.py"
+      - "libs/app/menus/app_20_node_red/**"
+      - "tests/test_hub_*.py"
+      - "tests/test_node_red_hub_provider.py"
+      - "requirements.txt"
+      - ".github/workflows/test-sysapps-hub.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: false
+
+      - name: Initialize mandatory JBLibs submodule
+        run: git submodule update --init --checkout -- libs/JBLibs
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install project runtime requirements
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Prepare application log directory
+        run: |
+          sudo mkdir -p /var/log/jb_sys_apps
+          sudo chown "$(id -u):$(id -g)" /var/log/jb_sys_apps
+
+      - name: Compile Hub and integration modules
+        run: |
+          python -m py_compile \
+            libs/app/hub/*.py \
+            libs/app/menus/app_20_node_red/hub_provider.py \
+            libs/app/menus/app_20_node_red/menu.py \
+            libs/app/menus/menuBoss.py \
+            libs/app/c_cfg.py \
+            tests/test_hub_config_package.py \
+            tests/test_hub_schema.py \
+            tests/test_hub_runtime.py \
+            tests/test_node_red_hub_provider.py
+
+      - name: Run Hub tests
+        run: |
+          python -m unittest -v \
+            tests.test_hub_config_package \
+            tests.test_hub_schema \
+            tests.test_hub_runtime \
+            tests.test_node_red_hub_provider
+
+      - name: Verify version and provider contracts
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          cfg = Path("libs/app/cfg.py").read_text(encoding="utf-8")
+          readme = Path("readme.md").read_text(encoding="utf-8")
+          changelog = Path("changelog.md").read_text(encoding="utf-8")
+          menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
+          requirements = Path("requirements.txt").read_text(encoding="utf-8")
+
+          version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
+          assert version == "2.0.0"
+          assert f"v{version}" in readme
+          assert f"## v{version}" in changelog
+          assert '_HUB_PROVIDER_KEY_:str = "node_red"' in menu
+          assert "def hub_collect(context):" in menu
+          assert "PyMySQL==1.2.0" in requirements
+          PY

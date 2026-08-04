@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.0
+
+- ADD SysApps Hub jako centrální MySQL/MariaDB inventář hostů, síťových adres a administračních služeb s neblokujícím health-checkem v hlavní hlavičce
+- ADD verzované SQL migrace s jediným validovaným `{{PREFIX}}`, pevnou allowlist mapou tabulek, SHA-256 kontrolou a explicitní inicializací/upgrade schématu
+- ADD obecný provider kontrakt `_HUB_PROVIDER_KEY_` + `hub_collect(context)`; provideři vrací pouze typované snapshoty a synchronizují se v oddělených transakcích
+- ADD první Node-RED provider ukládá instance, systémové uživatele, porty/URL, Node-RED a Node.js verze, projekty, sanitizované Git remote a editorové uživatele RW/R bez hesel a hashů
+- ADD App settings obsahuje konfiguraci Hubu, ruční Sync all, automatický startup sync a heslem šifrovaný jednořádkový export/import databázového nastavení
+- UPD hlavní verze aplikace na 2.0.0 a runtime závislost PyMySQL 1.2.0
+
 ## v1.9.7
 
 - FIX JBLibs 1.2.16 ukončí `c_menu` po Ctrl+C během čekání na volbu čistě bez tracebacku; KeyboardInterrupt z aktivní akce se dál nepolyká, aby zůstalo zachováno její cleanup/finally chování
