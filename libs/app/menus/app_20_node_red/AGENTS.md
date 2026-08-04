@@ -8,5 +8,7 @@
 - Git remotes in mail are identification data only. Strip embedded URL credentials, query strings, and fragments before rendering or logging them.
 - Device identity must reuse the existing application model: `cfg.machineInfo` plus the system disk PUUID and custom disk/image name from `libs.app.disk_hlp.disk_settings`. Do not introduce a parallel hardware-ID mechanism.
 - One Node-RED instance maps to one system user. Store its delivery contact through the existing user-owned XDG file `~/.config/jb_sys_apps/contact.jsonc` and the hardened `libs.app.user_contact` helper.
-- The protocol should contain service state, Node-RED and Node.js versions, system user, configured Node-RED admin users with RW/R access, optional dashboard user, active project, sanitized Git remote, hostname/FQDN, machine-id, system disk identity, generated timestamp, and SysApp version.
+- `cfg_data.admin_users` maps to Node-RED `adminAuth`: these are editor/Admin API users and the handover protocol labels them as Node-RED editor users with RW/R access.
+- `cfg_data.uiUser` maps to Node-RED `httpNodeAuth`: it is one Basic Auth account for HTTP node endpoints, not Dashboard 2 user management. Do not label or export it as a Dashboard user in the handover protocol. Dashboard 2 authentication is managed separately by its middleware/auth provider.
+- The protocol should contain service state, Node-RED and Node.js versions, system user, configured Node-RED editor users with RW/R access, active project, sanitized Git remote, hostname/FQDN, machine-id, system disk identity, generated timestamp, and SysApp version.
 - Menu text belongs in `lng/default.py` and `lng/cs-CZ.py`. Keep the implementation in a testable helper and the menu callbacks thin.
