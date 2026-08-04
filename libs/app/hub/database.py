@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
+import re
 from typing import Any, Iterator
 
 from .models import (
+    HubDisk,
+    HubDiskNameUpdate,
     HubHostSnapshot,
     HubNodeRedInstance,
     HubProviderSnapshot,
+    HubProviderSyncResult,
     HubState,
     HubStatus,
 )
@@ -15,8 +19,28 @@ from .schema import HubSchemaManager, table_identifier
 from .settings import HubSettings
 
 
+_PTUUID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+_DEVICE_NAME_RE = re.compile(r"^[A-Za-z0-9._:+-]{1,128}$")
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _utc_naive(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if not isinstance(value, datetime):
+        raise TypeError("Expected a datetime value.")
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def _utc_aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _optional_bool(value: Any) -> Any:
@@ -288,9 +312,18 @@ class HubDatabase:
         self,
         machine_id: str,
         snapshot: HubProviderSnapshot,
-    ) -> int:
-        if snapshot.dataset != "node_red_instances":
-            raise ValueError(f"Unsupported Hub dataset: {snapshot.dataset}")
+    ) -> HubProviderSyncResult:
+        if snapshot.dataset == "node_red_instances":
+            return self._sync_node_red_provider(machine_id, snapshot)
+        if snapshot.dataset == "disks":
+            return self._sync_disk_provider(machine_id, snapshot)
+        raise ValueError(f"Unsupported Hub dataset: {snapshot.dataset}")
+
+    def _sync_node_red_provider(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+    ) -> HubProviderSyncResult:
         instances = table_identifier(self.settings, "node_red_instances")
         editor_users = table_identifier(self.settings, "node_red_editor_users")
         now = _utc_now()
@@ -386,7 +419,176 @@ class HubDatabase:
                         len(snapshot.items),
                     )
                 connection.commit()
-                return len(snapshot.items)
+                return HubProviderSyncResult(len(snapshot.items))
+            except Exception:
+                connection.rollback()
+                raise
+
+    def _sync_disk_provider(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+    ) -> HubProviderSyncResult:
+        disks = table_identifier(self.settings, "disks")
+        host_disks = table_identifier(self.settings, "host_disks")
+        now = _utc_now()
+
+        normalized_items: list[HubDisk] = []
+        seen_ptuuids: set[str] = set()
+        seen_devices: set[str] = set()
+        for raw_item in snapshot.items:
+            if not isinstance(raw_item, HubDisk):
+                raise TypeError("Invalid disk Hub provider item.")
+            ptuuid = str(raw_item.ptuuid or "").strip().lower()
+            device_name = str(raw_item.device_name or "").strip()
+            if not _PTUUID_RE.fullmatch(ptuuid):
+                raise ValueError(f"Invalid disk PTUUID: {ptuuid or '<empty>'}")
+            if not _DEVICE_NAME_RE.fullmatch(device_name):
+                raise ValueError(f"Invalid disk device name: {device_name or '<empty>'}")
+            if ptuuid in seen_ptuuids:
+                raise ValueError(
+                    f"Duplicate PTUUID {ptuuid} detected on one host. "
+                    "Check cloned disks before synchronizing."
+                )
+            if device_name in seen_devices:
+                raise ValueError(f"Duplicate disk device name: {device_name}")
+            if len(str(raw_item.display_name or "")) > 64:
+                raise ValueError(f"Disk name is too long for PTUUID {ptuuid}.")
+            if int(raw_item.size_bytes) < 0:
+                raise ValueError(f"Invalid disk size for PTUUID {ptuuid}.")
+            seen_ptuuids.add(ptuuid)
+            seen_devices.add(device_name)
+            normalized_items.append(
+                HubDisk(
+                    ptuuid=ptuuid,
+                    device_name=device_name,
+                    device_path=str(raw_item.device_path or "")[:255],
+                    display_name=str(raw_item.display_name or ""),
+                    name_updated_at=raw_item.name_updated_at,
+                    size_bytes=int(raw_item.size_bytes),
+                    device_type=str(raw_item.device_type or "disk")[:32],
+                    partition_count=max(0, int(raw_item.partition_count)),
+                    mountpoint_count=max(0, int(raw_item.mountpoint_count)),
+                    is_system_disk=bool(raw_item.is_system_disk),
+                )
+            )
+
+        with self.connect() as connection:
+            try:
+                remote_updates: list[HubDiskNameUpdate] = []
+                active_disk_ids: list[int] = []
+                with connection.cursor() as cursor:
+                    host_id = self._host_id(cursor, machine_id)
+                    for item in normalized_items:
+                        cursor.execute(
+                            f"INSERT INTO {disks} "
+                            "(ptuuid, display_name, name_updated_at, size_bytes, "
+                            "first_seen_at, last_seen_at) "
+                            "VALUES (%s, '', NULL, %s, %s, %s) "
+                            "ON DUPLICATE KEY UPDATE "
+                            "size_bytes=VALUES(size_bytes), last_seen_at=VALUES(last_seen_at)",
+                            (item.ptuuid, item.size_bytes, now, now),
+                        )
+                        cursor.execute(
+                            f"SELECT id, display_name, name_updated_at FROM {disks} "
+                            "WHERE ptuuid=%s LIMIT 1",
+                            (item.ptuuid,),
+                        )
+                        row = cursor.fetchone()
+                        if not row:
+                            raise RuntimeError(
+                                f"Cannot resolve synchronized disk {item.ptuuid}."
+                            )
+                        disk_id = int(row[0])
+                        central_name = str(row[1] or "")
+                        central_updated_at = row[2]
+                        local_updated_at = _utc_naive(item.name_updated_at)
+
+                        if local_updated_at is not None:
+                            if (
+                                central_updated_at is None
+                                or local_updated_at > central_updated_at
+                            ):
+                                cursor.execute(
+                                    f"UPDATE {disks} SET display_name=%s, "
+                                    "name_updated_at=%s WHERE id=%s",
+                                    (item.display_name, local_updated_at, disk_id),
+                                )
+                                central_name = item.display_name
+                                central_updated_at = local_updated_at
+                            elif central_name != item.display_name:
+                                remote_updates.append(
+                                    HubDiskNameUpdate(
+                                        item.ptuuid,
+                                        central_name,
+                                        _utc_aware(central_updated_at),
+                                    )
+                                )
+                        elif central_updated_at is not None:
+                            if central_name != item.display_name:
+                                remote_updates.append(
+                                    HubDiskNameUpdate(
+                                        item.ptuuid,
+                                        central_name,
+                                        _utc_aware(central_updated_at),
+                                    )
+                                )
+                        elif item.display_name:
+                            cursor.execute(
+                                f"UPDATE {disks} SET display_name=%s, "
+                                "name_updated_at=%s WHERE id=%s",
+                                (item.display_name, now, disk_id),
+                            )
+
+                        cursor.execute(
+                            f"DELETE FROM {host_disks} WHERE host_id=%s "
+                            "AND (disk_id=%s OR device_name=%s)",
+                            (host_id, disk_id, item.device_name),
+                        )
+                        cursor.execute(
+                            f"INSERT INTO {host_disks} "
+                            "(host_id, disk_id, device_name, device_path, size_bytes, "
+                            "device_type, partition_count, mountpoint_count, "
+                            "is_system_disk, last_seen_at) "
+                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                            (
+                                host_id,
+                                disk_id,
+                                item.device_name,
+                                item.device_path,
+                                item.size_bytes,
+                                item.device_type,
+                                item.partition_count,
+                                item.mountpoint_count,
+                                1 if item.is_system_disk else 0,
+                                now,
+                            ),
+                        )
+                        active_disk_ids.append(disk_id)
+
+                    if active_disk_ids:
+                        placeholders = ",".join(["%s"] * len(active_disk_ids))
+                        cursor.execute(
+                            f"DELETE FROM {host_disks} WHERE host_id=%s "
+                            f"AND disk_id NOT IN ({placeholders})",
+                            (host_id, *active_disk_ids),
+                        )
+                    else:
+                        cursor.execute(
+                            f"DELETE FROM {host_disks} WHERE host_id=%s", (host_id,)
+                        )
+
+                    self._upsert_source(
+                        cursor,
+                        host_id,
+                        snapshot.source_key,
+                        "ok",
+                        len(normalized_items),
+                    )
+                connection.commit()
+                return HubProviderSyncResult(
+                    len(normalized_items), tuple(remote_updates)
+                )
             except Exception:
                 connection.rollback()
                 raise
