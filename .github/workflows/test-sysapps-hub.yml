@@ -16,6 +16,7 @@ on:
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
       - "tests/test_disk_hub_provider.py"
+      - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -39,6 +40,7 @@ on:
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
       - "tests/test_disk_hub_provider.py"
+      - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -93,6 +95,7 @@ jobs:
             tests/test_hub_runtime.py \
             tests/test_settings_package.py \
             tests/test_disk_hub_provider.py \
+            tests/test_disk_settings_sync.py \
             tests/test_node_red_hub_provider.py
 
       - name: Run Hub and central settings tests
@@ -103,6 +106,7 @@ jobs:
             tests.test_hub_runtime \
             tests.test_settings_package \
             tests.test_disk_hub_provider \
+            tests.test_disk_settings_sync \
             tests.test_node_red_hub_provider
 
       - name: Verify version and provider contracts
