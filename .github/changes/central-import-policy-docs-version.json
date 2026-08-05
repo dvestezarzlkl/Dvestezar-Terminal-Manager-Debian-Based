@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "commit_message": "Document centralized import policy and bump version",
+  "replacements": [
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.1.2\"",
+      "new": "VERSION = \"2.2.0\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN\nSETTINGS_LAST_REVISION:int = 0",
+      "new": "SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN\nSETTINGS_IMPORT_POLICY:str = \"{}\"                           # lokální JSON politika skip sekcí/polí; nikdy se neimportuje\nSETTINGS_LAST_REVISION:int = 0",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.1.2",
+      "new": "v2.2.0",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.1.2\n\n- FIX potvrzení po přeskočení konfliktní SMTP sekce vypisuje konkrétní zbývající sekce, například `SysApps Hub`, místo zavádějícího obecného dotazu\n- FIX SysApps Hub",
+      "new": "# Changelog\n\n## v2.2.0\n\n- ADD lokální dynamická politika centrálního importu umožňuje pro každou registrovanou sekci nastavit `Skip`; nové budoucí sekce se v menu zobrazí automaticky\n- ADD SMTP podporuje jemnou lokální výjimku `Skip SMTP From address`, která importuje transportní nastavení, ale zachová odesílatele konkrétního serveru\n- SAFE `SETTINGS_IMPORT_POLICY` je pouze lokální bootstrap a nikdy není součástí `SYSAPP1E`; podpis aplikovaných sekcí zahrnuje přeskočené sekce i zachovaná pole, takže změna politiky znovu vyhodnotí stejnou revision\n- UX potvrzení importu vypisuje konkrétní zbývající sekce a po potvrzení ihned zobrazí `Processing centralized settings import...`, aby pomalejší ARM server nepůsobil zamrzle\n- UPD hlavní verze aplikace na 2.2.0\n\n## v2.1.2\n\n- FIX SysApps Hub",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "SysApps 2.1.2 používá obecný šifrovaný balík",
+      "new": "SysApps 2.2.0 používá obecný šifrovaný balík",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "SETTINGS_ALLOW_HTTP = false\nSETTINGS_LAST_REVISION = 42",
+      "new": "SETTINGS_ALLOW_HTTP = false\nSETTINGS_IMPORT_POLICY = \"{}\"\nSETTINGS_LAST_REVISION = 42",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje ani ochranu proti návratu na starší verzi.",
+      "new": "Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje, lokální importní politiku ani ochranu proti návratu na starší verzi.",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.\n\nHub sekce přenáší také",
+      "new": "Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Náhled zohledňuje lokální importní politiku a ukáže celé přeskočené sekce i jednotlivá pole zachovaná z lokální konfigurace. Po potvrzení se ihned vypíše `Processing centralized settings import...` a výstup se flushne před vlastní aplikací. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.\n\nV menu **Centralized import policy** je pro každou registrovanou sekci dynamická volba `Skip <section>`, výchozí hodnota je `no`. Handler může navíc nabídnout jemnější lokální výjimky; SMTP aktuálně nabízí `Skip SMTP From address`. Přeskočení celé SMTP sekce zachová všechny lokální SMTP hodnoty, zatímco přeskočení pouze From adresy importuje host, port, účet, heslo, režim, fallback i timeout a ponechá lokální `MAIL_FROM`. Politika je uložena v lokálním JSON klíči `SETTINGS_IMPORT_POLICY`, není exportována a po její změně se stejná centrální revision znovu vyhodnotí.\n\nHub sekce přenáší také",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "- úspěšný import uloží revision, SHA-256 a podpis skutečně aplikovaných sekcí; po update klienta se stejný balík znovu aplikuje, pokud nová verze nově podporuje dříve přeskočenou sekci.",
+      "new": "- úspěšný import uloží revision, SHA-256 a podpis výsledné lokální aplikace včetně sekcí přeskočených trvalou politikou a polí zachovaných lokálně; po update klienta nebo změně politiky se stejný balík znovu vyhodnotí, pokud se změnil podporovaný nebo požadovaný rozsah.",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "5. bezpečný preview bez citlivých hodnot.",
+      "new": "5. bezpečný preview bez citlivých hodnot,\n6. volitelný seznam lokálně zachovatelných polí `policy_fields` s mapou na datový a konfigurační klíč.",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, volitelné `SETTINGS_AUTH_USER`/`SETTINGS_AUTH_PASSWORD`, auto-update, lokální revision, SHA-256 a podpis aplikovaných sekcí se nikdy nesmí stát importovatelnou sekcí centrálního balíku.",
+      "new": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, volitelné `SETTINGS_AUTH_USER`/`SETTINGS_AUTH_PASSWORD`, `SETTINGS_IMPORT_POLICY`, auto-update, lokální revision, SHA-256 a podpis aplikovaných sekcí se nikdy nesmí stát importovatelnou sekcí centrálního balíku.",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- SMTP import nesmí tiše přepsat již nastavený odlišný host nebo již nastavenou From adresu.",
+      "new": "- Lokální centralizovaná importní politika musí být dynamická podle registru sekcí: každá sekce podporuje celé `Skip`, handler může deklarovat jemnější `policy_fields`; změna politiky musí zneplatnit lokální podpis aplikace, aby se stejná revision znovu vyhodnotila.\n- SMTP import nesmí tiše přepsat již nastavený odlišný host nebo již nastavenou From adresu.",
+      "expected": 1
+    }
+  ]
+}
