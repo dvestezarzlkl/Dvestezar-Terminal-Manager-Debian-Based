@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "Harden Basic Auth tests and validation",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if \"\\:\" in user:\n        raise ValueError(\"HTTP Basic Auth user must not contain ':'.\")",
+      "new": "    if \":\" in user:\n        raise ValueError(\"HTTP Basic Auth user must not contain ':'.\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_menu.py",
+      "old": "        if \"\\:\" in value or \"\\r\" in value or \"\\n\" in value:",
+      "new": "        if \":\" in value or \"\\r\" in value or \"\\n\" in value:",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    \"SETTINGS_LAST_REVISION\",\n    \"SETTINGS_LAST_SHA256\",",
+      "new": "    \"SETTINGS_AUTH_USER\",\n    \"SETTINGS_AUTH_PASSWORD\",\n    \"SETTINGS_LAST_REVISION\",\n    \"SETTINGS_LAST_SHA256\",",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.MAIL_TIMEOUT = 20\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "new": "        cfg.MAIL_TIMEOUT = 20\n        cfg.SETTINGS_AUTH_USER = \"http-user\"\n        cfg.SETTINGS_AUTH_PASSWORD = \"http-secret\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        self.assertNotIn(\"database-secret\", package)\n        self.assertNotIn(\"smtp-secret\", package)",
+      "new": "        self.assertNotIn(\"database-secret\", package)\n        self.assertNotIn(\"smtp-secret\", package)\n        self.assertNotIn(\"http-user\", package)\n        self.assertNotIn(\"http-secret\", package)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        response = MagicMock()\n        response.geturl.return_value = \"https://config.example/hidden-path\"",
+      "new": "        response = MagicMock()\n        response.__enter__.return_value = response\n        response.__exit__.return_value = False\n        response.geturl.return_value = \"https://config.example/hidden-path\"",
+      "expected": 1
+    }
+  ]
+}
