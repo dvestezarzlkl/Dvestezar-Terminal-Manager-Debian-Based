@@ -19,6 +19,7 @@ on:
       - "tests/test_service_host.py"
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
+      - "tests/test_disk_menu_system_disk.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -45,6 +46,7 @@ on:
       - "tests/test_service_host.py"
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
+      - "tests/test_disk_menu_system_disk.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -116,6 +118,7 @@ jobs:
             tests/test_service_host.py \
             tests/test_disk_hub_provider.py \
             tests/test_disk_settings_sync.py \
+            tests/test_disk_menu_system_disk.py \
             tests/test_node_red_hub_provider.py
 
       - name: Run Hub and central settings tests
@@ -123,9 +126,9 @@ jobs:
           SYSAPPS_TEST_MYSQL: "1"
           SYSAPPS_TEST_MYSQL_HOST: "127.0.0.1"
           SYSAPPS_TEST_MYSQL_PORT: "3306"
-          SYSAPPS_TEST_MYSQL_USER: "root"
-          SYSAPPS_TEST_MYSQL_PASSWORD: "root"
-          SYSAPPS_TEST_MYSQL_DATABASE: "sys_apps_ci"
+          SYSAPPS_TEST_MYSQL_USER: root
+          SYSAPPS_TEST_MYSQL_PASSWORD: root
+          SYSAPPS_TEST_MYSQL_DATABASE: sys_apps_ci
         run: |
           python -m unittest -v \
             tests.test_hub_config_package \
@@ -136,6 +139,7 @@ jobs:
             tests.test_service_host \
             tests.test_disk_hub_provider \
             tests.test_disk_settings_sync \
+            tests.test_disk_menu_system_disk \
             tests.test_node_red_hub_provider
 
       - name: Verify version and provider contracts
@@ -160,7 +164,7 @@ jobs:
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
           assert version == "2.2.1"
-          assert disk_version == "3.6.2"
+          assert disk_version == "3.6.3"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
           assert "SETTINGS_AUTH_USER" in cfg
@@ -180,6 +184,8 @@ jobs:
           assert "catalog_ptuuids" in disk_provider
           assert "prepare_machine_id_for_first_boot" in disk_helper
           assert "Připravit nové Machine ID při prvním bootu" in disk_menu
+          assert "zakázáno: živý systémový disk" in disk_menu
+          assert "lsblk_list_disks(False)" in disk_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu
