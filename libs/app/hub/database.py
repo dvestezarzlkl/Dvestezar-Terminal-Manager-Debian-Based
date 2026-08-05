@@ -441,23 +441,29 @@ class HubDatabase:
                 raise TypeError("Invalid disk Hub provider item.")
             ptuuid = str(raw_item.ptuuid or "").strip().lower()
             device_name = str(raw_item.device_name or "").strip()
+            attached = bool(raw_item.attached)
             if not _PTUUID_RE.fullmatch(ptuuid):
                 raise ValueError(f"Invalid disk PTUUID: {ptuuid or '<empty>'}")
-            if not _DEVICE_NAME_RE.fullmatch(device_name):
+            if attached and not _DEVICE_NAME_RE.fullmatch(device_name):
                 raise ValueError(f"Invalid disk device name: {device_name or '<empty>'}")
+            if not attached and device_name:
+                raise ValueError(
+                    f"Catalog-only disk {ptuuid} must not contain a device name."
+                )
             if ptuuid in seen_ptuuids:
                 raise ValueError(
                     f"Duplicate PTUUID {ptuuid} detected on one host. "
                     "Check cloned disks before synchronizing."
                 )
-            if device_name in seen_devices:
+            if attached and device_name in seen_devices:
                 raise ValueError(f"Duplicate disk device name: {device_name}")
             if len(str(raw_item.display_name or "")) > 64:
                 raise ValueError(f"Disk name is too long for PTUUID {ptuuid}.")
             if int(raw_item.size_bytes) < 0:
                 raise ValueError(f"Invalid disk size for PTUUID {ptuuid}.")
             seen_ptuuids.add(ptuuid)
-            seen_devices.add(device_name)
+            if attached:
+                seen_devices.add(device_name)
             normalized_items.append(
                 HubDisk(
                     ptuuid=ptuuid,
@@ -470,6 +476,7 @@ class HubDatabase:
                     partition_count=max(0, int(raw_item.partition_count)),
                     mountpoint_count=max(0, int(raw_item.mountpoint_count)),
                     is_system_disk=bool(raw_item.is_system_disk),
+                    attached=attached,
                 )
             )
 
@@ -480,15 +487,27 @@ class HubDatabase:
                 with connection.cursor() as cursor:
                     host_id = self._host_id(cursor, machine_id)
                     for item in normalized_items:
-                        cursor.execute(
-                            f"INSERT INTO {disks} "
-                            "(ptuuid, display_name, name_updated_at, size_bytes, "
-                            "first_seen_at, last_seen_at) "
-                            "VALUES (%s, '', NULL, %s, %s, %s) "
-                            "ON DUPLICATE KEY UPDATE "
-                            "size_bytes=VALUES(size_bytes), last_seen_at=VALUES(last_seen_at)",
-                            (item.ptuuid, item.size_bytes, now, now),
-                        )
+                        if item.attached:
+                            cursor.execute(
+                                f"INSERT INTO {disks} "
+                                "(ptuuid, display_name, name_updated_at, size_bytes, "
+                                "first_seen_at, last_seen_at) "
+                                "VALUES (%s, '', NULL, %s, %s, %s) "
+                                "ON DUPLICATE KEY UPDATE "
+                                "size_bytes=VALUES(size_bytes), "
+                                "last_seen_at=VALUES(last_seen_at)",
+                                (item.ptuuid, item.size_bytes, now, now),
+                            )
+                        else:
+                            catalog_seen_at = _utc_naive(item.name_updated_at) or now
+                            cursor.execute(
+                                f"INSERT INTO {disks} "
+                                "(ptuuid, display_name, name_updated_at, size_bytes, "
+                                "first_seen_at, last_seen_at) "
+                                "VALUES (%s, '', NULL, 0, %s, %s) "
+                                "ON DUPLICATE KEY UPDATE ptuuid=VALUES(ptuuid)",
+                                (item.ptuuid, catalog_seen_at, catalog_seen_at),
+                            )
                         cursor.execute(
                             f"SELECT id, display_name, name_updated_at FROM {disks} "
                             "WHERE ptuuid=%s LIMIT 1",
@@ -540,31 +559,32 @@ class HubDatabase:
                                 (item.display_name, now, disk_id),
                             )
 
-                        cursor.execute(
-                            f"DELETE FROM {host_disks} WHERE disk_id=%s "
-                            "OR (host_id=%s AND device_name=%s)",
-                            (disk_id, host_id, item.device_name),
-                        )
-                        cursor.execute(
-                            f"INSERT INTO {host_disks} "
-                            "(host_id, disk_id, device_name, device_path, size_bytes, "
-                            "device_type, partition_count, mountpoint_count, "
-                            "is_system_disk, last_seen_at) "
-                            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                            (
-                                host_id,
-                                disk_id,
-                                item.device_name,
-                                item.device_path,
-                                item.size_bytes,
-                                item.device_type,
-                                item.partition_count,
-                                item.mountpoint_count,
-                                1 if item.is_system_disk else 0,
-                                now,
-                            ),
-                        )
-                        active_disk_ids.append(disk_id)
+                        if item.attached:
+                            cursor.execute(
+                                f"DELETE FROM {host_disks} WHERE disk_id=%s "
+                                "OR (host_id=%s AND device_name=%s)",
+                                (disk_id, host_id, item.device_name),
+                            )
+                            cursor.execute(
+                                f"INSERT INTO {host_disks} "
+                                "(host_id, disk_id, device_name, device_path, size_bytes, "
+                                "device_type, partition_count, mountpoint_count, "
+                                "is_system_disk, last_seen_at) "
+                                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (
+                                    host_id,
+                                    disk_id,
+                                    item.device_name,
+                                    item.device_path,
+                                    item.size_bytes,
+                                    item.device_type,
+                                    item.partition_count,
+                                    item.mountpoint_count,
+                                    1 if item.is_system_disk else 0,
+                                    now,
+                                ),
+                            )
+                            active_disk_ids.append(disk_id)
 
                     if active_disk_ids:
                         placeholders = ",".join(["%s"] * len(active_disk_ids))
