@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commit_message": "Document SysApps 2.1.2 import guards",
+  "replacements": [
+    {
+      "path": "readme.md",
+      "old": "v2.1.1",
+      "new": "v2.1.2",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.1.1",
+      "new": "# Changelog\n\n## v2.1.2\n\n- FIX SysApps Hub se nesynchronizuje bez platného lokálního service host/FQDN; prázdná hodnota i historický placeholder `moje.domena.fake` vrátí stav NOT CONFIGURED a běžná lokální práce zůstane dostupná\n- SAFE ruční import vyžaduje potvrzení před změnou již nastaveného SMTP hostu nebo From adresy; odmítnutí přeskočí celou SMTP sekci a ostatní sekce mohou pokračovat\n- SAFE automatický startup import konfliktní SMTP sekci nepřepíše, ale přeskočí ji s varováním; po odstranění konfliktu lze stejnou revision korektně aplikovat znovu\n- UPD kompatibilní klíč `SERVER_URL` je v UI a dokumentaci označen jako Service host / FQDN a generované URL používají pouze normalizovaný hostname/FQDN/IP\n\n## v2.1.1",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "SysApps 2.1.1 používá obecný šifrovaný balík",
+      "new": "SysApps 2.1.2 používá obecný šifrovaný balík",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.\n\nPůvodní Hub-only balík",
+      "new": "Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.\n\nHub sekce přenáší také `enabled` a `auto_sync`; import tedy nastaví zapnutí Hubu i startup synchronizaci přesně podle exportovaného balíku. Lokální service host/FQDN (`SERVER_URL`) se nepřenáší a musí být nastavený na každém serveru zvlášť, protože může být dostupný jen přes jeho VPN nebo lokální DNS. Bez něj Hub vrátí NOT CONFIGURED a synchronizaci neprovede.\n\nSMTP sekce chrání existující lokální identitu. Pokud je lokální SMTP host nastavený a liší se od importu, ruční import vyžádá potvrzení. Totéž platí pro již nastavenou From adresu; prázdná lokální From adresa se přenastaví bez dotazu. Odmítnutí přeskočí celou SMTP sekci, aby nevznikla nekonzistentní kombinace starého hostu a nového portu, účtu nebo hesla. Ostatní sekce, například Hub, mohou být aplikované dál. Automatický startup import se nemůže ptát, proto konfliktní SMTP sekci přeskočí s varováním. Jakmile se lokální konflikt odstraní, stejná revision se díky podpisu skutečně aplikovaných sekcí znovu vyhodnotí a SMTP lze doplnit.\n\nPůvodní Hub-only balík",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, volitelné `SETTINGS_AUTH_USER`/`SETTINGS_AUTH_PASSWORD`, auto-update, lokální revision, SHA-256 a podpis aplikovaných sekcí se nikdy nesmí stát importovatelnou sekcí centrálního balíku. HTTP credentials patří pouze do Authorization hlavičky, ne do URL; klient z centrální URL pouze čte a export/upload na URL neimplementuj.\n- Obousměrný Hub provider",
+      "new": "- Bootstrap `SETTINGS_URL`, `SETTINGS_PASSWORD`, volitelné `SETTINGS_AUTH_USER`/`SETTINGS_AUTH_PASSWORD`, auto-update, lokální revision, SHA-256 a podpis aplikovaných sekcí se nikdy nesmí stát importovatelnou sekcí centrálního balíku. HTTP credentials patří pouze do Authorization hlavičky, ne do URL; klient z centrální URL pouze čte a export/upload na URL neimplementuj.\n- `SERVER_URL` je kompatibilní historický klíč pro lokální service host/FQDN/IP, nikoli centrální settings URL. Nové hodnoty neobsahují scheme, port ani path; synchronizace Hubu bez platné hodnoty skončí stavem NOT CONFIGURED. Tento lokální údaj se nikdy nepřenáší v SYSAPP1E.\n- SMTP import nesmí tiše přepsat již nastavený odlišný host nebo již nastavenou From adresu. Ruční import vyžaduje potvrzení a automatický import konfliktní SMTP sekci přeskočí jako celek s varováním, zatímco ostatní sekce mohou pokračovat.\n- Obousměrný Hub provider",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- Hub unavailability, missing schema, or provider failure must never block ordinary local sys_apps functions or a successful local Save.",
+      "new": "- Hub unavailability, missing schema, missing local service host/FQDN, or provider failure must never block ordinary local sys_apps functions or a successful local Save. Sync requires a normalized service host so inventory never publishes empty or placeholder service URLs.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/AGENTS.md",
+      "old": "- Build the instance URL from global `cfg.SERVER_URL` and the actual instance port. Use HTTPS only when the selected instance has configured or self-signed HTTPS.",
+      "new": "- Build the instance URL from the normalized local service host stored under the compatible `cfg.SERVER_URL` key and the actual instance port. The value is a hostname/FQDN/IP without scheme, port or path and may resolve only through VPN. Use HTTPS only when the selected instance has configured or self-signed HTTPS.",
+      "expected": 1
+    }
+  ]
+}
