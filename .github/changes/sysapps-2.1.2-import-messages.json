@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Clarify skipped settings import results",
+  "replacements": [
+    {
+      "path": "libs/app/settings_menu.py",
+      "old": "    preview_decoded_settings,\n    validate_settings_url,",
+      "new": "    preview_decoded_settings,\n    registered_settings_sections,\n    validate_settings_url,",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_menu.py",
+      "old": "        current = int(cfg.SETTINGS_LAST_REVISION or 0)\n        downgrade = decoded.revision > 0 and decoded.revision < current\n        scope = \"remaining supported\" if skip_sections else \"supported\"",
+      "new": "        remaining = set(decoded.sections).intersection(\n            registered_settings_sections()\n        ).difference(skip_sections)\n        if not remaining:\n            return True, False\n        current = int(cfg.SETTINGS_LAST_REVISION or 0)\n        downgrade = decoded.revision > 0 and decoded.revision < current\n        scope = \"remaining supported\" if skip_sections else \"supported\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_menu.py",
+      "old": "        sections = \", \".join(report.applied_sections)\n        revision = decoded.revision if decoded.revision else \"legacy\"\n        return onSelReturn(ok=f\"Imported revision {revision}; sections: {sections}.\")",
+      "new": "        revision = decoded.revision if decoded.revision else \"legacy\"\n        if not report.applied_sections:\n            skipped = \", \".join(report.skipped_sections) or \"none\"\n            return onSelReturn(\n                ok=f\"No settings applied from revision {revision}; skipped sections: {skipped}.\"\n            )\n        sections = \", \".join(report.applied_sections)\n        return onSelReturn(ok=f\"Imported revision {revision}; sections: {sections}.\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if not report.changed:\n        return SettingsUpdateResult(\n            False,\n            decoded.revision,\n            \"Central settings are already current.\",\n            report.warnings,\n        )",
+      "new": "    if not report.changed:\n        if report.skipped_sections:\n            message = (\n                f\"Central settings revision {decoded.revision} was not applied; \"\n                \"sections were skipped by local policy.\"\n            )\n        else:\n            message = \"Central settings are already current.\"\n        return SettingsUpdateResult(\n            False, decoded.revision, message, report.warnings\n        )",
+      "expected": 1
+    }
+  ]
+}
