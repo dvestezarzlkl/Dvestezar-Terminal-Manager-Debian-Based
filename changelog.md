@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.1.1
+
+- ADD centrální settings URL podporuje volitelný HTTP Basic Auth přes samostatný lokální bootstrap user/password; přihlašovací údaje nejsou v URL ani v šifrovaném SYSAPP1E balíku
+- SEC Authorization hlavička se při redirectu zachová pouze na stejném scheme/host/port; redirect na jiný origin je zablokovaný a HTTP 401 vrací bezpečnou diagnostiku bez hesel
+- UPD menu, dokumentace a regresní testy pro ISPConfig/Apache endpoint s rewrite a souborem uloženým mimo webroot
+
 ## v2.1.0
 
 - ADD dynamický šifrovaný globální settings package `SYSAPP1E:` se samostatně verzovanými sekcemi; první sekce společně přenášejí SysApps Hub a SMTP, původní `SYSHUB1E:` zůstává kompatibilní pro ruční import

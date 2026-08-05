@@ -1,6 +1,6 @@
 # Centralizovaná nastavení SysApps
 
-SysApps 2.1 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
+SysApps 2.1.1 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
 
 ## Rozdělení konfigurace
 
@@ -15,6 +15,8 @@ Lokální bootstrap se nikdy neimportuje z balíku:
 ```ini
 SETTINGS_URL = "https://config.example/sys_apps/settings.txt"
 SETTINGS_PASSWORD = "..."
+SETTINGS_AUTH_USER = "optional-http-user"
+SETTINGS_AUTH_PASSWORD = "optional-http-password"
 SETTINGS_AUTO_UPDATE = true
 SETTINGS_CONNECT_TIMEOUT = 5
 SETTINGS_ALLOW_HTTP = false
@@ -23,7 +25,7 @@ SETTINGS_LAST_SHA256 = "..."
 SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
 ```
 
-Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo ani ochranu proti návratu na starší verzi.
+Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje ani ochranu proti návratu na starší verzi.
 
 ## Formát po dešifrování
 
@@ -62,7 +64,7 @@ V **App settings → Centralized settings** jsou akce:
 - export šifrovaného balíku,
 - ruční import vloženého řádku,
 - import z nakonfigurované URL,
-- nastavení bootstrap URL, hesla, timeoutu a startup aktualizace.
+- nastavení bootstrap URL, dešifrovacího hesla, volitelného HTTP Basic Auth user/password, timeoutu a startup aktualizace.
 
 Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.
 
@@ -73,11 +75,27 @@ Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ru
 - výchozí a doporučený transport je HTTPS,
 - HTTP lze zapnout pouze explicitní varovnou volbou pro izolovanou LAN,
 - URL nesmí obsahovat vložené jméno ani heslo,
-- kontroluje se i finální URL po redirectu,
+- volitelný HTTP Basic Auth používá samostatné lokální `SETTINGS_AUTH_USER` a `SETTINGS_AUTH_PASSWORD`; klient posílá standardní `Authorization` hlavičku,
+- oba HTTP auth údaje musí být nastavené společně nebo oba prázdné,
+- redirect je povolen pouze v rámci stejného scheme, hostu a portu; Authorization se nikdy nepřenese na jiný origin,
+- HTTP 401 rozlišuje chybějící autentizaci a odmítnuté přihlašovací údaje bez výpisu hesla,
 - platí krátký timeout a limit 64 KiB,
 - klient z URL pouze čte; export nebo upload z klienta není podporovaný.
 
 Centrální soubor může být obsloužen běžným statickým webem spravovaným přes ISPConfig a jeho zálohy. Obsah souboru je jediný šifrovaný řádek vytvořený ručním exportem.
+
+### Doporučené nasazení endpointu
+
+Pro veřejně dosažitelný server je doporučená kombinace:
+
+1. samostatná HTTPS subdoména a dlouhá náhodná veřejná cesta,
+2. ISPConfig/Apache HTTP Basic Auth nad webem nebo fyzickým adresářem,
+3. `Options -Indexes` a přesný rewrite pouze povolené cesty na interní PHP entrypoint,
+4. pevná serverová cesta k `settings.txt` uloženému v private adresáři mimo webroot,
+5. ostatní cesty vracejí 404 a PHP přijímá pouze GET/HEAD,
+6. odpověď používá `text/plain`, `X-Robots-Tag: noindex` a `Cache-Control: no-store`.
+
+Náhodná cesta omezuje hluk ze scannerů, ale není autentizace. Basic Auth chrání stažení a AES-GCM/Scrypt balík chrání důvěrnost i integritu samotných nastavení. Skutečné PHP jméno ani private cesta nemusí být ve veřejné URL vidět.
 
 ## Automatická aktualizace při startu
 
