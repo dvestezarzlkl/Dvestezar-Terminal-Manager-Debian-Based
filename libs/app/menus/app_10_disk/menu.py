@@ -31,6 +31,44 @@ def basicTitle(add:str|list=None, dir:str|Path|None=None) -> c_menu_block_items:
         dir=dir
     )
 
+_DISK_NAME_WIDTH = 34
+_MOUNTPOINT_WIDTH = 24
+
+def _collect_mountpoints(device:lsblkDiskInfo) -> list[str]:
+    """Vrátí unikátní mountpointy zařízení a všech jeho children."""
+    result:list[str] = []
+
+    def collect(current:lsblkDiskInfo) -> None:
+        for mountpoint in current.mountpoints:
+            if mountpoint not in result:
+                result.append(mountpoint)
+        for child in current.children:
+            collect(child)
+
+    collect(device)
+    return result
+
+def _format_mountpoints(device:lsblkDiskInfo, width:int=_MOUNTPOINT_WIDTH) -> str:
+    """Převede skutečné mountpointy na krátký text pro tabulku."""
+    text = ", ".join(_collect_mountpoints(device)) or "-"
+    if width > 3 and len(text) > width:
+        return text[:width - 3] + "..."
+    return text
+
+def _format_disk_display_name(
+    disk:lsblkDiskInfo,
+    width:int=_DISK_NAME_WIDTH,
+) -> str:
+    """Doplní ANSI barevný název podle jeho skutečné viditelné délky."""
+    user_name = disk_settings.find_disk_name(disk.ptuuid)
+    visible = f"{disk.name} {user_name if user_name else '-unnamed-'}"
+    colored = c_other.getDiskDisplayName(disk)
+    return colored + (" " * max(0, width - len(visible)))
+
+def _can_write_whole_disk(disk:lsblkDiskInfo|None) -> bool:
+    """Celodiskové zapisující operace jsou zakázané na živém systému."""
+    return bool(disk is not None and not disk.isSystemDisk)
+
 class c_mountpointSelector:    
     def __init__(self, curDir:Path, minMenuWidth:int=80) -> None:
         self.curDir=curDir
@@ -176,7 +214,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.2"
+    _VERSION_:str="3.6.3"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -205,11 +243,16 @@ class menu(c_menu):
             self.menu.append( c_menu_item("Connect .img file as loop device", "+", self.addImg) )
             # self.menu.append( c_menu_item("SWAP manager", "-", m_swap_manager()) )
             
-            ls=lsblk_list_disks(True)
+            # Systémový disk zobrazujeme kompletní, ale zapisující operace
+            # na něm zůstávají zakázané v menu i v samotných callback funkcích.
+            ls=lsblk_list_disks(False)
             if ls:
                 choice=0
                 self.menu.append( c_menu_title_label( text_color("Select Disk", color=en_color.BRIGHT_CYAN)) )
-                tit=f"{'Name':<30} | {'Size':>10} | {'Type':>8} | {'Partitions':>12} | {'Mountpoints':>12}"
+                tit=(
+                    f"{'Name':<{_DISK_NAME_WIDTH}} | {'Size':>10} | {'Type':>8} | "
+                    f"{'Partitions':>12} | {'Mountpoints':>{_MOUNTPOINT_WIDTH}}"
+                )
                 self.menu.append( c_menu_item(text_color(tit, color=en_color.BRIGHT_BLACK)) )
                 self.menu.append( c_menu_item(text_color("-" * len(tit), color=en_color.BRIGHT_BLACK)) )
                 for d in ls:
@@ -218,19 +261,16 @@ class menu(c_menu):
                         if di.size==0: # pokud je to nový disk tak nemá partition, pokud je to jen prázdná čtečka tak má size 0
                             continue
                     
-                    disk_name_display = c_other.getDiskDisplayName(di)
+                    disk_name_display = _format_disk_display_name(di)
                     part=len(di.children)
                     if di.type=="loop" and di.mountpoints:
                         # pokud je loop device a má mountpointy, tak se jedná o připojený image jako partition
                         part="<img:>" + di.mountpoints[0] # stačí jen první mountpoint
                     
-                    mps=len(di.mountpoints)
-                    if di.children:
-                        for p in di.children:
-                            if p.mountpoints:
-                                mps+=len(p.mountpoints)
+                    mountpoints = _format_mountpoints(di)
                     self.menu.append( c_menu_item(
-                        f"{disk_name_display:<30} | {bytesTx(di.size):>10} | {di.type:>8} | {part:>12} | {mps if mps>0 else '-':>12}",
+                        f"{disk_name_display} | {bytesTx(di.size):>10} | {di.type:>8} | "
+                        f"{part:>12} | {mountpoints:>{_MOUNTPOINT_WIDTH}}",
                         f"{choice:02}",
                         m_disk_oper(),
                         data=di
@@ -354,28 +394,49 @@ class m_disk_oper(c_menu):
             else:
                 self.menu.append( c_menu_item("Připojeno jako partition, umount image", "u", self.umonunt_partition,data=disk.name) )                
         
-        # záloha smart backup, parmagic, naše smart a raw zálohy atd.
+        # Celodisková záloha/obnova živého systému není konzistentní a obnova
+        # by byla destruktivní. Název a read-only přehled partition zůstávají dostupné.
         if not loopDev or (loopDev and not loopIsPartAndMounted):
-            self.menu.append( c_menu_item("Zálohovat disk", "b", self.backup_disk) )
-            self.menu.append( c_menu_item("Obnovit disk ze zálohy", "r", self.restore_disk) )
-            self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )            
-                
-            if not disk.isSystemDisk:
+            if _can_write_whole_disk(disk):
+                self.menu.append( c_menu_item("Zálohovat disk", "b", self.backup_disk) )
+                self.menu.append( c_menu_item("Obnovit disk ze zálohy", "r", self.restore_disk) )
+            else:
+                self.menu.append( c_menu_item(
+                    text_color("Zálohovat disk", color=en_color.BRIGHT_BLACK),
+                    atRight="zakázáno: živý systémový disk"
+                ) )
+                self.menu.append( c_menu_item(
+                    text_color("Obnovit disk ze zálohy", color=en_color.BRIGHT_BLACK),
+                    atRight="zakázáno: živý systémový disk"
+                ) )
+
+            self.menu.append( c_menu_item("Přejmenovat disk", "n", self.rename_disk) )
+
+            if _can_write_whole_disk(disk):
                 self.menu.append( c_menu_item("Vygeneruj nové ID disku", "i", self.generate_new_disk_id) )
             else:
-                self.menu.append( c_menu_item(text_color("Pro systémové disky nelze generovat nové ID", color=en_color.BRIGHT_RED)) )
+                self.menu.append( c_menu_item(
+                    text_color("Vygeneruj nové ID disku", color=en_color.BRIGHT_BLACK),
+                    atRight="zakázáno: systémový disk"
+                ) )
         
         if disk.children:
             self.menu.append( c_menu_title_label(text_color("Partitions", color=en_color.BRIGHT_CYAN)) )
-            tit = f"{'Name':<15} | {'Size':>10} | {'Type':>8} | {'Filesystem':>12} | {'Mountpoint':>12}"
+            tit = (
+                f"{'Name':<15} | {'Size':>10} | {'Type':>8} | {'Filesystem':>12} | "
+                f"{'Mountpoint':>{_MOUNTPOINT_WIDTH}}"
+            )
             self.menu.append( c_menu_item(text_color(tit, color=en_color.BRIGHT_BLACK)))
             self.menu.append( c_menu_item(text_color("-" * len(tit), color=en_color.BRIGHT_BLACK)))
             
             choice=0
             for part in disk.children:
-                mp=len(part.mountpoints) if part.haveMountPoints else (part.mountpoints[0] if part.mountpoints else "-")
+                mp = _format_mountpoints(part)
                 fs_type=part.fstype if part.fstype else "-"
-                imn=c_menu_item(f"{part.name:<15} | {bytesTx(part.size):>10} | {part.type:>8} | {fs_type:>12} | {mp:>12}")
+                imn=c_menu_item(
+                    f"{part.name:<15} | {bytesTx(part.size):>10} | {part.type:>8} | "
+                    f"{fs_type:>12} | {mp:>{_MOUNTPOINT_WIDTH}}"
+                )
                 if part.type=="part" and part.fstype in ["ext4","ext3","ext2"] and not part.isSystemDisk:
                     imn.choice=f"{choice:02}"
                     imn.onSelect=m_disk_part()
@@ -480,8 +541,11 @@ class m_disk_oper(c_menu):
         return ret.okRet("Jméno disku bylo odstraněno.")
     
     def backup_disk(self,selItem:c_menu_item) -> None|onSelReturn:
-        """Zálohuje celý disk.
-        """
+        """Zálohuje celý disk."""
+        if not _can_write_whole_disk(self.diskInfo):
+            return onSelReturn(
+                err="Zálohu celého živého systémového disku nelze bezpečně vytvořit. Použijte offline image nebo snapshot."
+            )
         x=c_other.selectBkType(disk=True,minMenuWidth=self.minMenuWidth)
         if x is None:
             return onSelReturn(err="Zrušeno uživatelem.")
@@ -555,8 +619,11 @@ class m_disk_oper(c_menu):
         return True # vše ok výběr je platný
                 
     def restore_disk(self,selItem:c_menu_item) -> None|onSelReturn:
-        """Obnoví celý disk ze zálohy.
-        """
+        """Obnoví celý disk ze zálohy."""
+        if not _can_write_whole_disk(self.diskInfo):
+            return onSelReturn(
+                err="Obnovu nelze spustit na živém systémovém disku. Nabootujte z jiného média."
+            )
         # select adresář se zálohou
         bkpDir=selectDir(
             str(disk_settings.BKP_DIR),
