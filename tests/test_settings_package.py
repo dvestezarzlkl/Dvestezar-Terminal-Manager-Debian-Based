@@ -8,13 +8,18 @@ from libs.app.hub.config_package import export_encrypted_settings as export_lega
 from libs.app.hub.settings import HubSettings
 from libs.app.settings_package import (
     DecodedSettingsPackage,
+    SettingsImportPolicy,
     SettingsSectionHandler,
     apply_decoded_settings,
     decode_encrypted_settings,
     detect_import_conflicts,
     download_settings_package,
     export_encrypted_settings,
+    load_settings_import_policy,
     preview_decoded_settings,
+    serialize_settings_import_policy,
+    settings_section_label,
+    settings_section_policy_fields,
     update_from_central_url,
     validate_settings_url,
 )
@@ -42,6 +47,7 @@ _CONFIG_KEYS = (
     "SETTINGS_AUTH_PASSWORD",
     "SETTINGS_URL",
     "SETTINGS_PASSWORD",
+    "SETTINGS_IMPORT_POLICY",
     "SETTINGS_LAST_REVISION",
     "SETTINGS_LAST_SHA256",
     "SETTINGS_LAST_APPLIED",
@@ -72,6 +78,7 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.SETTINGS_AUTH_PASSWORD = "http-secret"
         cfg.SETTINGS_URL = ""
         cfg.SETTINGS_PASSWORD = ""
+        cfg.SETTINGS_IMPORT_POLICY = "{}"
         cfg.SETTINGS_LAST_REVISION = 0
         cfg.SETTINGS_LAST_SHA256 = ""
         cfg.SETTINGS_LAST_APPLIED = ""
@@ -79,6 +86,24 @@ class SettingsPackageTests(unittest.TestCase):
     def tearDown(self):
         for key, value in self.previous.items():
             setattr(cfg, key, value)
+
+    def test_registered_section_labels_are_human_readable(self):
+        self.assertEqual(settings_section_label("hub"), "SysApps Hub")
+        self.assertEqual(settings_section_label("smtp"), "SMTP")
+        self.assertEqual(settings_section_label("future_section"), "future_section")
+
+    def test_import_policy_roundtrip_and_registered_fields(self):
+        policy = SettingsImportPolicy(
+            skip_fields=(("smtp", ("from_address",)),)
+        )
+        cfg.SETTINGS_IMPORT_POLICY = serialize_settings_import_policy(policy)
+        loaded = load_settings_import_policy()
+        self.assertEqual(loaded, policy)
+        fields = settings_section_policy_fields("smtp")
+        self.assertEqual(
+            [(item.key, item.config_key) for item in fields],
+            [("from_address", "MAIL_FROM")],
+        )
 
     def test_roundtrip_contains_hub_and_smtp_without_plaintext_secrets(self):
         package = export_encrypted_settings("package-password", revision=42)
@@ -167,6 +192,87 @@ class SettingsPackageTests(unittest.TestCase):
             cfg.SETTINGS_LAST_APPLIED, "hub:1,sftp_backup:1,smtp:1"
         )
         apply_sftp.assert_called_once_with({"profile": "central_backup"})
+
+    def test_local_policy_skips_smtp_and_same_revision_retries_after_change(self):
+        cfg.HUB_AUTO_SYNC = False
+        cfg.MAIL_SMTP_HOST = "central.example.test"
+        cfg.MAIL_FROM = "central@example.test"
+        package = export_encrypted_settings("pw", revision=50)
+        decoded = decode_encrypted_settings(package, "pw")
+
+        cfg.HUB_AUTO_SYNC = True
+        cfg.MAIL_SMTP_HOST = "local.example.test"
+        cfg.MAIL_FROM = "local@example.test"
+        policy = SettingsImportPolicy(skip_sections=("smtp",))
+        with patch("libs.app.settings_package.cfg.save"):
+            report = apply_decoded_settings(decoded, import_policy=policy)
+
+        self.assertTrue(report.changed)
+        self.assertFalse(cfg.HUB_AUTO_SYNC)
+        self.assertEqual(cfg.MAIL_SMTP_HOST, "local.example.test")
+        self.assertEqual(cfg.MAIL_FROM, "local@example.test")
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1,smtp:skip")
+
+        cfg.SETTINGS_LAST_APPLIED = ""
+        with patch("libs.app.settings_package.cfg.save"):
+            retried = apply_decoded_settings(
+                decoded, import_policy=SettingsImportPolicy()
+            )
+
+        self.assertTrue(retried.changed)
+        self.assertEqual(cfg.MAIL_SMTP_HOST, "central.example.test")
+        self.assertEqual(cfg.MAIL_FROM, "central@example.test")
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1,smtp:1")
+
+    def test_local_policy_preserves_only_smtp_from_address(self):
+        cfg.MAIL_SMTP_HOST = "central.example.test"
+        cfg.MAIL_SMTP_PORT = 465
+        cfg.MAIL_SMTP_MODE = "ssl"
+        cfg.MAIL_FROM = "central@example.test"
+        package = export_encrypted_settings("pw", revision=51)
+        decoded = decode_encrypted_settings(package, "pw")
+
+        cfg.MAIL_SMTP_HOST = "local.example.test"
+        cfg.MAIL_SMTP_PORT = 587
+        cfg.MAIL_SMTP_MODE = "starttls"
+        cfg.MAIL_FROM = "local@example.test"
+        policy = SettingsImportPolicy(
+            skip_fields=(("smtp", ("from_address",)),)
+        )
+
+        conflicts = detect_import_conflicts(decoded, policy)
+        self.assertEqual(
+            {item.field_key for item in conflicts},
+            {"host"},
+        )
+        preview = "\n".join(preview_decoded_settings(decoded, policy))
+        self.assertIn("local policy keeps SMTP From address", preview)
+
+        with patch("libs.app.settings_package.cfg.save"):
+            report = apply_decoded_settings(decoded, import_policy=policy)
+
+        self.assertTrue(report.changed)
+        self.assertEqual(cfg.MAIL_SMTP_HOST, "central.example.test")
+        self.assertEqual(cfg.MAIL_SMTP_PORT, 465)
+        self.assertEqual(cfg.MAIL_SMTP_MODE, "ssl")
+        self.assertEqual(cfg.MAIL_FROM, "local@example.test")
+        self.assertEqual(
+            cfg.SETTINGS_LAST_APPLIED,
+            "hub:1,smtp:1[keep=from_address]",
+        )
+
+    def test_local_policy_can_record_revision_with_all_sections_skipped(self):
+        package = export_encrypted_settings("pw", revision=52)
+        decoded = decode_encrypted_settings(package, "pw")
+        policy = SettingsImportPolicy(skip_sections=("hub", "smtp"))
+
+        with patch("libs.app.settings_package.cfg.save"):
+            report = apply_decoded_settings(decoded, import_policy=policy)
+
+        self.assertTrue(report.changed)
+        self.assertEqual(report.applied_sections, ())
+        self.assertEqual(cfg.SETTINGS_LAST_REVISION, 52)
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:skip,smtp:skip")
 
     def test_wrong_password_is_rejected(self):
         package = export_encrypted_settings("correct", revision=1)

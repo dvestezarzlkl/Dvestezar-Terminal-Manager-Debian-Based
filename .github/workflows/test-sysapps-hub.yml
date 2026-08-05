@@ -155,16 +155,21 @@ jobs:
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
-          assert version == "2.1.2"
+          assert version == "2.2.0"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
           assert "SETTINGS_AUTH_USER" in cfg
           assert "SETTINGS_AUTH_PASSWORD" in cfg
+          assert "SETTINGS_IMPORT_POLICY" in cfg
           assert "_SameOriginRedirectHandler" in settings_package
           assert 'add_unredirected_header("Authorization"' in settings_package
+          assert "SettingsImportPolicy" in settings_package
+          assert "policy_fields" in settings_package
           assert "detect_import_conflicts" in settings_package
           assert "sections were skipped by local policy" in settings_package
           assert "HTTP Basic Auth user" in settings_menu
+          assert "Centralized import policy" in settings_menu
+          assert "Processing centralized settings import" in settings_menu
           assert "No settings applied from revision" in settings_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu

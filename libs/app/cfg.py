@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.1.2"
+VERSION = "2.2.0"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -52,6 +52,7 @@ SETTINGS_AUTH_PASSWORD:str = ""                             # volitelné HTTP Ba
 SETTINGS_AUTO_UPDATE:bool = False                           # při startu použije pouze vyšší revision
 SETTINGS_CONNECT_TIMEOUT:int = 5                            # timeout stažení v sekundách
 SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN
+SETTINGS_IMPORT_POLICY:str = "{}"                           # lokální JSON politika skip sekcí/polí; nikdy se neimportuje
 SETTINGS_LAST_REVISION:int = 0                              # poslední úspěšně aplikovaná vzdálená revision
 SETTINGS_LAST_SHA256:str  = ""                              # hash balíku chrání před změnou obsahu stejné revision
 SETTINGS_LAST_APPLIED:str = ""                              # podpis skutečně aplikovaných sekcí a jejich verzí

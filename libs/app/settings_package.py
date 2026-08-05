@@ -42,6 +42,27 @@ _EMAIL_RE = re.compile(
 
 
 @dataclass(frozen=True)
+class SettingsPolicyField:
+    key: str
+    label: str
+    data_key: str
+    config_key: str
+
+
+@dataclass(frozen=True)
+class SettingsImportPolicy:
+    skip_sections: tuple[str, ...] = ()
+    skip_fields: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def fields_for(self, section_key: str) -> tuple[str, ...]:
+        key = str(section_key or "")
+        for current_key, fields in self.skip_fields:
+            if current_key == key:
+                return fields
+        return ()
+
+
+@dataclass(frozen=True)
 class SettingsSectionHandler:
     key: str
     label: str
@@ -51,6 +72,7 @@ class SettingsSectionHandler:
     validator: Callable[[dict[str, Any]], dict[str, Any]]
     applier: Callable[[dict[str, Any]], None]
     previewer: Callable[[dict[str, Any]], str]
+    policy_fields: tuple[SettingsPolicyField, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,11 +124,114 @@ def register_settings_section(handler: SettingsSectionHandler) -> None:
     current = _SECTIONS.get(handler.key)
     if current is not None and current != handler:
         raise ValueError(f"Duplicate settings section: {handler.key}")
+    policy_keys: set[str] = set()
+    for item in handler.policy_fields:
+        if not isinstance(item, SettingsPolicyField):
+            raise TypeError("Invalid settings policy field.")
+        if not _SECTION_KEY_RE.fullmatch(item.key):
+            raise ValueError(f"Invalid settings policy field: {item.key}")
+        if not _SECTION_KEY_RE.fullmatch(item.data_key):
+            raise ValueError(f"Invalid settings policy data key: {item.data_key}")
+        if item.config_key not in handler.config_keys:
+            raise ValueError(
+                f"Settings policy field {item.key} uses unknown config key {item.config_key}."
+            )
+        if item.key in policy_keys:
+            raise ValueError(
+                f"Duplicate settings policy field {item.key} in {handler.key}."
+            )
+        policy_keys.add(item.key)
     _SECTIONS[handler.key] = handler
 
 
 def registered_settings_sections() -> tuple[str, ...]:
     return tuple(sorted(_SECTIONS))
+
+
+def settings_section_label(section_key: str) -> str:
+    key = str(section_key or "")
+    handler = _SECTIONS.get(key)
+    return handler.label if handler is not None else key
+
+
+def settings_section_policy_fields(
+    section_key: str,
+) -> tuple[SettingsPolicyField, ...]:
+    handler = _SECTIONS.get(str(section_key or ""))
+    return handler.policy_fields if handler is not None else ()
+
+
+def load_settings_import_policy() -> SettingsImportPolicy:
+    raw = str(getattr(cfg, "SETTINGS_IMPORT_POLICY", "") or "").strip()
+    if not raw:
+        return SettingsImportPolicy()
+    if len(raw) > 8192:
+        raise ValueError("Local centralized import policy is too large.")
+    try:
+        decoded = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Local centralized import policy is invalid JSON.") from exc
+    if not isinstance(decoded, dict):
+        raise ValueError("Local centralized import policy must be an object.")
+
+    raw_sections = decoded.get("skip_sections", [])
+    raw_fields = decoded.get("skip_fields", {})
+    if not isinstance(raw_sections, list) or not isinstance(raw_fields, dict):
+        raise ValueError("Local centralized import policy has invalid structure.")
+    if len(raw_sections) > 128 or len(raw_fields) > 128:
+        raise ValueError("Local centralized import policy is too large.")
+
+    sections: set[str] = set()
+    for raw_key in raw_sections:
+        key = str(raw_key or "")
+        if not _SECTION_KEY_RE.fullmatch(key):
+            raise ValueError(f"Invalid import policy section key: {key}")
+        sections.add(key)
+
+    field_entries: list[tuple[str, tuple[str, ...]]] = []
+    for raw_section, raw_keys in raw_fields.items():
+        section_key = str(raw_section or "")
+        if not _SECTION_KEY_RE.fullmatch(section_key) or not isinstance(raw_keys, list):
+            raise ValueError("Local centralized field policy is invalid.")
+        if len(raw_keys) > 128:
+            raise ValueError("Local centralized field policy is too large.")
+        keys: set[str] = set()
+        for raw_key in raw_keys:
+            key = str(raw_key or "")
+            if not _SECTION_KEY_RE.fullmatch(key):
+                raise ValueError(f"Invalid import policy field key: {key}")
+            keys.add(key)
+        if keys:
+            field_entries.append((section_key, tuple(sorted(keys))))
+
+    return SettingsImportPolicy(
+        tuple(sorted(sections)), tuple(sorted(field_entries))
+    )
+
+
+def serialize_settings_import_policy(policy: SettingsImportPolicy) -> str:
+    if not isinstance(policy, SettingsImportPolicy):
+        raise TypeError("Invalid centralized import policy.")
+    fields = {
+        section_key: list(keys)
+        for section_key, keys in policy.skip_fields
+        if keys
+    }
+    if not policy.skip_sections and not fields:
+        return "{}"
+    return json.dumps(
+        {
+            "skip_sections": list(policy.skip_sections),
+            "skip_fields": fields,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def set_settings_import_policy(policy: SettingsImportPolicy) -> None:
+    cfg.SETTINGS_IMPORT_POLICY = serialize_settings_import_policy(policy)
 
 
 def _b64_encode(value: bytes) -> str:
@@ -231,7 +356,12 @@ def _smtp_preview(data: dict[str, Any]) -> str:
 
 def detect_import_conflicts(
     decoded: DecodedSettingsPackage,
+    import_policy: SettingsImportPolicy | None = None,
 ) -> tuple[SettingsImportConflict, ...]:
+    policy = import_policy or load_settings_import_policy()
+    if "smtp" in policy.skip_sections:
+        return ()
+    skipped_fields = set(policy.fields_for("smtp"))
     section = decoded.sections.get("smtp")
     if not isinstance(section, dict) or int(section.get("version", 0)) != 1:
         return ()
@@ -249,7 +379,11 @@ def detect_import_conflicts(
 
     current_from = str(getattr(cfg, "MAIL_FROM", "") or "").strip().lower()
     incoming_from = incoming["from_address"]
-    if current_from and current_from != incoming_from:
+    if (
+        "from_address" not in skipped_fields
+        and current_from
+        and current_from != incoming_from
+    ):
         conflicts.append(
             SettingsImportConflict(
                 "smtp",
@@ -316,6 +450,14 @@ register_settings_section(
         validator=_smtp_validate,
         applier=_smtp_apply,
         previewer=_smtp_preview,
+        policy_fields=(
+            SettingsPolicyField(
+                key="from_address",
+                label="SMTP From address",
+                data_key="from_address",
+                config_key="MAIL_FROM",
+            ),
+        ),
     )
 )
 
@@ -457,22 +599,59 @@ def decode_encrypted_settings(package: str, password: str) -> DecodedSettingsPac
     )
 
 
+def _preserve_policy_fields(
+    handler: SettingsSectionHandler,
+    data: dict[str, Any],
+    import_policy: SettingsImportPolicy,
+) -> tuple[dict[str, Any], tuple[str, ...], tuple[str, ...]]:
+    requested = set(import_policy.fields_for(handler.key))
+    if not requested:
+        return data, (), ()
+    available = {item.key: item for item in handler.policy_fields}
+    merged = dict(data)
+    preserved: list[str] = []
+    warnings: list[str] = []
+    for key in sorted(requested):
+        field = available.get(key)
+        if field is None:
+            warnings.append(
+                f"Unknown local import policy field ignored for {handler.key}: {key}"
+            )
+            continue
+        merged[field.data_key] = getattr(cfg, field.config_key)
+        preserved.append(key)
+    return handler.validator(merged), tuple(preserved), tuple(warnings)
+
+
 def _prepare_sections(
     decoded: DecodedSettingsPackage,
     skip_sections: tuple[str, ...] = (),
+    import_policy: SettingsImportPolicy | None = None,
 ) -> tuple[
-    list[tuple[SettingsSectionHandler, dict[str, Any]]],
+    list[tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]],
     tuple[str, ...],
     tuple[str, ...],
 ]:
-    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]] = []
+    policy = import_policy or load_settings_import_policy()
+    prepared: list[
+        tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]
+    ] = []
     skipped: list[str] = []
     warnings: list[str] = []
-    skip_set = {str(key) for key in skip_sections}
+    explicit_skip = {str(key) for key in skip_sections}
+    policy_skip = set(policy.skip_sections)
+    skip_set = explicit_skip.union(policy_skip)
     for key, section in sorted(decoded.sections.items()):
         if key in skip_set:
             skipped.append(key)
-            warnings.append(f"Settings section skipped by local import policy: {key}")
+            if key in policy_skip:
+                warnings.append(
+                    f"Settings section skipped by local centralized policy: {settings_section_label(key)}"
+                )
+            else:
+                warnings.append(
+                    f"Settings section skipped for this import: {settings_section_label(key)}"
+                )
             continue
         handler = _SECTIONS.get(key)
         if handler is None:
@@ -486,30 +665,56 @@ def _prepare_sections(
                 f"Unsupported {key} section version {version}; expected {handler.version}."
             )
             continue
-        prepared.append((handler, handler.validator(section["data"])))
+        data = handler.validator(section["data"])
+        data, preserved_fields, field_warnings = _preserve_policy_fields(
+            handler, data, policy
+        )
+        warnings.extend(field_warnings)
+        prepared.append((handler, data, preserved_fields))
     return prepared, tuple(skipped), tuple(warnings)
 
 
 def _section_signature(
-    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]],
+    prepared: list[
+        tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]
+    ],
+    policy_skipped: tuple[str, ...] = (),
 ) -> str:
-    return ",".join(
-        f"{handler.key}:{handler.version}" for handler, _ in prepared
+    parts: list[str] = []
+    for handler, _, preserved_fields in prepared:
+        suffix = (
+            f"[keep={'+'.join(preserved_fields)}]"
+            if preserved_fields
+            else ""
+        )
+        parts.append(f"{handler.key}:{handler.version}{suffix}")
+    parts.extend(f"{key}:skip" for key in policy_skipped)
+    return ",".join(sorted(parts))
+
+
+def preview_decoded_settings(
+    decoded: DecodedSettingsPackage,
+    import_policy: SettingsImportPolicy | None = None,
+) -> tuple[str, ...]:
+    policy = import_policy or load_settings_import_policy()
+    prepared, skipped, warnings = _prepare_sections(
+        decoded, import_policy=policy
     )
-
-
-def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:
-    prepared, skipped, warnings = _prepare_sections(decoded)
-    if not prepared:
+    if not prepared and not set(policy.skip_sections).intersection(decoded.sections):
         raise ValueError("Package contains no supported settings sections.")
     lines = [
         f"Revision: {decoded.revision if decoded.revision else 'legacy'}",
         f"Created: {decoded.created_at or 'not available'}",
     ]
-    for handler, data in prepared:
-        lines.append(f"{handler.label}: {handler.previewer(data)}")
+    for handler, data, preserved_fields in prepared:
+        line = f"{handler.label}: {handler.previewer(data)}"
+        if preserved_fields:
+            labels = {item.key: item.label for item in handler.policy_fields}
+            kept = ", ".join(labels.get(key, key) for key in preserved_fields)
+            line += f"; local policy keeps {kept}"
+        lines.append(line)
     for key in skipped:
-        lines.append(f"Skipped section: {key}")
+        lines.append(f"Skipped section: {settings_section_label(key)}")
     lines.extend(f"Warning: {warning}" for warning in warnings)
     return tuple(lines)
 
@@ -520,16 +725,24 @@ def apply_decoded_settings(
     force: bool = False,
     skip_sections: tuple[str, ...] = (),
     extra_warnings: tuple[str, ...] = (),
+    import_policy: SettingsImportPolicy | None = None,
 ) -> SettingsApplyReport:
-    prepared, skipped, warnings = _prepare_sections(decoded, skip_sections)
+    policy = import_policy or load_settings_import_policy()
+    prepared, skipped, warnings = _prepare_sections(
+        decoded, skip_sections, policy
+    )
     warnings = tuple(warnings) + tuple(extra_warnings)
-    if not prepared:
-        if set(skip_sections).intersection(decoded.sections):
+    transient_skip = set(skip_sections).intersection(decoded.sections)
+    policy_skipped = tuple(
+        sorted(set(policy.skip_sections).intersection(decoded.sections))
+    )
+    if not prepared and not policy_skipped:
+        if transient_skip:
             return SettingsApplyReport(
                 False, decoded.revision, (), skipped, warnings
             )
         raise ValueError("Package contains no supported settings sections.")
-    signature = _section_signature(prepared)
+    signature = _section_signature(prepared, policy_skipped)
     current_revision = int(getattr(cfg, "SETTINGS_LAST_REVISION", 0) or 0)
     current_hash = str(getattr(cfg, "SETTINGS_LAST_SHA256", "") or "")
     current_applied = str(getattr(cfg, "SETTINGS_LAST_APPLIED", "") or "")
@@ -554,7 +767,7 @@ def apply_decoded_settings(
 
     config_keys = {
         key
-        for handler, _ in prepared
+        for handler, _, _ in prepared
         for key in handler.config_keys
     }
     config_keys.update({
@@ -565,7 +778,7 @@ def apply_decoded_settings(
     previous = {key: getattr(cfg, key) for key in config_keys}
 
     try:
-        for handler, data in prepared:
+        for handler, data, _ in prepared:
             handler.applier(data)
         if decoded.revision > 0:
             cfg.SETTINGS_LAST_REVISION = decoded.revision
@@ -585,7 +798,7 @@ def apply_decoded_settings(
     return SettingsApplyReport(
         True,
         decoded.revision,
-        tuple(handler.key for handler, _ in prepared),
+        tuple(handler.key for handler, _, _ in prepared),
         skipped,
         warnings,
     )
@@ -751,7 +964,8 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
                 "The remote package reuses the current revision with different content."
             )
 
-    conflicts = detect_import_conflicts(decoded)
+    import_policy = load_settings_import_policy()
+    conflicts = detect_import_conflicts(decoded, import_policy)
     skip_sections = tuple(sorted({item.section_key for item in conflicts}))
     conflict_warnings = (
         (_automatic_conflict_warning(conflicts),) if conflicts else ()
@@ -762,6 +976,7 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         force=force,
         skip_sections=skip_sections,
         extra_warnings=conflict_warnings,
+        import_policy=import_policy,
     )
     if not report.changed:
         if report.skipped_sections:
@@ -774,10 +989,15 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         return SettingsUpdateResult(
             False, decoded.revision, message, report.warnings
         )
+    message = (
+        f"Applied central settings revision {decoded.revision}."
+        if report.applied_sections
+        else f"Recorded central settings revision {decoded.revision}; all supported sections are skipped by local policy."
+    )
     return SettingsUpdateResult(
         True,
         decoded.revision,
-        f"Applied central settings revision {decoded.revision}.",
+        message,
         report.warnings,
     )
 

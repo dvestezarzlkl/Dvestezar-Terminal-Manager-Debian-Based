@@ -13,13 +13,18 @@ from libs.app import cfg
 from libs.app.hub.runtime import hub_runtime
 from libs.app.settings_package import (
     DecodedSettingsPackage,
+    SettingsImportPolicy,
     apply_decoded_settings,
     decode_encrypted_settings,
     detect_import_conflicts,
     download_settings_package,
     export_encrypted_settings,
+    load_settings_import_policy,
     preview_decoded_settings,
     registered_settings_sections,
+    set_settings_import_policy,
+    settings_section_label,
+    settings_section_policy_fields,
     validate_settings_url,
 )
 
@@ -44,12 +49,66 @@ class SettingsPackageMenu(c_menu):
         else:
             auth_state = "off"
         last_hash = str(cfg.SETTINGS_LAST_SHA256 or "")
+        try:
+            import_policy = load_settings_import_policy()
+            policy_error = ""
+        except ValueError as exc:
+            import_policy = SettingsImportPolicy()
+            policy_error = str(exc)
+        policy_count = len(import_policy.skip_sections) + sum(
+            len(fields) for _, fields in import_policy.skip_fields
+        )
+        policy_items: list[c_menu_item] = [
+            c_menu_title_label(
+                text_color("Centralized import policy", en_color.CYAN)
+            )
+        ]
+        for section_index, section_key in enumerate(
+            registered_settings_sections(), start=1
+        ):
+            section_skipped = section_key in import_policy.skip_sections
+            policy_items.append(
+                c_menu_item(
+                    f"Skip {settings_section_label(section_key)}",
+                    f"sk{section_index}",
+                    self.toggle_import_policy,
+                    data=("section", section_key),
+                    atRight="yes" if section_skipped else "no",
+                )
+            )
+            skipped_fields = set(import_policy.fields_for(section_key))
+            for field_index, field in enumerate(
+                settings_section_policy_fields(section_key), start=1
+            ):
+                policy_items.append(
+                    c_menu_item(
+                        f"Skip {field.label}",
+                        f"sk{section_index}f{field_index}",
+                        self.toggle_import_policy,
+                        data=("field", section_key, field.key),
+                        atRight="yes" if field.key in skipped_fields else "no",
+                        enabled=not section_skipped,
+                    )
+                )
+        if policy_error:
+            policy_items.append(
+                c_menu_item(
+                    text_color("Reset invalid import policy", en_color.BRIGHT_YELLOW),
+                    "skr",
+                    self.reset_import_policy,
+                    atRight="invalid",
+                )
+            )
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(("Centralized settings", "c"))
         self.subTitle = c_menu_block_items()
         self.subTitle.append(("URL", url or "not set"))
         self.subTitle.append(("HTTP Basic Auth", auth_state))
         self.subTitle.append(("Automatic update", "on" if cfg.SETTINGS_AUTO_UPDATE else "off"))
+        self.subTitle.append((
+            "Local import policy",
+            policy_error or (f"{policy_count} skip rule(s)" if policy_count else "default"),
+        ))
         self.subTitle.append(("Last revision", str(cfg.SETTINGS_LAST_REVISION or 0)))
         self.subTitle.append(("Last SHA-256", last_hash[:16] if last_hash else "not set"))
         self.menu = [
@@ -109,6 +168,8 @@ class SettingsPackageMenu(c_menu):
                 self.toggle_allow_http,
                 atRight="on" if cfg.SETTINGS_ALLOW_HTTP else "off",
             ),
+            None,
+            *policy_items,
             None,
             c_menu_title_label(text_color("Settings package", en_color.CYAN)),
             c_menu_item(
@@ -274,6 +335,67 @@ class SettingsPackageMenu(c_menu):
         self._save()
         return onSelReturn(ok="HTTP policy updated.")
 
+    def toggle_import_policy(self, selItem: c_menu_item) -> onSelReturn:
+        try:
+            policy = load_settings_import_policy()
+        except ValueError as exc:
+            return onSelReturn().errRet(str(exc))
+        data = selItem.data
+        if not isinstance(data, tuple) or len(data) < 2:
+            return onSelReturn().errRet("Invalid import policy item.")
+
+        sections = set(policy.skip_sections)
+        fields = {
+            section_key: set(keys)
+            for section_key, keys in policy.skip_fields
+        }
+        kind = str(data[0])
+        section_key = str(data[1])
+        if kind == "section" and len(data) == 2:
+            if section_key in sections:
+                sections.remove(section_key)
+            else:
+                sections.add(section_key)
+        elif kind == "field" and len(data) == 3:
+            field_key = str(data[2])
+            allowed = {
+                item.key for item in settings_section_policy_fields(section_key)
+            }
+            if field_key not in allowed:
+                return onSelReturn().errRet("Unknown import policy field.")
+            section_fields = fields.setdefault(section_key, set())
+            if field_key in section_fields:
+                section_fields.remove(field_key)
+            else:
+                section_fields.add(field_key)
+            if not section_fields:
+                fields.pop(section_key, None)
+        else:
+            return onSelReturn().errRet("Invalid import policy item.")
+
+        updated = SettingsImportPolicy(
+            tuple(sorted(sections)),
+            tuple(
+                sorted(
+                    (key, tuple(sorted(values)))
+                    for key, values in fields.items()
+                    if values
+                )
+            ),
+        )
+        set_settings_import_policy(updated)
+        cfg.SETTINGS_LAST_APPLIED = ""
+        self._save()
+        return onSelReturn(ok="Centralized import policy updated.")
+
+    def reset_import_policy(self, selItem: c_menu_item) -> onSelReturn:
+        if not confirm("Reset all local centralized import skip rules?"):
+            return onSelReturn().errRet("Cancelled.")
+        set_settings_import_policy(SettingsImportPolicy())
+        cfg.SETTINGS_LAST_APPLIED = ""
+        self._save()
+        return onSelReturn(ok="Centralized import policy reset.")
+
     def _package_password(self) -> tuple[str | None, bool]:
         if cfg.SETTINGS_PASSWORD and confirm(
             "Use the configured central settings password for this package?"
@@ -284,16 +406,22 @@ class SettingsPackageMenu(c_menu):
         )
         return value, False
 
-    def _print_preview(self, decoded: DecodedSettingsPackage) -> None:
+    def _print_preview(
+        self,
+        decoded: DecodedSettingsPackage,
+        import_policy: SettingsImportPolicy,
+    ) -> None:
         print(text_color("Settings package preview", en_color.BRIGHT_CYAN, bold=True))
-        for line in preview_decoded_settings(decoded):
+        for line in preview_decoded_settings(decoded, import_policy):
             print(f" - {line}")
 
     def _resolve_import_conflicts(
-        self, decoded: DecodedSettingsPackage
+        self,
+        decoded: DecodedSettingsPackage,
+        import_policy: SettingsImportPolicy,
     ) -> tuple[str, ...]:
         skipped: set[str] = set()
-        for conflict in detect_import_conflicts(decoded):
+        for conflict in detect_import_conflicts(decoded, import_policy):
             current = conflict.current_value or "not set"
             incoming = conflict.incoming_value or "not set"
             replace = confirm(
@@ -307,35 +435,52 @@ class SettingsPackageMenu(c_menu):
     def _confirm_import(
         self,
         decoded: DecodedSettingsPackage,
+        import_policy: SettingsImportPolicy,
         skip_sections: tuple[str, ...] = (),
     ) -> tuple[bool, bool]:
-        remaining = set(decoded.sections).intersection(
-            registered_settings_sections()
-        ).difference(skip_sections)
+        effective_skip = set(skip_sections).union(import_policy.skip_sections)
+        remaining = sorted(
+            set(decoded.sections)
+            .intersection(registered_settings_sections())
+            .difference(effective_skip)
+        )
         if not remaining:
             return True, False
+        labels = ", ".join(settings_section_label(key) for key in remaining)
+        qualifier = "remaining " if effective_skip else ""
+        noun = "section" if len(remaining) == 1 else "sections"
         current = int(cfg.SETTINGS_LAST_REVISION or 0)
         downgrade = decoded.revision > 0 and decoded.revision < current
-        scope = "remaining supported" if skip_sections else "supported"
         if downgrade:
             ok = confirm(
-                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade to the {scope} settings sections?"
+                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade to {qualifier}settings {noun}: {labels}?"
             )
             return ok, True
-        return confirm(f"Apply the {scope} settings sections shown above?"), False
+        return confirm(
+            f"Apply {qualifier}settings {noun}: {labels}?"
+        ), False
 
     def _apply_import(
         self,
         decoded: DecodedSettingsPackage,
+        import_policy: SettingsImportPolicy,
         allow_downgrade: bool,
         skip_sections: tuple[str, ...] = (),
     ) -> onSelReturn:
+        print(
+            text_color(
+                "Processing centralized settings import...",
+                en_color.BRIGHT_CYAN,
+            ),
+            flush=True,
+        )
         try:
             report = apply_decoded_settings(
                 decoded,
                 allow_downgrade=allow_downgrade,
                 force=True,
                 skip_sections=skip_sections,
+                import_policy=import_policy,
             )
             hub_runtime.refresh_status()
         except (TypeError, ValueError) as exc:
@@ -388,14 +533,19 @@ class SettingsPackageMenu(c_menu):
             return onSelReturn().errRet("Package password is required.")
         try:
             decoded = decode_encrypted_settings(package, password)
-            self._print_preview(decoded)
+            import_policy = load_settings_import_policy()
+            self._print_preview(decoded, import_policy)
         except (TypeError, ValueError) as exc:
             return onSelReturn().errRet(str(exc))
-        skip_sections = self._resolve_import_conflicts(decoded)
-        confirmed, downgrade = self._confirm_import(decoded, skip_sections)
+        skip_sections = self._resolve_import_conflicts(decoded, import_policy)
+        confirmed, downgrade = self._confirm_import(
+            decoded, import_policy, skip_sections
+        )
         if not confirmed:
             return onSelReturn().errRet("Cancelled.")
-        return self._apply_import(decoded, downgrade, skip_sections)
+        return self._apply_import(
+            decoded, import_policy, downgrade, skip_sections
+        )
 
     def import_from_url(self, selItem: c_menu_item) -> onSelReturn:
         if not cfg.SETTINGS_URL or not cfg.SETTINGS_PASSWORD:
@@ -411,11 +561,16 @@ class SettingsPackageMenu(c_menu):
                 str(cfg.SETTINGS_AUTH_PASSWORD or ""),
             )
             decoded = decode_encrypted_settings(package, cfg.SETTINGS_PASSWORD)
-            self._print_preview(decoded)
+            import_policy = load_settings_import_policy()
+            self._print_preview(decoded, import_policy)
         except Exception as exc:
             return onSelReturn().errRet(str(exc))
-        skip_sections = self._resolve_import_conflicts(decoded)
-        confirmed, downgrade = self._confirm_import(decoded, skip_sections)
+        skip_sections = self._resolve_import_conflicts(decoded, import_policy)
+        confirmed, downgrade = self._confirm_import(
+            decoded, import_policy, skip_sections
+        )
         if not confirmed:
             return onSelReturn().errRet("Cancelled.")
-        return self._apply_import(decoded, downgrade, skip_sections)
+        return self._apply_import(
+            decoded, import_policy, downgrade, skip_sections
+        )

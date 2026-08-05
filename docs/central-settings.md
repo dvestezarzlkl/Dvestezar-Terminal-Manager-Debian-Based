@@ -1,6 +1,6 @@
 # Centralizovaná nastavení SysApps
 
-SysApps 2.1.2 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
+SysApps 2.2.0 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
 
 ## Rozdělení konfigurace
 
@@ -20,12 +20,13 @@ SETTINGS_AUTH_PASSWORD = "optional-http-password"
 SETTINGS_AUTO_UPDATE = true
 SETTINGS_CONNECT_TIMEOUT = 5
 SETTINGS_ALLOW_HTTP = false
+SETTINGS_IMPORT_POLICY = "{}"
 SETTINGS_LAST_REVISION = 42
 SETTINGS_LAST_SHA256 = "..."
 SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
 ```
 
-Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje ani ochranu proti návratu na starší verzi.
+Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje, lokální importní politiku ani ochranu proti návratu na starší verzi.
 
 ## Formát po dešifrování
 
@@ -66,7 +67,9 @@ V **App settings → Centralized settings** jsou akce:
 - import z nakonfigurované URL,
 - nastavení bootstrap URL, dešifrovacího hesla, volitelného HTTP Basic Auth user/password, timeoutu a startup aktualizace.
 
-Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.
+Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Náhled zohledňuje lokální importní politiku a ukáže celé přeskočené sekce i jednotlivá pole zachovaná z lokální konfigurace. Po potvrzení se ihned vypíše `Processing centralized settings import...` a výstup se flushne před vlastní aplikací. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.
+
+V menu **Centralized import policy** je pro každou registrovanou sekci dynamická volba `Skip <section>`, výchozí hodnota je `no`. Handler může navíc nabídnout jemnější lokální výjimky; SMTP aktuálně nabízí `Skip SMTP From address`. Přeskočení celé SMTP sekce zachová všechny lokální SMTP hodnoty, zatímco přeskočení pouze From adresy importuje host, port, účet, heslo, režim, fallback i timeout a ponechá lokální `MAIL_FROM`. Politika je uložena v lokálním JSON klíči `SETTINGS_IMPORT_POLICY`, není exportována a po její změně se stejná centrální revision znovu vyhodnotí.
 
 Hub sekce přenáší také `enabled` a `auto_sync`; import tedy nastaví zapnutí Hubu i startup synchronizaci přesně podle exportovaného balíku. Lokální service host/FQDN (`SERVER_URL`) se nepřenáší a musí být nastavený na každém serveru zvlášť, protože může být dostupný jen přes jeho VPN nebo lokální DNS. Bez něj Hub vrátí NOT CONFIGURED a synchronizaci neprovede.
 
@@ -155,16 +158,17 @@ Startup aktualizace běží po načtení lokálního `config.ini`, ale před Hub
 - stejná revision s jiným obsahem je chyba,
 - nižší revision se automaticky nikdy neaplikuje,
 - nedostupná URL, špatné heslo nebo vadný balík pouze vypíše varování a aplikace pokračuje s posledním lokálním nastavením,
-- úspěšný import uloží revision, SHA-256 a podpis skutečně aplikovaných sekcí; po update klienta se stejný balík znovu aplikuje, pokud nová verze nově podporuje dříve přeskočenou sekci.
+- úspěšný import uloží revision, SHA-256 a podpis výsledné lokální aplikace včetně sekcí přeskočených trvalou politikou a polí zachovaných lokálně; po update klienta nebo změně politiky se stejný balík znovu vyhodnotí, pokud se změnil podporovaný nebo požadovaný rozsah.
 
 ## Přidání nové sekce
 
-Nová sekce registruje stabilní klíč, verzi a pět kontraktů:
+Nová sekce registruje stabilní klíč, verzi a šest kontraktů:
 
 1. seznam konfiguračních klíčů pro rollback,
 2. exportér,
 3. validátor a normalizátor,
 4. applier bez samostatného `cfg.save()`,
-5. bezpečný preview bez citlivých hodnot.
+5. bezpečný preview bez citlivých hodnot,
+6. volitelný seznam lokálně zachovatelných polí `policy_fields` s mapou na datový a konfigurační klíč.
 
 Budoucí `sftp_backup` bude obsahovat pouze globální profil cíle. Konkrétní aplikace, například Node-RED nebo Disk Manager, budou na profil pouze odkazovat a vytvořený artefakt předají společné transportní vrstvě. Privátní klíč ani heslo nebude vlastnit jednotlivý provider.

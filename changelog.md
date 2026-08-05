@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.0
+
+- ADD lokální dynamická politika centrálního importu umožňuje pro každou registrovanou sekci nastavit `Skip`; nové budoucí sekce se v menu zobrazí automaticky
+- ADD SMTP podporuje jemnou lokální výjimku `Skip SMTP From address`, která importuje transportní nastavení, ale zachová odesílatele konkrétního serveru
+- SAFE `SETTINGS_IMPORT_POLICY` je pouze lokální bootstrap a nikdy není součástí `SYSAPP1E`; podpis aplikovaných sekcí zahrnuje přeskočené sekce i zachovaná pole, takže změna politiky znovu vyhodnotí stejnou revision
+- UX potvrzení importu vypisuje konkrétní zbývající sekce a po potvrzení ihned zobrazí `Processing centralized settings import...`, aby pomalejší ARM server nepůsobil zamrzle
+- UPD hlavní verze aplikace na 2.2.0
+
 ## v2.1.2
 
 - FIX SysApps Hub se nesynchronizuje bez platného lokálního service host/FQDN; prázdná hodnota i historický placeholder `moje.domena.fake` vrátí stav NOT CONFIGURED a běžná lokální práce zůstane dostupná
