@@ -162,7 +162,7 @@ Startup aktualizace běží po načtení lokálního `config.ini`, ale před Hub
 
 ## Přidání nové sekce
 
-Nová sekce registruje stabilní klíč, verzi a pět kontraktů:
+Nová sekce registruje stabilní klíč, verzi a šest kontraktů:
 
 1. seznam konfiguračních klíčů pro rollback,
 2. exportér,
