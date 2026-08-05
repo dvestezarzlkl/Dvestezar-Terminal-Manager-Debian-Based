@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "commit_message": "Clarify service host UI and generated URLs",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "from libs.app.settings_package import startup_settings_update\nimport os,string",
+      "new": "from libs.app.settings_package import startup_settings_update\nfrom libs.app.service_host import configured_service_host, validate_service_host\nimport os,string",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                atRight=cfg.SERVER_URL or \"not set\",",
+      "new": "                atRight=configured_service_host() or \"not set\",",
+      "expected": 2
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        self.subTitle.append((\"URL\", cfg.SERVER_URL or \"not set\"))",
+      "new": "        self.subTitle.append((\"Service host / FQDN\", configured_service_host() or \"not set\"))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                text_color(\"Server URL\", en_color.BRIGHT_CYAN),",
+      "new": "                text_color(\"Service host / FQDN\", en_color.BRIGHT_CYAN),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    def edit_server_url(self, selItem:c_menu_item) -> onSelReturn:\n        current = (cfg.SERVER_URL or \"\").strip()\n        fqdn = \"\"\n        if getattr(cfg, \"machineInfo\", None):\n            fqdn = (cfg.machineInfo.hostname_full or cfg.machineInfo.static_hostname or \"\").strip()\n\n        opts = []\n        if fqdn:\n            opts.append(select_item(f\"Use FQDN ({fqdn})\", data=fqdn))\n\n        seen_ips = set()\n        for iface in getInterfaces():\n            ip = (getattr(iface, \"ipv4\", \"\") or \"\").strip()\n            if not ip or ip.startswith((\"127.\", \"0.\", \"169.254.\")):\n                continue\n            if ip in seen_ips:\n                continue\n            seen_ips.add(ip)\n            label = f\"Use IPv4 ({iface.name}: {ip})\"\n            opts.append(select_item(label, data=ip))\n\n        opts.append(select_item(\"Manual entry\", data=\"manual\"))\n        for opt in opts:\n            if opt.data == current:\n                opt.atRight = \"current\"\n\n        sel = select(\"Select SERVER_URL source:\", opts)\n        if not sel:\n            return onSelReturn().errRet(\"Cancelled.\")\n\n        new_url = \"\"\n        if sel.item.data == \"manual\":\n            note = \"\\n\".join([\n                \"SERVER_URL is used without a port.\",\n                \"Enter only a hostname, FQDN, IP address, or path.\",\n                \"Do not include http://, https://, or :PORT.\",\n            ])\n            value = get_input(\n                \"Enter SERVER_URL:\",\n                accept_empty=False,\n                maxLen=255,\n                titleNote=note,\n                rgx=r\"^[^:\\s]+$\",\n                errTx=\"SERVER_URL must not contain a port or spaces.\",\n            )\n            if value is None:\n                return onSelReturn().errRet(\"Cancelled.\")\n            new_url = value.strip()\n        else:\n            new_url = str(sel.item.data).strip()\n\n        if not new_url:\n            return onSelReturn().errRet(\"SERVER_URL cannot be empty.\")\n\n        cfg.SERVER_URL = new_url\n        self._save()\n        return onSelReturn(ok=f\"SERVER_URL updated to {new_url}.\")",
+      "new": "    def edit_server_url(self, selItem:c_menu_item) -> onSelReturn:\n        current = configured_service_host()\n        fqdn = \"\"\n        if getattr(cfg, \"machineInfo\", None):\n            fqdn = (cfg.machineInfo.hostname_full or cfg.machineInfo.static_hostname or \"\").strip()\n\n        opts = []\n        if fqdn:\n            opts.append(select_item(f\"Use FQDN ({fqdn})\", data=fqdn))\n\n        seen_ips = set()\n        for iface in getInterfaces():\n            ip = (getattr(iface, \"ipv4\", \"\") or \"\").strip()\n            if not ip or ip.startswith((\"127.\", \"0.\", \"169.254.\")):\n                continue\n            if ip in seen_ips:\n                continue\n            seen_ips.add(ip)\n            opts.append(select_item(f\"Use IPv4 ({iface.name}: {ip})\", data=ip))\n\n        opts.append(select_item(\"Manual entry or clear\", data=\"manual\"))\n        for opt in opts:\n            if opt.data == current:\n                opt.atRight = \"current\"\n\n        sel = select(\"Select service host / FQDN source:\", opts)\n        if not sel:\n            return onSelReturn().errRet(\"Cancelled.\")\n\n        if sel.item.data == \"manual\":\n            value = get_input(\n                \"Enter service host / FQDN (empty clears):\",\n                accept_empty=True,\n                maxLen=255,\n                titleNote=(\n                    \"This is the hostname, FQDN or IP used to present Node-RED and other service URLs.\\n\"\n                    \"It may resolve only through VPN. Do not include scheme, port or path.\\n\"\n                    \"An empty value disables SysApps Hub synchronization until configured.\"\n                ),\n            )\n            if value is None:\n                return onSelReturn().errRet(\"Cancelled.\")\n            try:\n                service_host = validate_service_host(value)\n            except ValueError as exc:\n                return onSelReturn().errRet(str(exc))\n        else:\n            try:\n                service_host = validate_service_host(sel.item.data)\n            except ValueError as exc:\n                return onSelReturn().errRet(str(exc))\n\n        cfg.SERVER_URL = service_host\n        self._save()\n        hub_runtime.refresh_status()\n        if not service_host:\n            return onSelReturn(ok=\"Service host cleared; Hub synchronization is disabled until it is configured.\")\n        return onSelReturn(ok=f\"Service host / FQDN updated to {service_host}.\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/appHelper.py",
+      "old": "from .instanceHelper import getHttps,existsSelfSignedCert\nfrom typing import Union,List",
+      "new": "from .instanceHelper import getHttps,existsSelfSignedCert\nfrom .service_host import configured_service_host\nfrom typing import Union,List",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/appHelper.py",
+      "old": "        if not self.titleDisableURL:\n            # URL\n            s.append((          \n                TX_HD_URL,\n                ( 'http' if self.sslStatus==0 else 'https' ) + \"://\" + cfg.SERVER_URL+( ((\":\"+str(port)) if port else \":XXXX\"))\n            ))",
+      "new": "        if not self.titleDisableURL:\n            service_host = configured_service_host()\n            if service_host:\n                if \":\" in service_host and not service_host.startswith(\"[\"):\n                    service_host = f\"[{service_host}]\"\n                service_url = (\n                    ('http' if self.sslStatus == 0 else 'https')\n                    + \"://\"\n                    + service_host\n                    + ((\":\" + str(port)) if port else \":XXXX\")\n                )\n            else:\n                service_url = \"not set\"\n            s.append((TX_HD_URL, service_url))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/instanceHelper.py",
+      "old": "from libs.JBLibs.helper import userExists,getLogger,getUserHome\nfrom libs.JBLibs.input import confirm,anyKey",
+      "new": "from libs.JBLibs.helper import userExists,getLogger,getUserHome\nfrom libs.JBLibs.input import confirm,anyKey\nfrom libs.app.service_host import configured_service_host",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/instanceHelper.py",
+      "old": "    data = {\n        'instances': data,\n        'url': ( 'http' if sslStatus==0 else 'https' ) + \"://\" + cfg.SERVER_URL\n    }",
+      "new": "    service_host = configured_service_host()\n    if service_host and \":\" in service_host and not service_host.startswith(\"[\"):\n        service_host = f\"[{service_host}]\"\n    data = {\n        'instances': data,\n        'url': (\n            (('http' if sslStatus == 0 else 'https') + \"://\" + service_host)\n            if service_host\n            else \"\"\n        ),\n    }",
+      "expected": 1
+    }
+  ]
+}
