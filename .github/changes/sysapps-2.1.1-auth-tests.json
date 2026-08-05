@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "Test central settings Basic Auth",
+  "replacements": [
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "import unittest\nfrom unittest.mock import Mock, patch",
+      "new": "import unittest\nfrom unittest.mock import MagicMock, Mock, patch\nfrom urllib.request import Request",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    decode_encrypted_settings,\n    export_encrypted_settings,",
+      "new": "    decode_encrypted_settings,\n    download_settings_package,\n    export_encrypted_settings,",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    \"SETTINGS_LAST_REVISION\",\n    \"SETTINGS_LAST_SHA256\",",
+      "new": "    \"SETTINGS_AUTH_USER\",\n    \"SETTINGS_AUTH_PASSWORD\",\n    \"SETTINGS_LAST_REVISION\",\n    \"SETTINGS_LAST_SHA256\",",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.MAIL_TIMEOUT = 20\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "new": "        cfg.MAIL_TIMEOUT = 20\n        cfg.SETTINGS_AUTH_USER = \"http-user\"\n        cfg.SETTINGS_AUTH_PASSWORD = \"http-secret\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        self.assertNotIn(\"database-secret\", package)\n        self.assertNotIn(\"smtp-secret\", package)",
+      "new": "        self.assertNotIn(\"database-secret\", package)\n        self.assertNotIn(\"smtp-secret\", package)\n        self.assertNotIn(\"http-user\", package)\n        self.assertNotIn(\"http-secret\", package)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_url_policy_requires_https_by_default(self):\n        self.assertEqual(\n            validate_settings_url(\"https://config.example/settings\"),\n            \"https://config.example/settings\",\n        )\n        with self.assertRaisesRegex(ValueError, \"HTTPS\"):\n            validate_settings_url(\"http://config.example/settings\")\n        self.assertEqual(\n            validate_settings_url(\n                \"http://config.internal/settings\", allow_http=True\n            ),\n            \"http://config.internal/settings\",\n        )\n        with self.assertRaisesRegex(ValueError, \"embedded\"):\n            validate_settings_url(\"https://user:password@config.example/settings\")",
+      "new": "    def test_url_policy_requires_https_by_default(self):\n        self.assertEqual(\n            validate_settings_url(\"https://config.example/settings\"),\n            \"https://config.example/settings\",\n        )\n        with self.assertRaisesRegex(ValueError, \"HTTPS\"):\n            validate_settings_url(\"http://config.example/settings\")\n        self.assertEqual(\n            validate_settings_url(\n                \"http://config.internal/settings\", allow_http=True\n            ),\n            \"http://config.internal/settings\",\n        )\n        with self.assertRaisesRegex(ValueError, \"embedded\"):\n            validate_settings_url(\"https://user:password@config.example/settings\")\n\n    def test_download_sends_basic_auth_only_in_authorization_header(self):\n        response = MagicMock()\n        response.__enter__.return_value = response\n        response.__exit__.return_value = False\n        response.geturl.return_value = \"https://config.example/hidden-path\"\n        response.headers = {}\n        response.read.return_value = b\"SYSAPP1E:test\"\n        opener = MagicMock()\n        opener.open.return_value = response\n\n        with patch(\n            \"libs.app.settings_package.build_opener\", return_value=opener\n        ):\n            package = download_settings_package(\n                \"https://config.example/hidden-path\",\n                auth_user=\"sysapps\",\n                auth_password=\"secret123\",\n            )\n\n        self.assertEqual(package, \"SYSAPP1E:test\")\n        request = opener.open.call_args.args[0]\n        self.assertEqual(\n            request.get_header(\"Authorization\"),\n            \"Basic c3lzYXBwczpzZWNyZXQxMjM=\",\n        )\n        self.assertNotIn(\"sysapps\", request.full_url)\n        self.assertNotIn(\"secret123\", request.full_url)\n\n    def test_incomplete_basic_auth_is_rejected(self):\n        with self.assertRaisesRegex(ValueError, \"must both be configured\"):\n            download_settings_package(\n                \"https://config.example/settings\",\n                auth_user=\"sysapps\",\n            )\n\n    def test_redirect_handler_keeps_auth_only_on_same_origin(self):\n        handler = settings_package_module._SameOriginRedirectHandler()\n        request = Request(\"https://config.example/private/settings\")\n        request.add_unredirected_header(\"Authorization\", \"Basic token\")\n\n        redirected = handler.redirect_request(\n            request,\n            None,\n            302,\n            \"Found\",\n            {},\n            \"https://config.example/rewritten/settings\",\n        )\n        self.assertEqual(redirected.get_header(\"Authorization\"), \"Basic token\")\n\n        with self.assertRaisesRegex(ValueError, \"different origin\"):\n            handler.redirect_request(\n                request,\n                None,\n                302,\n                \"Found\",\n                {},\n                \"https://other.example/settings\",\n            )",
+      "expected": 1
+    }
+  ]
+}
