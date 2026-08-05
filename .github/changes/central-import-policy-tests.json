@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "Add centralized import policy tests",
+  "replacements": [
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "from libs.app.settings_package import (\n    DecodedSettingsPackage,\n    SettingsSectionHandler,",
+      "new": "from libs.app.settings_package import (\n    DecodedSettingsPackage,\n    SettingsImportPolicy,\n    SettingsSectionHandler,",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    export_encrypted_settings,\n    preview_decoded_settings,\n    settings_section_label,",
+      "new": "    export_encrypted_settings,\n    load_settings_import_policy,\n    preview_decoded_settings,\n    serialize_settings_import_policy,\n    settings_section_label,\n    settings_section_policy_fields,",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    \"SETTINGS_PASSWORD\",\n    \"SETTINGS_LAST_REVISION\",",
+      "new": "    \"SETTINGS_PASSWORD\",\n    \"SETTINGS_IMPORT_POLICY\",\n    \"SETTINGS_LAST_REVISION\",",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.SETTINGS_URL = \"\"\n        cfg.SETTINGS_PASSWORD = \"\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "new": "        cfg.SETTINGS_URL = \"\"\n        cfg.SETTINGS_PASSWORD = \"\"\n        cfg.SETTINGS_IMPORT_POLICY = \"{}\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_roundtrip_contains_hub_and_smtp_without_plaintext_secrets(self):",
+      "new": "    def test_import_policy_roundtrip_and_registered_fields(self):\n        policy = SettingsImportPolicy(\n            skip_fields=((\"smtp\", (\"from_address\",)),)\n        )\n        cfg.SETTINGS_IMPORT_POLICY = serialize_settings_import_policy(policy)\n        loaded = load_settings_import_policy()\n        self.assertEqual(loaded, policy)\n        fields = settings_section_policy_fields(\"smtp\")\n        self.assertEqual(\n            [(item.key, item.config_key) for item in fields],\n            [(\"from_address\", \"MAIL_FROM\")],\n        )\n\n    def test_roundtrip_contains_hub_and_smtp_without_plaintext_secrets(self):",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_wrong_password_is_rejected(self):",
+      "new": "    def test_local_policy_skips_smtp_and_same_revision_retries_after_change(self):\n        cfg.HUB_AUTO_SYNC = False\n        cfg.MAIL_SMTP_HOST = \"central.example.test\"\n        cfg.MAIL_FROM = \"central@example.test\"\n        package = export_encrypted_settings(\"pw\", revision=50)\n        decoded = decode_encrypted_settings(package, \"pw\")\n\n        cfg.HUB_AUTO_SYNC = True\n        cfg.MAIL_SMTP_HOST = \"local.example.test\"\n        cfg.MAIL_FROM = \"local@example.test\"\n        policy = SettingsImportPolicy(skip_sections=(\"smtp\",))\n        with patch(\"libs.app.settings_package.cfg.save\"):\n            report = apply_decoded_settings(decoded, import_policy=policy)\n\n        self.assertTrue(report.changed)\n        self.assertFalse(cfg.HUB_AUTO_SYNC)\n        self.assertEqual(cfg.MAIL_SMTP_HOST, \"local.example.test\")\n        self.assertEqual(cfg.MAIL_FROM, \"local@example.test\")\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:1,smtp:skip\")\n\n        cfg.SETTINGS_LAST_APPLIED = \"\"\n        with patch(\"libs.app.settings_package.cfg.save\"):\n            retried = apply_decoded_settings(\n                decoded, import_policy=SettingsImportPolicy()\n            )\n\n        self.assertTrue(retried.changed)\n        self.assertEqual(cfg.MAIL_SMTP_HOST, \"central.example.test\")\n        self.assertEqual(cfg.MAIL_FROM, \"central@example.test\")\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:1,smtp:1\")\n\n    def test_local_policy_preserves_only_smtp_from_address(self):\n        cfg.MAIL_SMTP_HOST = \"central.example.test\"\n        cfg.MAIL_SMTP_PORT = 465\n        cfg.MAIL_SMTP_MODE = \"ssl\"\n        cfg.MAIL_FROM = \"central@example.test\"\n        package = export_encrypted_settings(\"pw\", revision=51)\n        decoded = decode_encrypted_settings(package, \"pw\")\n\n        cfg.MAIL_SMTP_HOST = \"local.example.test\"\n        cfg.MAIL_SMTP_PORT = 587\n        cfg.MAIL_SMTP_MODE = \"starttls\"\n        cfg.MAIL_FROM = \"local@example.test\"\n        policy = SettingsImportPolicy(\n            skip_fields=((\"smtp\", (\"from_address\",)),)\n        )\n\n        conflicts = detect_import_conflicts(decoded, policy)\n        self.assertEqual(\n            {item.field_key for item in conflicts},\n            {\"host\"},\n        )\n        preview = \"\\n\".join(preview_decoded_settings(decoded, policy))\n        self.assertIn(\"local policy keeps SMTP From address\", preview)\n\n        with patch(\"libs.app.settings_package.cfg.save\"):\n            report = apply_decoded_settings(decoded, import_policy=policy)\n\n        self.assertTrue(report.changed)\n        self.assertEqual(cfg.MAIL_SMTP_HOST, \"central.example.test\")\n        self.assertEqual(cfg.MAIL_SMTP_PORT, 465)\n        self.assertEqual(cfg.MAIL_SMTP_MODE, \"ssl\")\n        self.assertEqual(cfg.MAIL_FROM, \"local@example.test\")\n        self.assertEqual(\n            cfg.SETTINGS_LAST_APPLIED,\n            \"hub:1,smtp:1[keep=from_address]\",\n        )\n\n    def test_local_policy_can_record_revision_with_all_sections_skipped(self):\n        package = export_encrypted_settings(\"pw\", revision=52)\n        decoded = decode_encrypted_settings(package, \"pw\")\n        policy = SettingsImportPolicy(skip_sections=(\"hub\", \"smtp\"))\n\n        with patch(\"libs.app.settings_package.cfg.save\"):\n            report = apply_decoded_settings(decoded, import_policy=policy)\n\n        self.assertTrue(report.changed)\n        self.assertEqual(report.applied_sections, ())\n        self.assertEqual(cfg.SETTINGS_LAST_REVISION, 52)\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:skip,smtp:skip\")\n\n    def test_wrong_password_is_rejected(self):",
+      "expected": 1
+    }
+  ]
+}
