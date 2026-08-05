@@ -19,6 +19,7 @@ from libs.app.settings_package import (
     download_settings_package,
     export_encrypted_settings,
     preview_decoded_settings,
+    registered_settings_sections,
     validate_settings_url,
 )
 
@@ -308,6 +309,11 @@ class SettingsPackageMenu(c_menu):
         decoded: DecodedSettingsPackage,
         skip_sections: tuple[str, ...] = (),
     ) -> tuple[bool, bool]:
+        remaining = set(decoded.sections).intersection(
+            registered_settings_sections()
+        ).difference(skip_sections)
+        if not remaining:
+            return True, False
         current = int(cfg.SETTINGS_LAST_REVISION or 0)
         downgrade = decoded.revision > 0 and decoded.revision < current
         scope = "remaining supported" if skip_sections else "supported"
@@ -338,8 +344,13 @@ class SettingsPackageMenu(c_menu):
             print(text_color(f"Warning: {warning}", en_color.BRIGHT_YELLOW))
         if report.warnings:
             anyKey()
-        sections = ", ".join(report.applied_sections)
         revision = decoded.revision if decoded.revision else "legacy"
+        if not report.applied_sections:
+            skipped = ", ".join(report.skipped_sections) or "none"
+            return onSelReturn(
+                ok=f"No settings applied from revision {revision}; skipped sections: {skipped}."
+            )
+        sections = ", ".join(report.applied_sections)
         return onSelReturn(ok=f"Imported revision {revision}; sections: {sections}.")
 
     def export_package(self, selItem: c_menu_item) -> onSelReturn:

@@ -764,11 +764,15 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         extra_warnings=conflict_warnings,
     )
     if not report.changed:
+        if report.skipped_sections:
+            message = (
+                f"Central settings revision {decoded.revision} was not applied; "
+                "sections were skipped by local policy."
+            )
+        else:
+            message = "Central settings are already current."
         return SettingsUpdateResult(
-            False,
-            decoded.revision,
-            "Central settings are already current.",
-            report.warnings,
+            False, decoded.revision, message, report.warnings
         )
     return SettingsUpdateResult(
         True,
