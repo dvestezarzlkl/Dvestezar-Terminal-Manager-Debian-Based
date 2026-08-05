@@ -8,6 +8,7 @@ from . import cfg
 from .c_service_node import c_service_node  
 from libs.JBLibs.helper import userExists,getLogger,getUserHome
 from libs.JBLibs.input import confirm,anyKey
+from libs.app.service_host import configured_service_host
 
 log = getLogger(__name__)   
 
@@ -374,9 +375,16 @@ def createPortInUseJson(data:List, sslStatus:int=0):
     import json
     from libs.JBLibs.helper import getAssetsPath
     path=getAssetsPath('portInUse.json')    
+    service_host = configured_service_host()
+    if service_host and ":" in service_host and not service_host.startswith("["):
+        service_host = f"[{service_host}]"
     data = {
         'instances': data,
-        'url': ( 'http' if sslStatus==0 else 'https' ) + "://" + cfg.SERVER_URL
+        'url': (
+            (('http' if sslStatus == 0 else 'https') + "://" + service_host)
+            if service_host
+            else ""
+        ),
     }
     with open(path, 'w') as f:
         json.dump(data, f)

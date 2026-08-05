@@ -12,6 +12,7 @@ from libs.app.hub.models import (
     HubStatus,
 )
 from libs.app.hub.runtime import HubRuntime
+from libs.app.hub.settings import HubSettings
 
 
 class FakeDatabase:
@@ -97,6 +98,8 @@ class HubRuntimeTests(unittest.TestCase):
 
         with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
             "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value="host.example"
         ):
             report = runtime.sync_all()
 
@@ -125,11 +128,38 @@ class HubRuntimeTests(unittest.TestCase):
 
         with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
             "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value="host.example"
         ):
             report = runtime.sync_all()
 
         self.assertEqual(report.provider_counts, {"disks": 0})
         self.assertEqual(applied, [update])
+
+    def test_missing_service_host_blocks_status_and_sync_before_database_access(self):
+        runtime = HubRuntime()
+        local_settings = HubSettings(
+            enabled=True,
+            host="db.example",
+            port=3306,
+            user="sysapps",
+            password="secret",
+            database="sys_apps",
+            prefix="sysapps_",
+            connect_timeout=3,
+            auto_sync=True,
+        )
+        with patch(
+            "libs.app.hub.runtime.HubSettings.from_cfg", return_value=local_settings
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value=""
+        ):
+            status = runtime.refresh_status()
+            report = runtime.sync_all()
+
+        self.assertEqual(status.state, HubState.NOT_CONFIGURED)
+        self.assertIn("Service host / FQDN", status.message)
+        self.assertIn("Service host / FQDN", report.error)
 
 
 if __name__ == "__main__":

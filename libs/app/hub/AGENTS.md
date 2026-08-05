@@ -10,7 +10,7 @@
 - Applied migrations are recorded with version and SHA-256. A checksum mismatch is an error and must never be silently accepted.
 - Each provider synchronizes in its own transaction. A provider failure records an error state and preserves its previous inventory; it must not roll back core host data or other providers.
 - Stale provider records may be deleted only after a complete successful snapshot from that provider.
-- Hub unavailability, missing schema, or provider failure must never block ordinary local sys_apps functions or a successful local Save.
+- Hub unavailability, missing schema, missing local service host/FQDN, or provider failure must never block ordinary local sys_apps functions or a successful local Save. Sync requires a normalized service host so inventory never publishes empty or placeholder service URLs.
 - Database passwords must not appear in repr output, logs, error messages, status text, mail, tests, or commits. Exported settings use the versioned password-encrypted one-line package; never add a fixed application encryption key.
 - The host identity is the existing `cfg.machineInfo.machine_id`, with `/etc/machine-id` only as a fallback. Do not invent another host ID.
 - Node-RED inventory contains editor/Admin API users and RW/R access only. Never export bcrypt hashes, plaintext passwords, credentials, or legacy `httpNodeAuth` as Dashboard users.

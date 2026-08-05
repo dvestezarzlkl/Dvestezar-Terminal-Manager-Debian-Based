@@ -6,6 +6,7 @@ on:
       - "libs/app/hub/**"
       - "libs/app/settings_package.py"
       - "libs/app/settings_menu.py"
+      - "libs/app/service_host.py"
       - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
       - "libs/app/c_cfg.py"
@@ -15,6 +16,7 @@ on:
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
+      - "tests/test_service_host.py"
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
@@ -31,6 +33,7 @@ on:
       - "libs/app/hub/**"
       - "libs/app/settings_package.py"
       - "libs/app/settings_menu.py"
+      - "libs/app/service_host.py"
       - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
       - "libs/app/c_cfg.py"
@@ -39,6 +42,7 @@ on:
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
+      - "tests/test_service_host.py"
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
       - "tests/test_node_red_hub_provider.py"
@@ -96,6 +100,7 @@ jobs:
             libs/app/hub/*.py \
             libs/app/settings_package.py \
             libs/app/settings_menu.py \
+            libs/app/service_host.py \
             libs/app/disk_hlp.py \
             libs/app/menus/app_10_disk/hub_provider.py \
             libs/app/menus/app_10_disk/menu.py \
@@ -108,6 +113,7 @@ jobs:
             tests/test_hub_runtime.py \
             tests/test_hub_mysql_integration.py \
             tests/test_settings_package.py \
+            tests/test_service_host.py \
             tests/test_disk_hub_provider.py \
             tests/test_disk_settings_sync.py \
             tests/test_node_red_hub_provider.py
@@ -127,6 +133,7 @@ jobs:
             tests.test_hub_runtime \
             tests.test_hub_mysql_integration \
             tests.test_settings_package \
+            tests.test_service_host \
             tests.test_disk_hub_provider \
             tests.test_disk_settings_sync \
             tests.test_node_red_hub_provider
@@ -148,19 +155,23 @@ jobs:
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
-          assert version == "2.1.1"
+          assert version == "2.1.2"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
           assert "SETTINGS_AUTH_USER" in cfg
           assert "SETTINGS_AUTH_PASSWORD" in cfg
           assert "_SameOriginRedirectHandler" in settings_package
           assert 'add_unredirected_header("Authorization"' in settings_package
+          assert "detect_import_conflicts" in settings_package
+          assert "sections were skipped by local policy" in settings_package
           assert "HTTP Basic Auth user" in settings_menu
+          assert "No settings applied from revision" in settings_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu
           assert "def hub_apply_remote(updates):" in disk_menu
           assert 'Synchronize SysApps Hub' in main_menu
+          assert 'Service host / FQDN' in main_menu
           assert 'startup_settings_update()' in main_menu
           assert "PyMySQL==1.2.0" in requirements
           PY

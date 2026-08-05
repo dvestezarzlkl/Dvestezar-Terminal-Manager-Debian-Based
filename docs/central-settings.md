@@ -1,6 +1,6 @@
 # Centralizovaná nastavení SysApps
 
-SysApps 2.1.1 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
+SysApps 2.1.2 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
 
 ## Rozdělení konfigurace
 
@@ -67,6 +67,10 @@ V **App settings → Centralized settings** jsou akce:
 - nastavení bootstrap URL, dešifrovacího hesla, volitelného HTTP Basic Auth user/password, timeoutu a startup aktualizace.
 
 Před ručním importem se zobrazí bezpečný náhled sekcí bez hesel. Všechny podporované sekce se nejdřív kompletně validují a pak uloží jedním `cfg.save()`. Ruční import může po výslovném potvrzení provést downgrade.
+
+Hub sekce přenáší také `enabled` a `auto_sync`; import tedy nastaví zapnutí Hubu i startup synchronizaci přesně podle exportovaného balíku. Lokální service host/FQDN (`SERVER_URL`) se nepřenáší a musí být nastavený na každém serveru zvlášť, protože může být dostupný jen přes jeho VPN nebo lokální DNS. Bez něj Hub vrátí NOT CONFIGURED a synchronizaci neprovede.
+
+SMTP sekce chrání existující lokální identitu. Pokud je lokální SMTP host nastavený a liší se od importu, ruční import vyžádá potvrzení. Totéž platí pro již nastavenou From adresu; prázdná lokální From adresa se přenastaví bez dotazu. Odmítnutí přeskočí celou SMTP sekci, aby nevznikla nekonzistentní kombinace starého hostu a nového portu, účtu nebo hesla. Ostatní sekce, například Hub, mohou být aplikované dál. Automatický startup import se nemůže ptát, proto konfliktní SMTP sekci přeskočí s varováním. Jakmile se lokální konflikt odstraní, stejná revision se díky podpisu skutečně aplikovaných sekcí znovu vyhodnotí a SMTP lze doplnit.
 
 Původní Hub-only balík `SYSHUB1E:` z verze 2.0 zůstává podporovaný pro ruční import jako sekce `hub`. Automatický URL import legacy balíky nepřijímá. Legacy import zachová poslední anti-rollback revision, ale zneplatní uložený SHA centrálního balíku, aby se aktuální centrální konfigurace při dalším startu znovu aplikovala.
 

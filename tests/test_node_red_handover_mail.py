@@ -42,14 +42,18 @@ class NodeRedHandoverMailTests(unittest.TestCase):
             "git@git.example.test:team/project.git",
         )
 
-    def test_build_instance_url_adds_scheme_port_and_keeps_path(self):
+    def test_build_instance_url_uses_only_normalized_service_host(self):
         self.assertEqual(
             handover_mail.build_instance_url("server.example.test/node-red", 21880, True),
-            "https://server.example.test:21880/node-red",
+            "https://server.example.test:21880",
         )
         self.assertEqual(
             handover_mail.build_instance_url("http://192.0.2.10:XXXX", 21880, False),
             "http://192.0.2.10:21880",
+        )
+        self.assertEqual(
+            handover_mail.build_instance_url("moje.domena.fake", 21880, False),
+            "",
         )
 
     def test_auth_labels_distinguish_editor_users_from_http_node_auth(self):

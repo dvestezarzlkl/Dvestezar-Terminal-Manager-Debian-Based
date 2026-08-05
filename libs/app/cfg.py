@@ -6,14 +6,14 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.1.1"
+VERSION = "2.1.2"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
 
 MIN_WIDTH: int            = 0
 LANGUAGE: str             = "en-US"                         # jazyk aplikace
-SERVER_URL:str            = "moje.domena.fake"              # jen doména/IP/popř sub path, bez portu
+SERVER_URL:str            = ""                              # kompatibilní klíč: service host/FQDN/IP bez scheme, portu a path
 DEFAULT_NODE_ARCHIVE: str = "/home/defaultNodeInstance.7z"  # cesta k archivu s instancí např s výchozí instalací plugin, uzlů flow atd.
 DEFAULT_JS_CONFIG: str    = "muj-node-config.default.js"    # v assets
 TEMP_DIRECTORY: str      = "/tmp/default_node"             # kam se dočasně rozbalí archiv

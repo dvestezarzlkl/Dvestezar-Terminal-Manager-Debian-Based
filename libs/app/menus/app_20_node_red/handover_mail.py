@@ -18,6 +18,7 @@ loadLng()
 
 from libs.app import cfg as app_cfg
 from libs.app import mail_hlp, user_contact
+from libs.app.service_host import normalize_service_host
 from libs.app.instanceHelper import (
     existsSelfSignedCert,
     getHttps,
@@ -114,29 +115,14 @@ def sanitize_git_remote(remote: str) -> str:
 
 
 def build_instance_url(server_url: str, port: int, use_https: bool) -> str:
-    """Build the externally presented instance URL from SERVER_URL and its port."""
-    base = _text(server_url).rstrip("/")
-    if not base:
-        return ""
-
-    default_scheme = "https" if use_https else "http"
-    if "://" not in base:
-        base = f"{default_scheme}://{base}"
-
-    parsed = urlsplit(base)
-    scheme = parsed.scheme or default_scheme
-    host = parsed.hostname
-    if not host:
-        # Handle a malformed historical SERVER_URL such as host:XXXX/path.
-        raw_netloc = parsed.netloc.split("@", 1)[-1]
-        host = raw_netloc.split(":", 1)[0].strip("[]")
+    """Build the presented instance URL from the configured service host."""
+    host = normalize_service_host(server_url)
     if not host:
         return ""
     if ":" in host and not host.startswith("["):
         host = f"[{host}]"
-
-    path = parsed.path.rstrip("/")
-    return urlunsplit((scheme, f"{host}:{int(port)}", path, "", ""))
+    scheme = "https" if use_https else "http"
+    return urlunsplit((scheme, f"{host}:{int(port)}", "", "", ""))
 
 
 def _valid_project_name(name: str) -> bool:

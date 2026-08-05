@@ -8,6 +8,7 @@ from libs.JBLibs.c_menu import c_menu,c_menu_block_items
 from libs.JBLibs.helper import userExists,getUserList,getInterfaces,c_interface
 from libs.JBLibs.term import text_inverse
 from .instanceHelper import getHttps,existsSelfSignedCert
+from .service_host import configured_service_host
 from typing import Union,List
 from datetime import datetime
 import os
@@ -166,11 +167,19 @@ class menu(c_menu):
             cfg.VERSION
         )),
         if not self.titleDisableURL:
-            # URL
-            s.append((          
-                TX_HD_URL,
-                ( 'http' if self.sslStatus==0 else 'https' ) + "://" + cfg.SERVER_URL+( (":"+str(port)) if port else ":XXXX")
-            ))
+            service_host = configured_service_host()
+            if service_host:
+                if ":" in service_host and not service_host.startswith("["):
+                    service_host = f"[{service_host}]"
+                service_url = (
+                    ('http' if self.sslStatus == 0 else 'https')
+                    + "://"
+                    + service_host
+                    + ((":" + str(port)) if port else ":XXXX")
+                )
+            else:
+                service_url = "not set"
+            s.append((TX_HD_URL, service_url))
             
         if self.titleShowMyIP:
             if not self._interfaces:

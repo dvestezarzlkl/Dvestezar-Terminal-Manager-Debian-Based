@@ -2,7 +2,7 @@
 
 - A Node-RED handover mail is an operational identification protocol, not a password-delivery channel. Never include plaintext passwords, bcrypt hashes, credential secrets, SMTP credentials, or private keys in its data model, text body, HTML body, attachments, or logs.
 - Passwords are delivered through a separate channel. The protocol must say this explicitly.
-- Build the instance URL from global `cfg.SERVER_URL` and the actual instance port. Use HTTPS only when the selected instance has configured or self-signed HTTPS.
+- Build the instance URL from the normalized local service host stored under the compatible `cfg.SERVER_URL` key and the actual instance port. The value is a hostname/FQDN/IP without scheme, port or path and may resolve only through VPN. Use HTTPS only when the selected instance has configured or self-signed HTTPS.
 - Read the Node-RED version from the selected instance package and the Node.js version in the selected system user's execution context; do not substitute the root/global shell version blindly.
 - Node-RED projects are stored under the selected user's `.node-red` directory. Read `.config.projects.json` as that user, validate `activeProject` as a single safe path component, and inspect `projects/<activeProject>` as that user.
 - Git remotes in mail are identification data only. Strip embedded URL credentials, query strings, and fragments before rendering or logging them.
