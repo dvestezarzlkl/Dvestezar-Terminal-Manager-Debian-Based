@@ -2,9 +2,10 @@
 
 ## v3.6.2
 
-- UX akce `Resetovat MachineID` je přejmenovaná na přípravu nového Machine ID při prvním bootu, protože nové ID se záměrně negeneruje okamžitě
-- DOC helper, potvrzení a výsledná hláška výslovně popisují zachování first-boot stavu pro další `ConditionFirstBoot=yes` služby
-- TEST ověřuje prázdný `/etc/machine-id`, odstraněnou D-Bus kopii, vytvořenou first-boot službu a relativní symlink
+- UX akce `Resetovat MachineID` je přejmenovaná na přípravu nového Machine ID při prvním bootu, protože nové ID se záměrně negeneruje okamžitě.
+- DOC helper, potvrzení a výsledná hláška výslovně popisují zachování first-boot stavu pro další `ConditionFirstBoot=yes` služby.
+- SAFE vlastní first-boot mechanismus zůstává funkčně beze změny; upravuje se jen názvosloví, dokumentovaný kontrakt a název pomocné jednotky.
+- TEST ověřuje prázdný `/etc/machine-id`, odstraněnou D-Bus kopii, vytvořenou first-boot službu a relativní symlink.
 
 ## v3.6.1
 
