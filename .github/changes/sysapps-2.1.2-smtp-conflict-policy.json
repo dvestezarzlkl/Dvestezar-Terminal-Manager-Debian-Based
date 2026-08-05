@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "Protect local SMTP identity during settings import",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "@dataclass(frozen=True)\nclass SettingsUpdateResult:\n    changed: bool\n    revision: int\n    message: str\n    warnings: tuple[str, ...] = ()\n\n\n_SECTIONS:",
+      "new": "@dataclass(frozen=True)\nclass SettingsUpdateResult:\n    changed: bool\n    revision: int\n    message: str\n    warnings: tuple[str, ...] = ()\n\n\n@dataclass(frozen=True)\nclass SettingsImportConflict:\n    section_key: str\n    field_key: str\n    label: str\n    current_value: str\n    incoming_value: str\n\n\n_SECTIONS:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def _smtp_preview(data: dict[str, Any]) -> str:\n    item = _smtp_validate(data)\n    target = f\"{item['host']}:{item['port']}\" if item[\"host\"] else \"not configured\"\n    return (\n        f\"target={target}, mode={item['mode']}, user={item['user'] or 'not set'}, \"\n        f\"from={item['from_address'] or item['user'] or 'not set'}, \"\n        f\"fallback={item['fallback_admin'] or 'not set'}, \"\n        f\"password={'set' if item['password'] else 'not set'}\"\n    )\n\n\nregister_settings_section(",
+      "new": "def _smtp_preview(data: dict[str, Any]) -> str:\n    item = _smtp_validate(data)\n    target = f\"{item['host']}:{item['port']}\" if item[\"host\"] else \"not configured\"\n    return (\n        f\"target={target}, mode={item['mode']}, user={item['user'] or 'not set'}, \"\n        f\"from={item['from_address'] or item['user'] or 'not set'}, \"\n        f\"fallback={item['fallback_admin'] or 'not set'}, \"\n        f\"password={'set' if item['password'] else 'not set'}\"\n    )\n\n\ndef detect_import_conflicts(\n    decoded: DecodedSettingsPackage,\n) -> tuple[SettingsImportConflict, ...]:\n    section = decoded.sections.get(\"smtp\")\n    if not isinstance(section, dict) or int(section.get(\"version\", 0)) != 1:\n        return ()\n    incoming = _smtp_validate(section.get(\"data\", {}))\n    conflicts: list[SettingsImportConflict] = []\n\n    current_host = str(getattr(cfg, \"MAIL_SMTP_HOST\", \"\") or \"\").strip()\n    incoming_host = incoming[\"host\"]\n    if current_host and current_host.casefold() != incoming_host.casefold():\n        conflicts.append(\n            SettingsImportConflict(\n                \"smtp\", \"host\", \"SMTP host\", current_host, incoming_host\n            )\n        )\n\n    current_from = str(getattr(cfg, \"MAIL_FROM\", \"\") or \"\").strip().lower()\n    incoming_from = incoming[\"from_address\"]\n    if current_from and current_from != incoming_from:\n        conflicts.append(\n            SettingsImportConflict(\n                \"smtp\",\n                \"from_address\",\n                \"From address\",\n                current_from,\n                incoming_from,\n            )\n        )\n    return tuple(conflicts)\n\n\ndef _automatic_conflict_warning(\n    conflicts: tuple[SettingsImportConflict, ...],\n) -> str:\n    details = \"; \".join(\n        f\"{item.label} {item.current_value or 'not set'} -> {item.incoming_value or 'not set'}\"\n        for item in conflicts\n    )\n    return (\n        \"SMTP section skipped because it would replace existing local identity \"\n        f\"({details}). Use manual import to confirm the change.\"\n    )\n\n\nregister_settings_section(",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def _prepare_sections(\n    decoded: DecodedSettingsPackage,\n) -> tuple[\n    list[tuple[SettingsSectionHandler, dict[str, Any]]],\n    tuple[str, ...],\n    tuple[str, ...],\n]:\n    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]] = []\n    skipped: list[str] = []\n    warnings: list[str] = []\n    for key, section in sorted(decoded.sections.items()):\n        handler = _SECTIONS.get(key)\n        if handler is None:\n            skipped.append(key)\n            warnings.append(f\"Unknown settings section skipped: {key}\")\n            continue\n        version = int(section[\"version\"])\n        if version != handler.version:\n            skipped.append(key)\n            warnings.append(\n                f\"Unsupported {key} section version {version}; expected {handler.version}.\"\n            )\n            continue\n        prepared.append((handler, handler.validator(section[\"data\"])))\n    if not prepared:\n        raise ValueError(\"Package contains no supported settings sections.\")\n    return prepared, tuple(skipped), tuple(warnings)",
+      "new": "def _prepare_sections(\n    decoded: DecodedSettingsPackage,\n    skip_sections: tuple[str, ...] = (),\n) -> tuple[\n    list[tuple[SettingsSectionHandler, dict[str, Any]]],\n    tuple[str, ...],\n    tuple[str, ...],\n]:\n    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]] = []\n    skipped: list[str] = []\n    warnings: list[str] = []\n    skip_set = {str(key) for key in skip_sections}\n    for key, section in sorted(decoded.sections.items()):\n        if key in skip_set:\n            skipped.append(key)\n            warnings.append(f\"Settings section skipped by local import policy: {key}\")\n            continue\n        handler = _SECTIONS.get(key)\n        if handler is None:\n            skipped.append(key)\n            warnings.append(f\"Unknown settings section skipped: {key}\")\n            continue\n        version = int(section[\"version\"])\n        if version != handler.version:\n            skipped.append(key)\n            warnings.append(\n                f\"Unsupported {key} section version {version}; expected {handler.version}.\"\n            )\n            continue\n        prepared.append((handler, handler.validator(section[\"data\"])))\n    return prepared, tuple(skipped), tuple(warnings)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:\n    prepared, skipped, warnings = _prepare_sections(decoded)\n    lines = [",
+      "new": "def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:\n    prepared, skipped, warnings = _prepare_sections(decoded)\n    if not prepared:\n        raise ValueError(\"Package contains no supported settings sections.\")\n    lines = [",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "def apply_decoded_settings(\n    decoded: DecodedSettingsPackage,\n    allow_downgrade: bool = False,\n    force: bool = False,\n) -> SettingsApplyReport:\n    prepared, skipped, warnings = _prepare_sections(decoded)\n    signature = _section_signature(prepared)",
+      "new": "def apply_decoded_settings(\n    decoded: DecodedSettingsPackage,\n    allow_downgrade: bool = False,\n    force: bool = False,\n    skip_sections: tuple[str, ...] = (),\n    extra_warnings: tuple[str, ...] = (),\n) -> SettingsApplyReport:\n    prepared, skipped, warnings = _prepare_sections(decoded, skip_sections)\n    warnings = tuple(warnings) + tuple(extra_warnings)\n    if not prepared:\n        if set(skip_sections).intersection(decoded.sections):\n            return SettingsApplyReport(\n                False, decoded.revision, (), skipped, warnings\n            )\n        raise ValueError(\"Package contains no supported settings sections.\")\n    signature = _section_signature(prepared)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "                return SettingsApplyReport(False, decoded.revision)",
+      "new": "                return SettingsApplyReport(\n                    False, decoded.revision, (), skipped, warnings\n                )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    report = apply_decoded_settings(\n        decoded,\n        allow_downgrade=force,\n        force=force,\n    )",
+      "new": "    conflicts = detect_import_conflicts(decoded)\n    skip_sections = tuple(sorted({item.section_key for item in conflicts}))\n    conflict_warnings = (\n        (_automatic_conflict_warning(conflicts),) if conflicts else ()\n    )\n    report = apply_decoded_settings(\n        decoded,\n        allow_downgrade=force,\n        force=force,\n        skip_sections=skip_sections,\n        extra_warnings=conflict_warnings,\n    )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if result.changed:\n        print(result.message)\n        for warning in result.warnings:\n            print(f\"Central settings warning: {warning}\")\n    return result",
+      "new": "    if result.changed:\n        print(result.message)\n    for warning in result.warnings:\n        print(f\"Central settings warning: {warning}\")\n    return result",
+      "expected": 1
+    }
+  ]
+}
