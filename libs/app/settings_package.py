@@ -582,22 +582,59 @@ def decode_encrypted_settings(package: str, password: str) -> DecodedSettingsPac
     )
 
 
+def _preserve_policy_fields(
+    handler: SettingsSectionHandler,
+    data: dict[str, Any],
+    import_policy: SettingsImportPolicy,
+) -> tuple[dict[str, Any], tuple[str, ...], tuple[str, ...]]:
+    requested = set(import_policy.fields_for(handler.key))
+    if not requested:
+        return data, (), ()
+    available = {item.key: item for item in handler.policy_fields}
+    merged = dict(data)
+    preserved: list[str] = []
+    warnings: list[str] = []
+    for key in sorted(requested):
+        field = available.get(key)
+        if field is None:
+            warnings.append(
+                f"Unknown local import policy field ignored for {handler.key}: {key}"
+            )
+            continue
+        merged[field.data_key] = getattr(cfg, field.config_key)
+        preserved.append(key)
+    return handler.validator(merged), tuple(preserved), tuple(warnings)
+
+
 def _prepare_sections(
     decoded: DecodedSettingsPackage,
     skip_sections: tuple[str, ...] = (),
+    import_policy: SettingsImportPolicy | None = None,
 ) -> tuple[
-    list[tuple[SettingsSectionHandler, dict[str, Any]]],
+    list[tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]],
     tuple[str, ...],
     tuple[str, ...],
 ]:
-    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]] = []
+    policy = import_policy or load_settings_import_policy()
+    prepared: list[
+        tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]
+    ] = []
     skipped: list[str] = []
     warnings: list[str] = []
-    skip_set = {str(key) for key in skip_sections}
+    explicit_skip = {str(key) for key in skip_sections}
+    policy_skip = set(policy.skip_sections)
+    skip_set = explicit_skip.union(policy_skip)
     for key, section in sorted(decoded.sections.items()):
         if key in skip_set:
             skipped.append(key)
-            warnings.append(f"Settings section skipped by local import policy: {key}")
+            if key in policy_skip:
+                warnings.append(
+                    f"Settings section skipped by local centralized policy: {settings_section_label(key)}"
+                )
+            else:
+                warnings.append(
+                    f"Settings section skipped for this import: {settings_section_label(key)}"
+                )
             continue
         handler = _SECTIONS.get(key)
         if handler is None:
@@ -611,30 +648,54 @@ def _prepare_sections(
                 f"Unsupported {key} section version {version}; expected {handler.version}."
             )
             continue
-        prepared.append((handler, handler.validator(section["data"])))
+        data = handler.validator(section["data"])
+        data, preserved_fields, field_warnings = _preserve_policy_fields(
+            handler, data, policy
+        )
+        warnings.extend(field_warnings)
+        prepared.append((handler, data, preserved_fields))
     return prepared, tuple(skipped), tuple(warnings)
 
 
 def _section_signature(
-    prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]],
+    prepared: list[
+        tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]
+    ],
 ) -> str:
-    return ",".join(
-        f"{handler.key}:{handler.version}" for handler, _ in prepared
+    parts: list[str] = []
+    for handler, _, preserved_fields in prepared:
+        suffix = (
+            f"[keep={'+'.join(preserved_fields)}]"
+            if preserved_fields
+            else ""
+        )
+        parts.append(f"{handler.key}:{handler.version}{suffix}")
+    return ",".join(parts)
+
+
+def preview_decoded_settings(
+    decoded: DecodedSettingsPackage,
+    import_policy: SettingsImportPolicy | None = None,
+) -> tuple[str, ...]:
+    policy = import_policy or load_settings_import_policy()
+    prepared, skipped, warnings = _prepare_sections(
+        decoded, import_policy=policy
     )
-
-
-def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:
-    prepared, skipped, warnings = _prepare_sections(decoded)
-    if not prepared:
+    if not prepared and not set(policy.skip_sections).intersection(decoded.sections):
         raise ValueError("Package contains no supported settings sections.")
     lines = [
         f"Revision: {decoded.revision if decoded.revision else 'legacy'}",
         f"Created: {decoded.created_at or 'not available'}",
     ]
-    for handler, data in prepared:
-        lines.append(f"{handler.label}: {handler.previewer(data)}")
+    for handler, data, preserved_fields in prepared:
+        line = f"{handler.label}: {handler.previewer(data)}"
+        if preserved_fields:
+            labels = {item.key: item.label for item in handler.policy_fields}
+            kept = ", ".join(labels.get(key, key) for key in preserved_fields)
+            line += f"; local policy keeps {kept}"
+        lines.append(line)
     for key in skipped:
-        lines.append(f"Skipped section: {key}")
+        lines.append(f"Skipped section: {settings_section_label(key)}")
     lines.extend(f"Warning: {warning}" for warning in warnings)
     return tuple(lines)
 
@@ -645,11 +706,16 @@ def apply_decoded_settings(
     force: bool = False,
     skip_sections: tuple[str, ...] = (),
     extra_warnings: tuple[str, ...] = (),
+    import_policy: SettingsImportPolicy | None = None,
 ) -> SettingsApplyReport:
-    prepared, skipped, warnings = _prepare_sections(decoded, skip_sections)
+    policy = import_policy or load_settings_import_policy()
+    prepared, skipped, warnings = _prepare_sections(
+        decoded, skip_sections, policy
+    )
     warnings = tuple(warnings) + tuple(extra_warnings)
+    effective_skip = set(skip_sections).union(policy.skip_sections)
     if not prepared:
-        if set(skip_sections).intersection(decoded.sections):
+        if effective_skip.intersection(decoded.sections):
             return SettingsApplyReport(
                 False, decoded.revision, (), skipped, warnings
             )
@@ -679,7 +745,7 @@ def apply_decoded_settings(
 
     config_keys = {
         key
-        for handler, _ in prepared
+        for handler, _, _ in prepared
         for key in handler.config_keys
     }
     config_keys.update({
@@ -690,7 +756,7 @@ def apply_decoded_settings(
     previous = {key: getattr(cfg, key) for key in config_keys}
 
     try:
-        for handler, data in prepared:
+        for handler, data, _ in prepared:
             handler.applier(data)
         if decoded.revision > 0:
             cfg.SETTINGS_LAST_REVISION = decoded.revision
@@ -710,7 +776,7 @@ def apply_decoded_settings(
     return SettingsApplyReport(
         True,
         decoded.revision,
-        tuple(handler.key for handler, _ in prepared),
+        tuple(handler.key for handler, _, _ in prepared),
         skipped,
         warnings,
     )
