@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "commit_message": "Test service host and SMTP conflict guards",
+  "replacements": [
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    decode_encrypted_settings,\n    download_settings_package,",
+      "new": "    decode_encrypted_settings,\n    detect_import_conflicts,\n    download_settings_package,",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    preview_decoded_settings,\n    validate_settings_url,",
+      "new": "    preview_decoded_settings,\n    update_from_central_url,\n    validate_settings_url,",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    \"SETTINGS_AUTH_USER\",\n    \"SETTINGS_AUTH_PASSWORD\",\n    \"SETTINGS_LAST_REVISION\",",
+      "new": "    \"SETTINGS_AUTH_USER\",\n    \"SETTINGS_AUTH_PASSWORD\",\n    \"SETTINGS_URL\",\n    \"SETTINGS_PASSWORD\",\n    \"SETTINGS_LAST_REVISION\",",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.SETTINGS_AUTH_USER = \"http-user\"\n        cfg.SETTINGS_AUTH_PASSWORD = \"http-secret\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "new": "        cfg.SETTINGS_AUTH_USER = \"http-user\"\n        cfg.SETTINGS_AUTH_PASSWORD = \"http-secret\"\n        cfg.SETTINGS_URL = \"\"\n        cfg.SETTINGS_PASSWORD = \"\"\n        cfg.SETTINGS_LAST_REVISION = 0",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        with self.assertRaisesRegex(ValueError, \"different origin\"):\n            handler.redirect_request(\n                request,\n                None,\n                302,\n                \"Found\",\n                {},\n                \"https://other.example/settings\",\n            )\n\n\nif __name__ == \"__main__\":",
+      "new": "        with self.assertRaisesRegex(ValueError, \"different origin\"):\n            handler.redirect_request(\n                request,\n                None,\n                302,\n                \"Found\",\n                {},\n                \"https://other.example/settings\",\n            )\n\n    def test_smtp_conflicts_require_existing_local_identity(self):\n        cfg.MAIL_SMTP_HOST = \"central.example.test\"\n        cfg.MAIL_FROM = \"central@example.test\"\n        package = export_encrypted_settings(\"pw\", revision=75)\n        decoded = decode_encrypted_settings(package, \"pw\")\n\n        cfg.MAIL_SMTP_HOST = \"local.example.test\"\n        cfg.MAIL_FROM = \"local@example.test\"\n        conflicts = detect_import_conflicts(decoded)\n        self.assertEqual(\n            {item.field_key for item in conflicts},\n            {\"host\", \"from_address\"},\n        )\n\n        cfg.MAIL_SMTP_HOST = \"\"\n        cfg.MAIL_FROM = \"\"\n        self.assertEqual(detect_import_conflicts(decoded), ())\n\n    def test_automatic_import_skips_conflicting_smtp_then_retries_same_revision(self):\n        cfg.HUB_AUTO_SYNC = False\n        cfg.MAIL_SMTP_HOST = \"central.example.test\"\n        cfg.MAIL_FROM = \"central@example.test\"\n        package = export_encrypted_settings(\"pw\", revision=76)\n\n        cfg.HUB_AUTO_SYNC = True\n        cfg.MAIL_SMTP_HOST = \"local.example.test\"\n        cfg.MAIL_FROM = \"local@example.test\"\n        cfg.SETTINGS_URL = \"https://config.example/settings\"\n        cfg.SETTINGS_PASSWORD = \"pw\"\n\n        with patch(\n            \"libs.app.settings_package.download_settings_package\",\n            return_value=package,\n        ), patch(\"libs.app.settings_package.cfg.save\"):\n            result = update_from_central_url()\n\n        self.assertTrue(result.changed)\n        self.assertFalse(cfg.HUB_AUTO_SYNC)\n        self.assertEqual(cfg.MAIL_SMTP_HOST, \"local.example.test\")\n        self.assertEqual(cfg.MAIL_FROM, \"local@example.test\")\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:1\")\n        self.assertTrue(any(\"SMTP section skipped\" in item for item in result.warnings))\n\n        cfg.MAIL_SMTP_HOST = \"\"\n        cfg.MAIL_FROM = \"\"\n        with patch(\n            \"libs.app.settings_package.download_settings_package\",\n            return_value=package,\n        ), patch(\"libs.app.settings_package.cfg.save\"):\n            retried = update_from_central_url()\n\n        self.assertTrue(retried.changed)\n        self.assertEqual(cfg.MAIL_SMTP_HOST, \"central.example.test\")\n        self.assertEqual(cfg.MAIL_FROM, \"central@example.test\")\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:1,smtp:1\")\n\n\nif __name__ == \"__main__\":",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "from libs.app.hub.runtime import HubRuntime",
+      "new": "from libs.app.hub.runtime import HubRuntime\nfrom libs.app.hub.settings import HubSettings",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "        with patch(\"libs.app.hub.runtime.HubDatabase\", FakeDatabase), patch(\n            \"libs.app.hub.runtime.collect_host_snapshot\", return_value=self.host\n        ):\n            report = runtime.sync_all()",
+      "new": "        with patch(\"libs.app.hub.runtime.HubDatabase\", FakeDatabase), patch(\n            \"libs.app.hub.runtime.collect_host_snapshot\", return_value=self.host\n        ), patch(\n            \"libs.app.hub.runtime.configured_service_host\", return_value=\"host.example\"\n        ):\n            report = runtime.sync_all()",
+      "expected": 2
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "        self.assertEqual(report.provider_counts, {\"disks\": 0})\n        self.assertEqual(applied, [update])\n\n\nif __name__ == \"__main__\":",
+      "new": "        self.assertEqual(report.provider_counts, {\"disks\": 0})\n        self.assertEqual(applied, [update])\n\n    def test_missing_service_host_blocks_status_and_sync_before_database_access(self):\n        runtime = HubRuntime()\n        local_settings = HubSettings(\n            enabled=True,\n            host=\"db.example\",\n            port=3306,\n            user=\"sysapps\",\n            password=\"secret\",\n            database=\"sys_apps\",\n            prefix=\"sysapps_\",\n            connect_timeout=3,\n            auto_sync=True,\n        )\n        with patch(\n            \"libs.app.hub.runtime.HubSettings.from_cfg\", return_value=local_settings\n        ), patch(\n            \"libs.app.hub.runtime.configured_service_host\", return_value=\"\"\n        ):\n            status = runtime.refresh_status()\n            report = runtime.sync_all()\n\n        self.assertEqual(status.state, HubState.NOT_CONFIGURED)\n        self.assertIn(\"Service host / FQDN\", status.message)\n        self.assertIn(\"Service host / FQDN\", report.error)\n\n\nif __name__ == \"__main__\":",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_node_red_handover_mail.py",
+      "old": "    def test_build_instance_url_adds_scheme_port_and_keeps_path(self):\n        self.assertEqual(\n            handover_mail.build_instance_url(\"server.example.test/node-red\", 21880, True),\n            \"https://server.example.test:21880/node-red\",\n        )\n        self.assertEqual(\n            handover_mail.build_instance_url(\"http://192.0.2.10:XXXX\", 21880, False),\n            \"http://192.0.2.10:21880\",\n        )",
+      "new": "    def test_build_instance_url_uses_only_normalized_service_host(self):\n        self.assertEqual(\n            handover_mail.build_instance_url(\"server.example.test/node-red\", 21880, True),\n            \"https://server.example.test:21880\",\n        )\n        self.assertEqual(\n            handover_mail.build_instance_url(\"http://192.0.2.10:XXXX\", 21880, False),\n            \"http://192.0.2.10:21880\",\n        )\n        self.assertEqual(\n            handover_mail.build_instance_url(\"moje.domena.fake\", 21880, False),\n            \"\",\n        )",
+      "expected": 1
+    }
+  ]
+}
