@@ -467,6 +467,13 @@ class SettingsPackageMenu(c_menu):
         allow_downgrade: bool,
         skip_sections: tuple[str, ...] = (),
     ) -> onSelReturn:
+        print(
+            text_color(
+                "Processing centralized settings import...",
+                en_color.BRIGHT_CYAN,
+            ),
+            flush=True,
+        )
         try:
             report = apply_decoded_settings(
                 decoded,
