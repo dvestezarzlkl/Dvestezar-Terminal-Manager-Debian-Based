@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
+from urllib.request import Request
 
 from libs.app import cfg
 from libs.app import settings_package as settings_package_module
@@ -10,6 +11,7 @@ from libs.app.settings_package import (
     SettingsSectionHandler,
     apply_decoded_settings,
     decode_encrypted_settings,
+    download_settings_package,
     export_encrypted_settings,
     preview_decoded_settings,
     validate_settings_url,
@@ -34,6 +36,8 @@ _CONFIG_KEYS = (
     "MAIL_FROM",
     "MAIL_FALLBACK_ADMIN",
     "MAIL_TIMEOUT",
+    "SETTINGS_AUTH_USER",
+    "SETTINGS_AUTH_PASSWORD",
     "SETTINGS_LAST_REVISION",
     "SETTINGS_LAST_SHA256",
     "SETTINGS_LAST_APPLIED",
@@ -60,6 +64,8 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.MAIL_FROM = "sysapps@example.test"
         cfg.MAIL_FALLBACK_ADMIN = "admin@example.test"
         cfg.MAIL_TIMEOUT = 20
+        cfg.SETTINGS_AUTH_USER = "http-user"
+        cfg.SETTINGS_AUTH_PASSWORD = "http-secret"
         cfg.SETTINGS_LAST_REVISION = 0
         cfg.SETTINGS_LAST_SHA256 = ""
         cfg.SETTINGS_LAST_APPLIED = ""
@@ -73,6 +79,8 @@ class SettingsPackageTests(unittest.TestCase):
         self.assertTrue(package.startswith("SYSAPP1E:"))
         self.assertNotIn("database-secret", package)
         self.assertNotIn("smtp-secret", package)
+        self.assertNotIn("http-user", package)
+        self.assertNotIn("http-secret", package)
         self.assertNotIn("\n", package)
 
         decoded = decode_encrypted_settings(package, "package-password")
@@ -222,6 +230,66 @@ class SettingsPackageTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "embedded"):
             validate_settings_url("https://user:password@config.example/settings")
+
+    def test_download_sends_basic_auth_only_in_authorization_header(self):
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.__exit__.return_value = False
+        response.geturl.return_value = "https://config.example/hidden-path"
+        response.headers = {}
+        response.read.return_value = b"SYSAPP1E:test"
+        opener = MagicMock()
+        opener.open.return_value = response
+
+        with patch(
+            "libs.app.settings_package.build_opener", return_value=opener
+        ):
+            package = download_settings_package(
+                "https://config.example/hidden-path",
+                auth_user="sysapps",
+                auth_password="secret123",
+            )
+
+        self.assertEqual(package, "SYSAPP1E:test")
+        request = opener.open.call_args.args[0]
+        self.assertEqual(
+            request.get_header("Authorization"),
+            "Basic c3lzYXBwczpzZWNyZXQxMjM=",
+        )
+        self.assertNotIn("sysapps", request.full_url)
+        self.assertNotIn("secret123", request.full_url)
+
+    def test_incomplete_basic_auth_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "must both be configured"):
+            download_settings_package(
+                "https://config.example/settings",
+                auth_user="sysapps",
+            )
+
+    def test_redirect_handler_keeps_auth_only_on_same_origin(self):
+        handler = settings_package_module._SameOriginRedirectHandler()
+        request = Request("https://config.example/private/settings")
+        request.add_unredirected_header("Authorization", "Basic token")
+
+        redirected = handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://config.example/rewritten/settings",
+        )
+        self.assertEqual(redirected.get_header("Authorization"), "Basic token")
+
+        with self.assertRaisesRegex(ValueError, "different origin"):
+            handler.redirect_request(
+                request,
+                None,
+                302,
+                "Found",
+                {},
+                "https://other.example/settings",
+            )
 
 
 if __name__ == "__main__":

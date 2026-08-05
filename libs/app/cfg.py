@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -47,6 +47,8 @@ HUB_AUTO_SYNC:bool        = True                            # automatický sync 
 # Centrální distribuce přenositelných nastavení
 SETTINGS_URL:str          = ""                              # HTTPS URL s jedním šifrovaným SYSAPP1E balíkem
 SETTINGS_PASSWORD:str     = ""                              # lokální bootstrap heslo, nikdy se neimportuje z balíku
+SETTINGS_AUTH_USER:str    = ""                              # volitelný HTTP Basic Auth uživatel, nikdy se neimportuje
+SETTINGS_AUTH_PASSWORD:str = ""                             # volitelné HTTP Basic Auth heslo, nikdy se neimportuje
 SETTINGS_AUTO_UPDATE:bool = False                           # při startu použije pouze vyšší revision
 SETTINGS_CONNECT_TIMEOUT:int = 5                            # timeout stažení v sekundách
 SETTINGS_ALLOW_HTTP:bool  = False                           # explicitní nouzová výjimka pro izolovanou LAN
