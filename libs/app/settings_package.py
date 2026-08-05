@@ -356,7 +356,12 @@ def _smtp_preview(data: dict[str, Any]) -> str:
 
 def detect_import_conflicts(
     decoded: DecodedSettingsPackage,
+    import_policy: SettingsImportPolicy | None = None,
 ) -> tuple[SettingsImportConflict, ...]:
+    policy = import_policy or load_settings_import_policy()
+    if "smtp" in policy.skip_sections:
+        return ()
+    skipped_fields = set(policy.fields_for("smtp"))
     section = decoded.sections.get("smtp")
     if not isinstance(section, dict) or int(section.get("version", 0)) != 1:
         return ()
@@ -374,7 +379,11 @@ def detect_import_conflicts(
 
     current_from = str(getattr(cfg, "MAIL_FROM", "") or "").strip().lower()
     incoming_from = incoming["from_address"]
-    if current_from and current_from != incoming_from:
+    if (
+        "from_address" not in skipped_fields
+        and current_from
+        and current_from != incoming_from
+    ):
         conflicts.append(
             SettingsImportConflict(
                 "smtp",
@@ -441,6 +450,14 @@ register_settings_section(
         validator=_smtp_validate,
         applier=_smtp_apply,
         previewer=_smtp_preview,
+        policy_fields=(
+            SettingsPolicyField(
+                key="from_address",
+                label="SMTP From address",
+                data_key="from_address",
+                config_key="MAIL_FROM",
+            ),
+        ),
     )
 )
 
@@ -942,7 +959,8 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
                 "The remote package reuses the current revision with different content."
             )
 
-    conflicts = detect_import_conflicts(decoded)
+    import_policy = load_settings_import_policy()
+    conflicts = detect_import_conflicts(decoded, import_policy)
     skip_sections = tuple(sorted({item.section_key for item in conflicts}))
     conflict_warnings = (
         (_automatic_conflict_warning(conflicts),) if conflicts else ()
@@ -953,6 +971,7 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         force=force,
         skip_sections=skip_sections,
         extra_warnings=conflict_warnings,
+        import_policy=import_policy,
     )
     if not report.changed:
         if report.skipped_sections:
