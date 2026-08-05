@@ -109,6 +109,12 @@ def registered_settings_sections() -> tuple[str, ...]:
     return tuple(sorted(_SECTIONS))
 
 
+def settings_section_label(section_key: str) -> str:
+    key = str(section_key or "")
+    handler = _SECTIONS.get(key)
+    return handler.label if handler is not None else key
+
+
 def _b64_encode(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
 

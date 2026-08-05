@@ -15,6 +15,7 @@ from libs.app.settings_package import (
     download_settings_package,
     export_encrypted_settings,
     preview_decoded_settings,
+    settings_section_label,
     update_from_central_url,
     validate_settings_url,
 )
@@ -79,6 +80,11 @@ class SettingsPackageTests(unittest.TestCase):
     def tearDown(self):
         for key, value in self.previous.items():
             setattr(cfg, key, value)
+
+    def test_registered_section_labels_are_human_readable(self):
+        self.assertEqual(settings_section_label("hub"), "SysApps Hub")
+        self.assertEqual(settings_section_label("smtp"), "SMTP")
+        self.assertEqual(settings_section_label("future_section"), "future_section")
 
     def test_roundtrip_contains_hub_and_smtp_without_plaintext_secrets(self):
         package = export_encrypted_settings("package-password", revision=42)

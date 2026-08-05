@@ -20,6 +20,7 @@ from libs.app.settings_package import (
     export_encrypted_settings,
     preview_decoded_settings,
     registered_settings_sections,
+    settings_section_label,
     validate_settings_url,
 )
 
@@ -309,20 +310,26 @@ class SettingsPackageMenu(c_menu):
         decoded: DecodedSettingsPackage,
         skip_sections: tuple[str, ...] = (),
     ) -> tuple[bool, bool]:
-        remaining = set(decoded.sections).intersection(
-            registered_settings_sections()
-        ).difference(skip_sections)
+        remaining = sorted(
+            set(decoded.sections)
+            .intersection(registered_settings_sections())
+            .difference(skip_sections)
+        )
         if not remaining:
             return True, False
+        labels = ", ".join(settings_section_label(key) for key in remaining)
+        qualifier = "remaining " if skip_sections else ""
+        noun = "section" if len(remaining) == 1 else "sections"
         current = int(cfg.SETTINGS_LAST_REVISION or 0)
         downgrade = decoded.revision > 0 and decoded.revision < current
-        scope = "remaining supported" if skip_sections else "supported"
         if downgrade:
             ok = confirm(
-                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade to the {scope} settings sections?"
+                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade to {qualifier}settings {noun}: {labels}?"
             )
             return ok, True
-        return confirm(f"Apply the {scope} settings sections shown above?"), False
+        return confirm(
+            f"Apply {qualifier}settings {noun}: {labels}?"
+        ), False
 
     def _apply_import(
         self,
