@@ -163,7 +163,9 @@ jobs:
           assert "_SameOriginRedirectHandler" in settings_package
           assert 'add_unredirected_header("Authorization"' in settings_package
           assert "detect_import_conflicts" in settings_package
+          assert "sections were skipped by local policy" in settings_package
           assert "HTTP Basic Auth user" in settings_menu
+          assert "No settings applied from revision" in settings_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu
