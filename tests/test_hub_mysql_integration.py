@@ -78,6 +78,24 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             is_system_disk=False,
         )
 
+    @staticmethod
+    def _catalog_disk(
+        ptuuid: str, name: str, updated_at: datetime | None
+    ) -> HubDisk:
+        return HubDisk(
+            ptuuid=ptuuid,
+            device_name="",
+            device_path="",
+            display_name=name,
+            name_updated_at=updated_at,
+            size_bytes=0,
+            device_type="disk",
+            partition_count=0,
+            mountpoint_count=0,
+            is_system_disk=False,
+            attached=False,
+        )
+
     def test_schema_disk_names_and_physical_move_between_hosts(self) -> None:
         first_time = datetime.now(timezone.utc).replace(microsecond=100000)
         second_time = first_time + timedelta(seconds=1)
@@ -147,6 +165,84 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 self.assertEqual(cursor.fetchone()[0], "machine-a")
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
                 self.assertEqual(cursor.fetchone()[0], 2)
+
+    def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:
+        first_time = datetime.now(timezone.utc).replace(microsecond=200000)
+        second_time = first_time + timedelta(seconds=1)
+        self.database.sync_core(self._host("machine-d", "host-d"))
+
+        self.database.sync_provider(
+            "machine-d",
+            HubProviderSnapshot(
+                "disks",
+                "disks",
+                (
+                    HubDisk(
+                        ptuuid="known-offline",
+                        device_name="sdc",
+                        device_path="/dev/sdc",
+                        display_name="old_name",
+                        name_updated_at=first_time,
+                        size_bytes=5_000_000,
+                        device_type="disk",
+                        partition_count=2,
+                        mountpoint_count=0,
+                        is_system_disk=False,
+                    ),
+                ),
+            ),
+        )
+
+        disks = table_identifier(self.settings, "disks")
+        host_disks = table_identifier(self.settings, "host_disks")
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT size_bytes, last_seen_at FROM {disks} WHERE ptuuid=%s",
+                    ("known-offline",),
+                )
+                original_size, original_last_seen = cursor.fetchone()
+
+        result = self.database.sync_provider(
+            "machine-d",
+            HubProviderSnapshot(
+                "disks",
+                "disks",
+                (
+                    self._catalog_disk(
+                        "known-offline", "renamed_offline", second_time
+                    ),
+                    self._catalog_disk(
+                        "catalog-only", "image_template", second_time
+                    ),
+                ),
+            ),
+        )
+        self.assertEqual(result.item_count, 2)
+
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT display_name, size_bytes, last_seen_at FROM {disks} "
+                    "WHERE ptuuid=%s",
+                    ("known-offline",),
+                )
+                name, size_bytes, last_seen_at = cursor.fetchone()
+                self.assertEqual(name, "renamed_offline")
+                self.assertEqual(size_bytes, original_size)
+                self.assertEqual(last_seen_at, original_last_seen)
+                cursor.execute(
+                    f"SELECT display_name, size_bytes FROM {disks} WHERE ptuuid=%s",
+                    ("catalog-only",),
+                )
+                self.assertEqual(cursor.fetchone(), ("image_template", 0))
+                cursor.execute(
+                    f"SELECT COUNT(*) FROM {host_disks} hd "
+                    f"JOIN {disks} d ON d.id=hd.disk_id "
+                    "WHERE d.ptuuid IN (%s, %s)",
+                    ("known-offline", "catalog-only"),
+                )
+                self.assertEqual(cursor.fetchone()[0], 0)
 
     def test_duplicate_ptuuid_on_one_host_is_rejected_transactionally(self) -> None:
         self.database.sync_core(self._host("machine-c", "host-c"))
