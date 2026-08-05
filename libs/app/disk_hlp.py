@@ -398,12 +398,12 @@ class c_other:
             str|None: chybová hláška, nebo None při úspěšné přípravě
         """
         if not partInfo.mountpoints:
-            return "Disk není připojený, nelze resetovat machine-id"
+            return "Disk není připojený, nelze připravit Machine ID pro první boot"
         if len(partInfo.mountpoints)>1:
-            return "Disk má více mountů, nelze resetovat machine-id"
+            return "Disk má více mountů, nelze připravit Machine ID pro první boot"
         mountPoint=Path(partInfo.mountpoints[0])
         if not mountPoint.is_dir():
-            return "Mount point není adresář, nelze resetovat machine-id"
+            return "Mount point není adresář, nelze připravit Machine ID pro první boot"
         
         # Záměrně pouze připravujeme first-boot stav; nové ID zde negenerujeme.
         # Další ConditionFirstBoot jednotky musí zůstat způsobilé ke spuštění.
@@ -417,7 +417,7 @@ class c_other:
             
         # vytvoříme prázdný machine-id pro vygenerování nového
         (mountPoint / "etc/machine-id").touch()
-        # vytvoříme službu pro reset machine-id
+        # vytvoříme službu, která nové machine-id vygeneruje až při prvním bootu
         service_content ="""[Unit]
 Description=Generate machine-id on first boot
 ConditionFirstBoot=yes
