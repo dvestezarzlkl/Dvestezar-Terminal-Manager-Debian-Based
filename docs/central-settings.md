@@ -88,14 +88,55 @@ Centrální soubor může být obsloužen běžným statickým webem spravovaný
 
 Pro veřejně dosažitelný server je doporučená kombinace:
 
-1. samostatná HTTPS subdoména a dlouhá náhodná veřejná cesta,
+1. samostatná HTTPS subdoména a dlouhé náhodné veřejné cesty,
 2. ISPConfig/Apache HTTP Basic Auth nad webem nebo fyzickým adresářem,
-3. `Options -Indexes` a přesný rewrite pouze povolené cesty na interní PHP entrypoint,
-4. pevná serverová cesta k `settings.txt` uloženému v private adresáři mimo webroot,
-5. ostatní cesty vracejí 404 a PHP přijímá pouze GET/HEAD,
-6. odpověď používá `text/plain`, `X-Robots-Tag: noindex` a `Cache-Control: no-store`.
+3. `Options -Indexes` a fallback rewrite neexistujících cest na společný `index.php`,
+4. `index.php` funguje jako dispatcher: normalizuje `REQUEST_URI` a porovnává ji pouze s pevnou allowlist mapou rout,
+5. každá routa volá konkrétní handler s pevně definovaným souborem v private adresáři mimo webroot; cesta z URL se nikdy neskládá do `include`, `require` ani filesystem cesty,
+6. neznámé routy vracejí 404 a download handlery přijímají pouze GET/HEAD,
+7. odpověď používá `text/plain`, `X-Robots-Tag: noindex` a `Cache-Control: no-store`.
 
-Náhodná cesta omezuje hluk ze scannerů, ale není autentizace. Basic Auth chrání stažení a AES-GCM/Scrypt balík chrání důvěrnost i integritu samotných nastavení. Skutečné PHP jméno ani private cesta nemusí být ve veřejné URL vidět.
+Příklad obecného fallbacku v `.htaccess`:
+
+```apache
+Options -Indexes
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [END]
+```
+
+Dispatcher nesmí dynamicky načítat skript podle textu z URL. Použije pevnou mapu veřejná cesta -> handler:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+$path = '/' . trim(rawurldecode((string) $path), '/');
+
+$routes = [
+    '/bnQFjPjxbuYndvZ4uys' => static function (): void {
+        require __DIR__ . '/handlers/sysapps-settings.php';
+    },
+    // Budoucí samostatný endpoint:
+    // '/jina-nahodna-cesta' => static function (): void { ... },
+];
+
+$handler = $routes[$path] ?? null;
+if ($handler === null) {
+    http_response_code(404);
+    exit;
+}
+
+$handler();
+```
+
+Jednotlivý handler pak čte pouze svoji pevnou serverovou cestu, například `/var/www/clients/clientX/webY/private/sysapps/settings.txt`. Tím zůstane subdoména rozšiřitelná o další centrální konfigurace, ale náhodná cesta nemůže způsobit libovolné načtení souboru nebo PHP skriptu.
+
+Náhodné cesty omezují hluk ze scannerů, ale nejsou autentizace. Basic Auth chrání stažení a AES-GCM/Scrypt balík chrání důvěrnost i integritu samotných nastavení. Skutečné PHP jméno ani private cesta nemusí být ve veřejné URL vidět.
 
 ## Automatická aktualizace při startu
 
