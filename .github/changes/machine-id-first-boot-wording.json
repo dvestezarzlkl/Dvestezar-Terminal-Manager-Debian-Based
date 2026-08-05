@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "commit_message": "Clarify first-boot Machine ID preparation",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "                self.menu.append( c_menu_item(text_color(\"Resetovat MachineID (RPi OPi)\", color=en_color.RED), \"m\", self.reset_machine_id) )\n",
+      "new": "                self.menu.append( c_menu_item(text_color(\"Připravit nové Machine ID při prvním bootu\", color=en_color.RED), \"m\", self.prepare_machine_id_for_first_boot) )\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "                self.menu.append( c_menu_item(text_color(\"MachineID není platné nebo je již resetováno.\", color=en_color.BRIGHT_BLACK), atRight=\"nelze resetovat\") )            \n",
+      "new": "                self.menu.append( c_menu_item(text_color(\"Machine ID není platné nebo je již připravené pro první boot.\", color=en_color.BRIGHT_BLACK), atRight=\"nelze připravit\") )            \n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "    def reset_machine_id(self,selItem:c_menu_item) -> None|onSelReturn:\n        \"\"\"Resetuje MachineID pro RPi a OPi, což může být užitečné při klonování SD karet pro RPi/OPi.\n        \"\"\"\n        ret = onSelReturn()\n        if not confirm(\"Jste si jisti, že chcete resetovat MachineID pro tento disk? Toto je užitečné pouze pro RPi a OPi a může pomoci při klonování SD karet.\"):\n            ret.err=\"Zrušeno uživatelem.\"\n            return ret\n        try:\n            x=c_other.reset_machine_id(self.partInfo)\n            if x:\n                ret.err=x\n            else:\n                ret.ok=\"MachineID bylo resetováno.\"\n        except Exception as e:\n            ret.err=f\"Chyba při resetování MachineID: {e}\"\n        return ret\n",
+      "new": "    def prepare_machine_id_for_first_boot(self,selItem:c_menu_item) -> None|onSelReturn:\n        \"\"\"Připraví klonovaný systém pro vytvoření nové identity při prvním bootu.\"\"\"\n        ret = onSelReturn()\n        if not confirm(\n            \"Aktuální Machine ID bude odstraněno. Nové ID se nevytvoří nyní; \"\n            \"systém ho vytvoří při prvním bootu, aby se spustily také další \"\n            \"ConditionFirstBoot služby. Pokračovat?\"\n        ):\n            ret.err=\"Zrušeno uživatelem.\"\n            return ret\n        try:\n            x=c_other.prepare_machine_id_for_first_boot(self.partInfo)\n            if x:\n                ret.err=x\n            else:\n                ret.ok=(\n                    \"Systém byl připraven pro vytvoření nového Machine ID \"\n                    \"při prvním bootu.\"\n                )\n        except Exception as e:\n            ret.err=f\"Chyba při přípravě Machine ID pro první boot: {e}\"\n        return ret\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/disk_hlp.py",
+      "old": "    def reset_machine_id(partInfo: lsblkDiskInfo) -> str|None:\n        \"\"\"Zkontroluje jestli je disk mountlý, pokud ano a má jen jeden mount tak se pokusí resetovat jeho machine-id,\n        což je užitečné pro klony RPi a OPi, které mají stejné machine-id a tím pádem stejné UUID disků, a tprotože se\n        MAC generuje z UUID disku, tak mají všechny klony stejné MAC adresy, což může způsobovat problémy při připojování k síti\n        Reset se provede smazáním machineid souborů, provede se touch v etc/machine-id, následně je vytvořena služba,\n        která díky nulovému obsahu vygeneruje nové machine-id, tzn\n        v `mountPoint.../etc/systemd/system` vytvoří `reset-machine-id-firstboot.service` s obsahem:\n        ```\n        [Unit]\n        Description=Reset machine-id on first boot\n        ConditionFirstBoot=yes\n\n        [Service]\n        Type=oneshot\n        ExecStart=/usr/bin/systemd-machine-id-setup\n\n        [Install]\n        WantedBy=multi-user.target\n        ```\n        a následně se služba povolí vytvořením symlinku, který ale musí být relativní\n        `ln -s ../reset-machine-id-firstboot.service /mnt/x/etc/systemd/system/multi-user.target.wants/reset-machine-id-firstboot.service`\n        \n        ```sh\n        rm -f /mnt/x/etc/machine-id\n        rm -f /mnt/x/var/lib/dbus/machine-id\n        touch /mnt/x/etc/machine-id        \n        ```\n    \n        Args:\n            diskInfo (lsblkDiskInfo): informace o disku, který chceme resetovat\n            \n        Returns:\n            str|None: chybová hláška pokud se nepodařilo resetovat, None pokud se reset povedl\n    \n        \"\"\"\n",
+      "new": "    def prepare_machine_id_for_first_boot(partInfo: lsblkDiskInfo) -> str|None:\n        \"\"\"Připraví offline klon systému pro vytvoření nového machine-id při prvním bootu.\n\n        DŮLEŽITÝ KONTRAKT: tato funkce záměrně negeneruje nové machine-id okamžitě.\n        Odstraní existující identity, ponechá prázdný `/etc/machine-id` a nainstaluje\n        jednotku s `ConditionFirstBoot=yes`. Tím zůstane systém ve first-boot stavu a\n        při prvním startu se mohou vedle vytvoření machine-id spustit také všechny další\n        projektové first-boot služby. Neměnit na okamžité `systemd-machine-id-setup` nebo\n        `systemd-firstboot --setup-machine-id`, pokud se vědomě nemění tento workflow.\n\n        V cílovém systému vytvoří `generate-machine-id-firstboot.service` a relativní\n        symlink v `multi-user.target.wants`.\n\n        Args:\n            partInfo (lsblkDiskInfo): připojená root partition připravovaného systému\n\n        Returns:\n            str|None: chybová hláška, nebo None při úspěšné přípravě\n        \"\"\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/disk_hlp.py",
+      "old": "        # smažeme machine-id soubory\n",
+      "new": "        # Záměrně pouze připravujeme first-boot stav; nové ID zde negenerujeme.\n        # Další ConditionFirstBoot jednotky musí zůstat způsobilé ke spuštění.\n        # smažeme machine-id soubory\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/disk_hlp.py",
+      "old": "Description=Reset machine-id on first boot\n",
+      "new": "Description=Generate machine-id on first boot\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/disk_hlp.py",
+      "old": "        service_path = mountPoint / \"etc/systemd/system/reset-machine-id-firstboot.service\"\n",
+      "new": "        service_path = mountPoint / \"etc/systemd/system/generate-machine-id-firstboot.service\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/disk_hlp.py",
+      "old": "        symlink_path = wants_dir / \"reset-machine-id-firstboot.service\"\n        if not symlink_path.is_symlink():\n            symlink_path.symlink_to(\"../reset-machine-id-firstboot.service\")\n",
+      "new": "        symlink_path = wants_dir / \"generate-machine-id-firstboot.service\"\n        if not symlink_path.is_symlink():\n            symlink_path.symlink_to(\"../generate-machine-id-firstboot.service\")\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "    _VERSION_:str=\"3.6.1\"",
+      "new": "    _VERSION_:str=\"3.6.2\"",
+      "expected": 1
+    }
+  ]
+}
