@@ -15,6 +15,7 @@ from libs.app.settings_package import (
     DecodedSettingsPackage,
     apply_decoded_settings,
     decode_encrypted_settings,
+    detect_import_conflicts,
     download_settings_package,
     export_encrypted_settings,
     preview_decoded_settings,
@@ -287,26 +288,48 @@ class SettingsPackageMenu(c_menu):
         for line in preview_decoded_settings(decoded):
             print(f" - {line}")
 
-    def _confirm_import(self, decoded: DecodedSettingsPackage) -> tuple[bool, bool]:
+    def _resolve_import_conflicts(
+        self, decoded: DecodedSettingsPackage
+    ) -> tuple[str, ...]:
+        skipped: set[str] = set()
+        for conflict in detect_import_conflicts(decoded):
+            current = conflict.current_value or "not set"
+            incoming = conflict.incoming_value or "not set"
+            replace = confirm(
+                f"{conflict.label} is currently '{current}'. Replace it with '{incoming}'?"
+            )
+            if not replace:
+                skipped.add(conflict.section_key)
+                break
+        return tuple(sorted(skipped))
+
+    def _confirm_import(
+        self,
+        decoded: DecodedSettingsPackage,
+        skip_sections: tuple[str, ...] = (),
+    ) -> tuple[bool, bool]:
         current = int(cfg.SETTINGS_LAST_REVISION or 0)
         downgrade = decoded.revision > 0 and decoded.revision < current
+        scope = "remaining supported" if skip_sections else "supported"
         if downgrade:
             ok = confirm(
-                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade?"
+                f"Package revision {decoded.revision} is older than local revision {current}. Apply this manual downgrade to the {scope} settings sections?"
             )
             return ok, True
-        return confirm("Apply all supported settings sections shown above?"), False
+        return confirm(f"Apply the {scope} settings sections shown above?"), False
 
     def _apply_import(
         self,
         decoded: DecodedSettingsPackage,
         allow_downgrade: bool,
+        skip_sections: tuple[str, ...] = (),
     ) -> onSelReturn:
         try:
             report = apply_decoded_settings(
                 decoded,
                 allow_downgrade=allow_downgrade,
                 force=True,
+                skip_sections=skip_sections,
             )
             hub_runtime.refresh_status()
         except (TypeError, ValueError) as exc:
@@ -357,10 +380,11 @@ class SettingsPackageMenu(c_menu):
             self._print_preview(decoded)
         except (TypeError, ValueError) as exc:
             return onSelReturn().errRet(str(exc))
-        confirmed, downgrade = self._confirm_import(decoded)
+        skip_sections = self._resolve_import_conflicts(decoded)
+        confirmed, downgrade = self._confirm_import(decoded, skip_sections)
         if not confirmed:
             return onSelReturn().errRet("Cancelled.")
-        return self._apply_import(decoded, downgrade)
+        return self._apply_import(decoded, downgrade, skip_sections)
 
     def import_from_url(self, selItem: c_menu_item) -> onSelReturn:
         if not cfg.SETTINGS_URL or not cfg.SETTINGS_PASSWORD:
@@ -379,7 +403,8 @@ class SettingsPackageMenu(c_menu):
             self._print_preview(decoded)
         except Exception as exc:
             return onSelReturn().errRet(str(exc))
-        confirmed, downgrade = self._confirm_import(decoded)
+        skip_sections = self._resolve_import_conflicts(decoded)
+        confirmed, downgrade = self._confirm_import(decoded, skip_sections)
         if not confirmed:
             return onSelReturn().errRet("Cancelled.")
-        return self._apply_import(decoded, downgrade)
+        return self._apply_import(decoded, downgrade, skip_sections)

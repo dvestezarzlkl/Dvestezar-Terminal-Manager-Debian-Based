@@ -12,6 +12,7 @@ import psutil
 
 from libs.JBLibs import __version__ as jblibs_version
 from libs.app import cfg
+from libs.app.service_host import configured_service_host
 
 from .models import HubAddress, HubHostSnapshot, HubService
 
@@ -115,13 +116,11 @@ def _systemctl_status(names: Iterable[str]) -> str:
 
 
 def _service_url(port: Optional[int], use_https: bool) -> str:
-    host = _text(getattr(cfg, "SERVER_URL", "")).rstrip("/")
+    host = configured_service_host()
     if not host or port is None:
         return ""
-    if "://" in host:
-        host = host.split("://", 1)[1]
-    host = host.split("/", 1)[0]
-    host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
     scheme = "https" if use_https else "http"
     return f"{scheme}://{host}:{port}"
 

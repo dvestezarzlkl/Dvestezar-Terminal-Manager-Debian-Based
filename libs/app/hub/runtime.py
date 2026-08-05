@@ -5,6 +5,7 @@ import re
 from typing import Optional
 
 from libs.JBLibs.helper import getLogger
+from libs.app.service_host import configured_service_host
 
 from .core_provider import collect_host_snapshot
 from .database import HubDatabase
@@ -53,6 +54,13 @@ class HubRuntime:
 
     def refresh_status(self) -> HubStatus:
         settings = HubSettings.from_cfg()
+        if settings.enabled and not configured_service_host():
+            self.status = HubStatus(
+                HubState.NOT_CONFIGURED,
+                "Service host / FQDN is not configured.",
+                datetime.now().astimezone(),
+            )
+            return self.status
         try:
             self.status = HubDatabase(settings).check_status()
         except Exception as exc:
@@ -96,6 +104,13 @@ class HubRuntime:
 
     def _ready_database(self) -> tuple[HubSettings, HubDatabase]:
         settings = HubSettings.from_cfg()
+        if not configured_service_host():
+            self.status = HubStatus(
+                HubState.NOT_CONFIGURED,
+                "Service host / FQDN is not configured.",
+                datetime.now().astimezone(),
+            )
+            raise RuntimeError(self.status_text())
         status = HubDatabase(settings).check_status()
         self.status = status
         if not status.ready:

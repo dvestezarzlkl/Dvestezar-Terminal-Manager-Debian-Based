@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.1.2
+
+- FIX SysApps Hub se nesynchronizuje bez platného lokálního service host/FQDN; prázdná hodnota i historický placeholder `moje.domena.fake` vrátí stav NOT CONFIGURED a běžná lokální práce zůstane dostupná
+- SAFE ruční import vyžaduje potvrzení před změnou již nastaveného SMTP hostu nebo From adresy; odmítnutí přeskočí celou SMTP sekci a ostatní sekce mohou pokračovat
+- SAFE automatický startup import konfliktní SMTP sekci nepřepíše, ale přeskočí ji s varováním; po odstranění konfliktu lze stejnou revision korektně aplikovat znovu
+- UPD kompatibilní klíč `SERVER_URL` je v UI a dokumentaci označen jako Service host / FQDN a generované URL používají pouze normalizovaný hostname/FQDN/IP
+
 ## v2.1.1
 
 - ADD centrální settings URL podporuje volitelný HTTP Basic Auth přes samostatný lokální bootstrap user/password; přihlašovací údaje nejsou v URL ani v šifrovaném SYSAPP1E balíku

@@ -79,6 +79,15 @@ class SettingsUpdateResult:
     warnings: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class SettingsImportConflict:
+    section_key: str
+    field_key: str
+    label: str
+    current_value: str
+    incoming_value: str
+
+
 _SECTIONS: dict[str, SettingsSectionHandler] = {}
 _LAST_EXPORTED_REVISION = 0
 
@@ -217,6 +226,52 @@ def _smtp_preview(data: dict[str, Any]) -> str:
         f"from={item['from_address'] or item['user'] or 'not set'}, "
         f"fallback={item['fallback_admin'] or 'not set'}, "
         f"password={'set' if item['password'] else 'not set'}"
+    )
+
+
+def detect_import_conflicts(
+    decoded: DecodedSettingsPackage,
+) -> tuple[SettingsImportConflict, ...]:
+    section = decoded.sections.get("smtp")
+    if not isinstance(section, dict) or int(section.get("version", 0)) != 1:
+        return ()
+    incoming = _smtp_validate(section.get("data", {}))
+    conflicts: list[SettingsImportConflict] = []
+
+    current_host = str(getattr(cfg, "MAIL_SMTP_HOST", "") or "").strip()
+    incoming_host = incoming["host"]
+    if current_host and current_host.casefold() != incoming_host.casefold():
+        conflicts.append(
+            SettingsImportConflict(
+                "smtp", "host", "SMTP host", current_host, incoming_host
+            )
+        )
+
+    current_from = str(getattr(cfg, "MAIL_FROM", "") or "").strip().lower()
+    incoming_from = incoming["from_address"]
+    if current_from and current_from != incoming_from:
+        conflicts.append(
+            SettingsImportConflict(
+                "smtp",
+                "from_address",
+                "From address",
+                current_from,
+                incoming_from,
+            )
+        )
+    return tuple(conflicts)
+
+
+def _automatic_conflict_warning(
+    conflicts: tuple[SettingsImportConflict, ...],
+) -> str:
+    details = "; ".join(
+        f"{item.label} {item.current_value or 'not set'} -> {item.incoming_value or 'not set'}"
+        for item in conflicts
+    )
+    return (
+        "SMTP section skipped because it would replace existing local identity "
+        f"({details}). Use manual import to confirm the change."
     )
 
 
@@ -404,6 +459,7 @@ def decode_encrypted_settings(package: str, password: str) -> DecodedSettingsPac
 
 def _prepare_sections(
     decoded: DecodedSettingsPackage,
+    skip_sections: tuple[str, ...] = (),
 ) -> tuple[
     list[tuple[SettingsSectionHandler, dict[str, Any]]],
     tuple[str, ...],
@@ -412,7 +468,12 @@ def _prepare_sections(
     prepared: list[tuple[SettingsSectionHandler, dict[str, Any]]] = []
     skipped: list[str] = []
     warnings: list[str] = []
+    skip_set = {str(key) for key in skip_sections}
     for key, section in sorted(decoded.sections.items()):
+        if key in skip_set:
+            skipped.append(key)
+            warnings.append(f"Settings section skipped by local import policy: {key}")
+            continue
         handler = _SECTIONS.get(key)
         if handler is None:
             skipped.append(key)
@@ -426,8 +487,6 @@ def _prepare_sections(
             )
             continue
         prepared.append((handler, handler.validator(section["data"])))
-    if not prepared:
-        raise ValueError("Package contains no supported settings sections.")
     return prepared, tuple(skipped), tuple(warnings)
 
 
@@ -441,6 +500,8 @@ def _section_signature(
 
 def preview_decoded_settings(decoded: DecodedSettingsPackage) -> tuple[str, ...]:
     prepared, skipped, warnings = _prepare_sections(decoded)
+    if not prepared:
+        raise ValueError("Package contains no supported settings sections.")
     lines = [
         f"Revision: {decoded.revision if decoded.revision else 'legacy'}",
         f"Created: {decoded.created_at or 'not available'}",
@@ -457,8 +518,17 @@ def apply_decoded_settings(
     decoded: DecodedSettingsPackage,
     allow_downgrade: bool = False,
     force: bool = False,
+    skip_sections: tuple[str, ...] = (),
+    extra_warnings: tuple[str, ...] = (),
 ) -> SettingsApplyReport:
-    prepared, skipped, warnings = _prepare_sections(decoded)
+    prepared, skipped, warnings = _prepare_sections(decoded, skip_sections)
+    warnings = tuple(warnings) + tuple(extra_warnings)
+    if not prepared:
+        if set(skip_sections).intersection(decoded.sections):
+            return SettingsApplyReport(
+                False, decoded.revision, (), skipped, warnings
+            )
+        raise ValueError("Package contains no supported settings sections.")
     signature = _section_signature(prepared)
     current_revision = int(getattr(cfg, "SETTINGS_LAST_REVISION", 0) or 0)
     current_hash = str(getattr(cfg, "SETTINGS_LAST_SHA256", "") or "")
@@ -478,7 +548,9 @@ def apply_decoded_settings(
                 and current_applied == signature
                 and not force
             ):
-                return SettingsApplyReport(False, decoded.revision)
+                return SettingsApplyReport(
+                    False, decoded.revision, (), skipped, warnings
+                )
 
     config_keys = {
         key
@@ -679,10 +751,17 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
                 "The remote package reuses the current revision with different content."
             )
 
+    conflicts = detect_import_conflicts(decoded)
+    skip_sections = tuple(sorted({item.section_key for item in conflicts}))
+    conflict_warnings = (
+        (_automatic_conflict_warning(conflicts),) if conflicts else ()
+    )
     report = apply_decoded_settings(
         decoded,
         allow_downgrade=force,
         force=force,
+        skip_sections=skip_sections,
+        extra_warnings=conflict_warnings,
     )
     if not report.changed:
         return SettingsUpdateResult(
@@ -721,6 +800,6 @@ def startup_settings_update() -> SettingsUpdateResult | None:
         return SettingsUpdateResult(False, 0, message)
     if result.changed:
         print(result.message)
-        for warning in result.warnings:
-            print(f"Central settings warning: {warning}")
+    for warning in result.warnings:
+        print(f"Central settings warning: {warning}")
     return result

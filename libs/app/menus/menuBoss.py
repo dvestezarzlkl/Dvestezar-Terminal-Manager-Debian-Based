@@ -12,6 +12,7 @@ from libs.app.hub.models import HubState
 from libs.app.hub.runtime import hub_runtime
 from libs.app.settings_menu import SettingsPackageMenu
 from libs.app.settings_package import startup_settings_update
+from libs.app.service_host import configured_service_host, validate_service_host
 import os,string
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
@@ -77,7 +78,7 @@ class menuBoss(menu):
                 text_color('App settings', en_color.BRIGHT_GREEN),
                 'm',
                 m_mail_settings(),
-                atRight=cfg.SERVER_URL or "not set",
+                atRight=configured_service_host() or "not set",
             ),
             c_menu_item(
                 text_color('Plugin settings', en_color.BRIGHT_CYAN),
@@ -174,17 +175,17 @@ class m_mail_settings(c_menu):
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(("App settings", "c"))
         self.subTitle = c_menu_block_items()
-        self.subTitle.append(("URL", cfg.SERVER_URL or "not set"))
+        self.subTitle.append(("Service host / FQDN", configured_service_host() or "not set"))
         self.subTitle.append(("SMTP", mail_hlp.get_status_text()))
         self.subTitle.append(("Fallback admin", mail_hlp.get_fallback_admin_mail() or "not set"))
         self.subTitle.append(("SysApps Hub", hub_runtime.status_text()))
         self.menu = [
             c_menu_title_label(text_color("App settings", color=en_color.CYAN)),
             c_menu_item(
-                text_color("Server URL", en_color.BRIGHT_CYAN),
+                text_color("Service host / FQDN", en_color.BRIGHT_CYAN),
                 "s",
                 self.edit_server_url,
-                atRight=cfg.SERVER_URL or "not set",
+                atRight=configured_service_host() or "not set",
             ),
             None,
             c_menu_title_label(text_color("SysApps Hub", color=en_color.CYAN)),
@@ -358,7 +359,7 @@ class m_mail_settings(c_menu):
         return onSelReturn(ok="From address updated.")
 
     def edit_server_url(self, selItem:c_menu_item) -> onSelReturn:
-        current = (cfg.SERVER_URL or "").strip()
+        current = configured_service_host()
         fqdn = ""
         if getattr(cfg, "machineInfo", None):
             fqdn = (cfg.machineInfo.hostname_full or cfg.machineInfo.static_hostname or "").strip()
@@ -375,45 +376,46 @@ class m_mail_settings(c_menu):
             if ip in seen_ips:
                 continue
             seen_ips.add(ip)
-            label = f"Use IPv4 ({iface.name}: {ip})"
-            opts.append(select_item(label, data=ip))
+            opts.append(select_item(f"Use IPv4 ({iface.name}: {ip})", data=ip))
 
-        opts.append(select_item("Manual entry", data="manual"))
+        opts.append(select_item("Manual entry or clear", data="manual"))
         for opt in opts:
             if opt.data == current:
                 opt.atRight = "current"
 
-        sel = select("Select SERVER_URL source:", opts)
+        sel = select("Select service host / FQDN source:", opts)
         if not sel:
             return onSelReturn().errRet("Cancelled.")
 
-        new_url = ""
         if sel.item.data == "manual":
-            note = "\n".join([
-                "SERVER_URL is used without a port.",
-                "Enter only a hostname, FQDN, IP address, or path.",
-                "Do not include http://, https://, or :PORT.",
-            ])
             value = get_input(
-                "Enter SERVER_URL:",
-                accept_empty=False,
+                "Enter service host / FQDN (empty clears):",
+                accept_empty=True,
                 maxLen=255,
-                titleNote=note,
-                rgx=r"^[^:\s]+$",
-                errTx="SERVER_URL must not contain a port or spaces.",
+                titleNote=(
+                    "This is the hostname, FQDN or IP used to present Node-RED and other service URLs.\n"
+                    "It may resolve only through VPN. Do not include scheme, port or path.\n"
+                    "An empty value disables SysApps Hub synchronization until configured."
+                ),
             )
             if value is None:
                 return onSelReturn().errRet("Cancelled.")
-            new_url = value.strip()
+            try:
+                service_host = validate_service_host(value)
+            except ValueError as exc:
+                return onSelReturn().errRet(str(exc))
         else:
-            new_url = str(sel.item.data).strip()
+            try:
+                service_host = validate_service_host(sel.item.data)
+            except ValueError as exc:
+                return onSelReturn().errRet(str(exc))
 
-        if not new_url:
-            return onSelReturn().errRet("SERVER_URL cannot be empty.")
-
-        cfg.SERVER_URL = new_url
+        cfg.SERVER_URL = service_host
         self._save()
-        return onSelReturn(ok=f"SERVER_URL updated to {new_url}.")
+        hub_runtime.refresh_status()
+        if not service_host:
+            return onSelReturn(ok="Service host cleared; Hub synchronization is disabled until it is configured.")
+        return onSelReturn(ok=f"Service host / FQDN updated to {service_host}.")
 
     def edit_fallback_admin_mail(self, selItem:c_menu_item) -> onSelReturn:
         current = mail_hlp.get_fallback_admin_mail()
