@@ -42,6 +42,27 @@ _EMAIL_RE = re.compile(
 
 
 @dataclass(frozen=True)
+class SettingsPolicyField:
+    key: str
+    label: str
+    data_key: str
+    config_key: str
+
+
+@dataclass(frozen=True)
+class SettingsImportPolicy:
+    skip_sections: tuple[str, ...] = ()
+    skip_fields: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    def fields_for(self, section_key: str) -> tuple[str, ...]:
+        key = str(section_key or "")
+        for current_key, fields in self.skip_fields:
+            if current_key == key:
+                return fields
+        return ()
+
+
+@dataclass(frozen=True)
 class SettingsSectionHandler:
     key: str
     label: str
@@ -51,6 +72,7 @@ class SettingsSectionHandler:
     validator: Callable[[dict[str, Any]], dict[str, Any]]
     applier: Callable[[dict[str, Any]], None]
     previewer: Callable[[dict[str, Any]], str]
+    policy_fields: tuple[SettingsPolicyField, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,6 +124,23 @@ def register_settings_section(handler: SettingsSectionHandler) -> None:
     current = _SECTIONS.get(handler.key)
     if current is not None and current != handler:
         raise ValueError(f"Duplicate settings section: {handler.key}")
+    policy_keys: set[str] = set()
+    for item in handler.policy_fields:
+        if not isinstance(item, SettingsPolicyField):
+            raise TypeError("Invalid settings policy field.")
+        if not _SECTION_KEY_RE.fullmatch(item.key):
+            raise ValueError(f"Invalid settings policy field: {item.key}")
+        if not _SECTION_KEY_RE.fullmatch(item.data_key):
+            raise ValueError(f"Invalid settings policy data key: {item.data_key}")
+        if item.config_key not in handler.config_keys:
+            raise ValueError(
+                f"Settings policy field {item.key} uses unknown config key {item.config_key}."
+            )
+        if item.key in policy_keys:
+            raise ValueError(
+                f"Duplicate settings policy field {item.key} in {handler.key}."
+            )
+        policy_keys.add(item.key)
     _SECTIONS[handler.key] = handler
 
 
@@ -113,6 +152,86 @@ def settings_section_label(section_key: str) -> str:
     key = str(section_key or "")
     handler = _SECTIONS.get(key)
     return handler.label if handler is not None else key
+
+
+def settings_section_policy_fields(
+    section_key: str,
+) -> tuple[SettingsPolicyField, ...]:
+    handler = _SECTIONS.get(str(section_key or ""))
+    return handler.policy_fields if handler is not None else ()
+
+
+def load_settings_import_policy() -> SettingsImportPolicy:
+    raw = str(getattr(cfg, "SETTINGS_IMPORT_POLICY", "") or "").strip()
+    if not raw:
+        return SettingsImportPolicy()
+    if len(raw) > 8192:
+        raise ValueError("Local centralized import policy is too large.")
+    try:
+        decoded = json.loads(raw)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("Local centralized import policy is invalid JSON.") from exc
+    if not isinstance(decoded, dict):
+        raise ValueError("Local centralized import policy must be an object.")
+
+    raw_sections = decoded.get("skip_sections", [])
+    raw_fields = decoded.get("skip_fields", {})
+    if not isinstance(raw_sections, list) or not isinstance(raw_fields, dict):
+        raise ValueError("Local centralized import policy has invalid structure.")
+    if len(raw_sections) > 128 or len(raw_fields) > 128:
+        raise ValueError("Local centralized import policy is too large.")
+
+    sections: set[str] = set()
+    for raw_key in raw_sections:
+        key = str(raw_key or "")
+        if not _SECTION_KEY_RE.fullmatch(key):
+            raise ValueError(f"Invalid import policy section key: {key}")
+        sections.add(key)
+
+    field_entries: list[tuple[str, tuple[str, ...]]] = []
+    for raw_section, raw_keys in raw_fields.items():
+        section_key = str(raw_section or "")
+        if not _SECTION_KEY_RE.fullmatch(section_key) or not isinstance(raw_keys, list):
+            raise ValueError("Local centralized field policy is invalid.")
+        if len(raw_keys) > 128:
+            raise ValueError("Local centralized field policy is too large.")
+        keys: set[str] = set()
+        for raw_key in raw_keys:
+            key = str(raw_key or "")
+            if not _SECTION_KEY_RE.fullmatch(key):
+                raise ValueError(f"Invalid import policy field key: {key}")
+            keys.add(key)
+        if keys:
+            field_entries.append((section_key, tuple(sorted(keys))))
+
+    return SettingsImportPolicy(
+        tuple(sorted(sections)), tuple(sorted(field_entries))
+    )
+
+
+def serialize_settings_import_policy(policy: SettingsImportPolicy) -> str:
+    if not isinstance(policy, SettingsImportPolicy):
+        raise TypeError("Invalid centralized import policy.")
+    fields = {
+        section_key: list(keys)
+        for section_key, keys in policy.skip_fields
+        if keys
+    }
+    if not policy.skip_sections and not fields:
+        return "{}"
+    return json.dumps(
+        {
+            "skip_sections": list(policy.skip_sections),
+            "skip_fields": fields,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def set_settings_import_policy(policy: SettingsImportPolicy) -> None:
+    cfg.SETTINGS_IMPORT_POLICY = serialize_settings_import_policy(policy)
 
 
 def _b64_encode(value: bytes) -> str:
