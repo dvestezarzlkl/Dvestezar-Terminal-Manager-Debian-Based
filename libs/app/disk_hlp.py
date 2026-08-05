@@ -378,49 +378,35 @@ class c_other:
         return disk_name_display 
 
     @staticmethod
-    def reset_machine_id(partInfo: lsblkDiskInfo) -> str|None:
-        """Zkontroluje jestli je disk mountlý, pokud ano a má jen jeden mount tak se pokusí resetovat jeho machine-id,
-        což je užitečné pro klony RPi a OPi, které mají stejné machine-id a tím pádem stejné UUID disků, a tprotože se
-        MAC generuje z UUID disku, tak mají všechny klony stejné MAC adresy, což může způsobovat problémy při připojování k síti
-        Reset se provede smazáním machineid souborů, provede se touch v etc/machine-id, následně je vytvořena služba,
-        která díky nulovému obsahu vygeneruje nové machine-id, tzn
-        v `mountPoint.../etc/systemd/system` vytvoří `reset-machine-id-firstboot.service` s obsahem:
-        ```
-        [Unit]
-        Description=Reset machine-id on first boot
-        ConditionFirstBoot=yes
+    def prepare_machine_id_for_first_boot(partInfo: lsblkDiskInfo) -> str|None:
+        """Připraví offline klon systému pro vytvoření nového machine-id při prvním bootu.
 
-        [Service]
-        Type=oneshot
-        ExecStart=/usr/bin/systemd-machine-id-setup
+        DŮLEŽITÝ KONTRAKT: tato funkce záměrně negeneruje nové machine-id okamžitě.
+        Odstraní existující identity, ponechá prázdný `/etc/machine-id` a nainstaluje
+        jednotku s `ConditionFirstBoot=yes`. Tím zůstane systém ve first-boot stavu a
+        při prvním startu se mohou vedle vytvoření machine-id spustit také všechny další
+        projektové first-boot služby. Neměnit na okamžité `systemd-machine-id-setup` nebo
+        `systemd-firstboot --setup-machine-id`, pokud se vědomě nemění tento workflow.
 
-        [Install]
-        WantedBy=multi-user.target
-        ```
-        a následně se služba povolí vytvořením symlinku, který ale musí být relativní
-        `ln -s ../reset-machine-id-firstboot.service /mnt/x/etc/systemd/system/multi-user.target.wants/reset-machine-id-firstboot.service`
-        
-        ```sh
-        rm -f /mnt/x/etc/machine-id
-        rm -f /mnt/x/var/lib/dbus/machine-id
-        touch /mnt/x/etc/machine-id        
-        ```
-    
+        V cílovém systému vytvoří `generate-machine-id-firstboot.service` a relativní
+        symlink v `multi-user.target.wants`.
+
         Args:
-            diskInfo (lsblkDiskInfo): informace o disku, který chceme resetovat
-            
+            partInfo (lsblkDiskInfo): připojená root partition připravovaného systému
+
         Returns:
-            str|None: chybová hláška pokud se nepodařilo resetovat, None pokud se reset povedl
-    
+            str|None: chybová hláška, nebo None při úspěšné přípravě
         """
         if not partInfo.mountpoints:
-            return "Disk není připojený, nelze resetovat machine-id"
+            return "Disk není připojený, nelze připravit Machine ID pro první boot"
         if len(partInfo.mountpoints)>1:
-            return "Disk má více mountů, nelze resetovat machine-id"
+            return "Disk má více mountů, nelze připravit Machine ID pro první boot"
         mountPoint=Path(partInfo.mountpoints[0])
         if not mountPoint.is_dir():
-            return "Mount point není adresář, nelze resetovat machine-id"
+            return "Mount point není adresář, nelze připravit Machine ID pro první boot"
         
+        # Záměrně pouze připravujeme first-boot stav; nové ID zde negenerujeme.
+        # Další ConditionFirstBoot jednotky musí zůstat způsobilé ke spuštění.
         # smažeme machine-id soubory
         machine_id_path = mountPoint / "etc/machine-id"
         dbus_machine_id_path = mountPoint / "var/lib/dbus/machine-id"
@@ -431,9 +417,9 @@ class c_other:
             
         # vytvoříme prázdný machine-id pro vygenerování nového
         (mountPoint / "etc/machine-id").touch()
-        # vytvoříme službu pro reset machine-id
+        # vytvoříme službu, která nové machine-id vygeneruje až při prvním bootu
         service_content ="""[Unit]
-Description=Reset machine-id on first boot
+Description=Generate machine-id on first boot
 ConditionFirstBoot=yes
 
 [Service]
@@ -443,15 +429,15 @@ ExecStart=/usr/bin/systemd-machine-id-setup
 [Install]
 WantedBy=multi-user.target
         """
-        service_path = mountPoint / "etc/systemd/system/reset-machine-id-firstboot.service"
+        service_path = mountPoint / "etc/systemd/system/generate-machine-id-firstboot.service"
         with service_path.open("w", encoding="utf-8") as f:
             f.write(service_content)
         # povolíme službu vytvořením relativního symlinku
         wants_dir = mountPoint / "etc/systemd/system/multi-user.target.wants"
         if not wants_dir.is_dir():
             wants_dir.mkdir(parents=True, exist_ok=True)
-        symlink_path = wants_dir / "reset-machine-id-firstboot.service"
+        symlink_path = wants_dir / "generate-machine-id-firstboot.service"
         if not symlink_path.is_symlink():
-            symlink_path.symlink_to("../reset-machine-id-firstboot.service")
+            symlink_path.symlink_to("../generate-machine-id-firstboot.service")
             
         return None

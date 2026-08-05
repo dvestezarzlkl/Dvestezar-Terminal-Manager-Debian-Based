@@ -2,9 +2,10 @@
 
 ## v2.2.1
 
+- UX Disk Manager 3.6.2 přejmenovává zavádějící reset Machine ID na přípravu identity pro první boot a dokumentuje záměrné zachování first-boot stavu
 - FIX Disk Hub synchronizuje také pojmenované PTUUID z lokálního katalogu Disk Manageru, i když fyzický disk právě není připojený
 - FIX globální záznam disku je oddělený od aktuální host-device vazby; katalogový sync nevytváří falešný device a nepřepisuje známou velikost ani poslední fyzické nalezení
-- UPD Disk Manager na 3.6.1 a hlavní aplikace na 2.2.1
+- UPD Disk Manager na 3.6.2 a hlavní aplikace na 2.2.1
 
 ## v2.2.0
 
