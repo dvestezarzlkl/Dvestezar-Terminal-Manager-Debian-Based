@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from unittest.mock import patch
 
 from libs.JBLibs.fs_utils import lsblkDiskInfo
+from libs.app.disk_hlp import disk_settings
 from libs.app.hub.models import HubContext, HubDiskNameUpdate
 from libs.app.menus.app_10_disk.hub_provider import (
     apply_disk_updates,
@@ -28,6 +29,14 @@ def disk(name: str, ptuuid: str, size: int = 1000) -> lsblkDiskInfo:
 class DiskHubProviderTests(unittest.TestCase):
     def setUp(self):
         self.context = HubContext(datetime.now(timezone.utc), "machine-1")
+        self.previous_names = disk_settings.diskNames
+        self.previous_updates = disk_settings.diskNameUpdatedAt
+        disk_settings.diskNames = {}
+        disk_settings.diskNameUpdatedAt = {}
+
+    def tearDown(self):
+        disk_settings.diskNames = self.previous_names
+        disk_settings.diskNameUpdatedAt = self.previous_updates
 
     def test_collects_physical_disks_and_local_names(self):
         updated = datetime.now(timezone.utc)
@@ -54,6 +63,29 @@ class DiskHubProviderTests(unittest.TestCase):
         self.assertEqual(item.display_name, "system_disk")
         self.assertEqual(item.name_updated_at, updated)
         self.assertEqual(item.size_bytes, 4096)
+
+    def test_collects_disconnected_named_disks_as_catalog_only_items(self):
+        updated = datetime.now(timezone.utc)
+        disk_settings.diskNames = {"offline-id": "archive_disk"}
+        disk_settings.diskNameUpdatedAt = {
+            "offline-id": updated.isoformat(timespec="microseconds")
+        }
+        with patch(
+            "libs.app.menus.app_10_disk.hub_provider.lsblk_list_disks",
+            return_value={},
+        ), patch(
+            "libs.app.menus.app_10_disk.hub_provider.disk_settings.init"
+        ):
+            snapshot = collect_disk_snapshot(self.context)
+
+        self.assertEqual(len(snapshot.items), 1)
+        item = snapshot.items[0]
+        self.assertEqual(item.ptuuid, "offline-id")
+        self.assertEqual(item.display_name, "archive_disk")
+        self.assertEqual(item.name_updated_at, updated)
+        self.assertFalse(item.attached)
+        self.assertEqual(item.device_name, "")
+        self.assertEqual(item.device_path, "")
 
     def test_duplicate_ptuuid_is_rejected_before_database_write(self):
         with patch(

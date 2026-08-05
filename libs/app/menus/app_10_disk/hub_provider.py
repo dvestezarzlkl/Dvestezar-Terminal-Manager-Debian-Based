@@ -58,6 +58,33 @@ def collect_disk_snapshot(context: HubContext) -> HubProviderSnapshot:
                 partition_count=len(disk.children),
                 mountpoint_count=_mountpoint_count(disk),
                 is_system_disk=_is_system_disk(disk),
+                attached=True,
+            )
+        )
+
+    catalog_ptuuids = {
+        disk_settings.normalize_ptuuid(raw_ptuuid)
+        for raw_ptuuid in (
+            set(disk_settings.diskNames)
+            | set(disk_settings.diskNameUpdatedAt)
+        )
+    }
+    for ptuuid in sorted(
+        item for item in catalog_ptuuids if item and item not in seen
+    ):
+        items.append(
+            HubDisk(
+                ptuuid=ptuuid,
+                device_name="",
+                device_path="",
+                display_name=disk_settings.find_disk_name(ptuuid) or "",
+                name_updated_at=disk_settings.get_disk_name_updated_at(ptuuid),
+                size_bytes=0,
+                device_type="disk",
+                partition_count=0,
+                mountpoint_count=0,
+                is_system_disk=False,
+                attached=False,
             )
         )
 
