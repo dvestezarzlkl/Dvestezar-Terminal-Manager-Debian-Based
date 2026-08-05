@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Fix central settings contract count",
+  "replacements": [
+    {
+      "path": "docs/central-settings.md",
+      "old": "Nová sekce registruje stabilní klíč, verzi a pět kontraktů:",
+      "new": "Nová sekce registruje stabilní klíč, verzi a šest kontraktů:",
+      "expected": 1
+    }
+  ]
+}
