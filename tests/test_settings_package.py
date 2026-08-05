@@ -11,9 +11,11 @@ from libs.app.settings_package import (
     SettingsSectionHandler,
     apply_decoded_settings,
     decode_encrypted_settings,
+    detect_import_conflicts,
     download_settings_package,
     export_encrypted_settings,
     preview_decoded_settings,
+    update_from_central_url,
     validate_settings_url,
 )
 
@@ -38,6 +40,8 @@ _CONFIG_KEYS = (
     "MAIL_TIMEOUT",
     "SETTINGS_AUTH_USER",
     "SETTINGS_AUTH_PASSWORD",
+    "SETTINGS_URL",
+    "SETTINGS_PASSWORD",
     "SETTINGS_LAST_REVISION",
     "SETTINGS_LAST_SHA256",
     "SETTINGS_LAST_APPLIED",
@@ -66,6 +70,8 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.MAIL_TIMEOUT = 20
         cfg.SETTINGS_AUTH_USER = "http-user"
         cfg.SETTINGS_AUTH_PASSWORD = "http-secret"
+        cfg.SETTINGS_URL = ""
+        cfg.SETTINGS_PASSWORD = ""
         cfg.SETTINGS_LAST_REVISION = 0
         cfg.SETTINGS_LAST_SHA256 = ""
         cfg.SETTINGS_LAST_APPLIED = ""
@@ -290,6 +296,62 @@ class SettingsPackageTests(unittest.TestCase):
                 {},
                 "https://other.example/settings",
             )
+
+    def test_smtp_conflicts_require_existing_local_identity(self):
+        cfg.MAIL_SMTP_HOST = "central.example.test"
+        cfg.MAIL_FROM = "central@example.test"
+        package = export_encrypted_settings("pw", revision=75)
+        decoded = decode_encrypted_settings(package, "pw")
+
+        cfg.MAIL_SMTP_HOST = "local.example.test"
+        cfg.MAIL_FROM = "local@example.test"
+        conflicts = detect_import_conflicts(decoded)
+        self.assertEqual(
+            {item.field_key for item in conflicts},
+            {"host", "from_address"},
+        )
+
+        cfg.MAIL_SMTP_HOST = ""
+        cfg.MAIL_FROM = ""
+        self.assertEqual(detect_import_conflicts(decoded), ())
+
+    def test_automatic_import_skips_conflicting_smtp_then_retries_same_revision(self):
+        cfg.HUB_AUTO_SYNC = False
+        cfg.MAIL_SMTP_HOST = "central.example.test"
+        cfg.MAIL_FROM = "central@example.test"
+        package = export_encrypted_settings("pw", revision=76)
+
+        cfg.HUB_AUTO_SYNC = True
+        cfg.MAIL_SMTP_HOST = "local.example.test"
+        cfg.MAIL_FROM = "local@example.test"
+        cfg.SETTINGS_URL = "https://config.example/settings"
+        cfg.SETTINGS_PASSWORD = "pw"
+
+        with patch(
+            "libs.app.settings_package.download_settings_package",
+            return_value=package,
+        ), patch("libs.app.settings_package.cfg.save"):
+            result = update_from_central_url()
+
+        self.assertTrue(result.changed)
+        self.assertFalse(cfg.HUB_AUTO_SYNC)
+        self.assertEqual(cfg.MAIL_SMTP_HOST, "local.example.test")
+        self.assertEqual(cfg.MAIL_FROM, "local@example.test")
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1")
+        self.assertTrue(any("SMTP section skipped" in item for item in result.warnings))
+
+        cfg.MAIL_SMTP_HOST = ""
+        cfg.MAIL_FROM = ""
+        with patch(
+            "libs.app.settings_package.download_settings_package",
+            return_value=package,
+        ), patch("libs.app.settings_package.cfg.save"):
+            retried = update_from_central_url()
+
+        self.assertTrue(retried.changed)
+        self.assertEqual(cfg.MAIL_SMTP_HOST, "central.example.test")
+        self.assertEqual(cfg.MAIL_FROM, "central@example.test")
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1,smtp:1")
 
 
 if __name__ == "__main__":
