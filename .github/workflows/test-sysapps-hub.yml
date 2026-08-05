@@ -140,15 +140,22 @@ jobs:
           cfg = Path("libs/app/cfg.py").read_text(encoding="utf-8")
           readme = Path("readme.md").read_text(encoding="utf-8")
           changelog = Path("changelog.md").read_text(encoding="utf-8")
+          settings_package = Path("libs/app/settings_package.py").read_text(encoding="utf-8")
+          settings_menu = Path("libs/app/settings_menu.py").read_text(encoding="utf-8")
           node_menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
           disk_menu = Path("libs/app/menus/app_10_disk/menu.py").read_text(encoding="utf-8")
           main_menu = Path("libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
-          assert version == "2.1.0"
+          assert version == "2.1.1"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
+          assert "SETTINGS_AUTH_USER" in cfg
+          assert "SETTINGS_AUTH_PASSWORD" in cfg
+          assert "_SameOriginRedirectHandler" in settings_package
+          assert 'add_unredirected_header("Authorization"' in settings_package
+          assert "HTTP Basic Auth user" in settings_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu

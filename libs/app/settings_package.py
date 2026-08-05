@@ -10,8 +10,9 @@ import os
 import re
 import time
 from typing import Any, Callable
-from urllib.parse import urlparse
-from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin, urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -518,6 +519,57 @@ def apply_decoded_settings(
     )
 
 
+def _url_origin(url: str) -> tuple[str, str, int]:
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+    host = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("Central settings URL has an invalid port.") from exc
+    if port is None:
+        port = 443 if scheme == "https" else 80 if scheme == "http" else -1
+    return scheme, host, port
+
+
+class _SameOriginRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target_url = urljoin(req.full_url, newurl)
+        if _url_origin(req.full_url) != _url_origin(target_url):
+            raise ValueError(
+                "Central settings redirect to a different origin is blocked."
+            )
+        redirected = super().redirect_request(
+            req, fp, code, msg, headers, target_url
+        )
+        if redirected is not None:
+            authorization = req.get_header("Authorization")
+            if authorization:
+                redirected.add_unredirected_header(
+                    "Authorization", authorization
+                )
+        return redirected
+
+
+def _basic_authorization(user: str, password: str) -> str:
+    user = str(user or "")
+    password = str(password or "")
+    if bool(user) != bool(password):
+        raise ValueError(
+            "HTTP Basic Auth user and password must both be configured."
+        )
+    if not user:
+        return ""
+    if ":" in user:
+        raise ValueError("HTTP Basic Auth user must not contain ':'.")
+    if "\r" in user or "\n" in user or "\r" in password or "\n" in password:
+        raise ValueError("HTTP Basic Auth credentials contain invalid characters.")
+    token = base64.b64encode(f"{user}:{password}".encode("utf-8")).decode(
+        "ascii"
+    )
+    return f"Basic {token}"
+
+
 def validate_settings_url(url: str, allow_http: bool = False) -> str:
     value = str(url or "").strip()
     parsed = urlparse(value)
@@ -528,6 +580,7 @@ def validate_settings_url(url: str, allow_http: bool = False) -> str:
         raise ValueError("Central settings URL must use HTTPS.")
     if not parsed.hostname:
         raise ValueError("Central settings URL has no host.")
+    _url_origin(value)
     if parsed.username or parsed.password:
         raise ValueError("Credentials must not be embedded in the settings URL.")
     return value
@@ -537,8 +590,11 @@ def download_settings_package(
     url: str,
     timeout: int = 5,
     allow_http: bool = False,
+    auth_user: str = "",
+    auth_password: str = "",
 ) -> str:
     url = validate_settings_url(url, allow_http=allow_http)
+    authorization = _basic_authorization(auth_user, auth_password)
     timeout = int(timeout)
     if not 1 <= timeout <= 30:
         raise ValueError("Central settings timeout must be between 1 and 30 seconds.")
@@ -546,16 +602,39 @@ def download_settings_package(
         url,
         headers={
             "Accept": "text/plain, application/octet-stream",
-            "User-Agent": "sys_apps-settings/1",
+            "User-Agent": "sys_apps-settings/1.1",
         },
     )
-    with urlopen(request, timeout=timeout) as response:
-        final_url = str(response.geturl() or url)
-        validate_settings_url(final_url, allow_http=allow_http)
-        content_length = response.headers.get("Content-Length")
-        if content_length and int(content_length) > _MAX_DOWNLOAD_BYTES:
-            raise ValueError("Remote settings package is too large.")
-        raw = response.read(_MAX_DOWNLOAD_BYTES + 1)
+    if authorization:
+        request.add_unredirected_header("Authorization", authorization)
+    opener = build_opener(_SameOriginRedirectHandler())
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            final_url = str(response.geturl() or url)
+            validate_settings_url(final_url, allow_http=allow_http)
+            if _url_origin(final_url) != _url_origin(url):
+                raise ValueError(
+                    "Central settings redirect to a different origin is blocked."
+                )
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) > _MAX_DOWNLOAD_BYTES:
+                raise ValueError("Remote settings package is too large.")
+            raw = response.read(_MAX_DOWNLOAD_BYTES + 1)
+    except HTTPError as exc:
+        if exc.code == 401:
+            if authorization:
+                raise ValueError(
+                    "Central settings HTTP Basic authentication failed (401)."
+                ) from exc
+            raise ValueError(
+                "Central settings endpoint requires HTTP Basic authentication (401)."
+            ) from exc
+        raise ValueError(
+            f"Central settings server returned HTTP {exc.code}."
+        ) from exc
+    except URLError as exc:
+        reason = str(exc.reason or "connection failed")
+        raise ValueError(f"Central settings download failed: {reason}") from exc
     if len(raw) > _MAX_DOWNLOAD_BYTES:
         raise ValueError("Remote settings package is too large.")
     try:
@@ -572,12 +651,16 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
     password = str(getattr(cfg, "SETTINGS_PASSWORD", "") or "")
     timeout = int(getattr(cfg, "SETTINGS_CONNECT_TIMEOUT", 5) or 5)
     allow_http = bool(getattr(cfg, "SETTINGS_ALLOW_HTTP", False))
+    auth_user = str(getattr(cfg, "SETTINGS_AUTH_USER", "") or "")
+    auth_password = str(getattr(cfg, "SETTINGS_AUTH_PASSWORD", "") or "")
     if not url:
         raise ValueError("Central settings URL is not configured.")
     if not password:
         raise ValueError("Central settings password is not configured.")
 
-    package = download_settings_package(url, timeout, allow_http)
+    package = download_settings_package(
+        url, timeout, allow_http, auth_user, auth_password
+    )
     decoded = decode_encrypted_settings(package, password)
     if decoded.legacy:
         raise ValueError("Legacy Hub packages cannot be applied automatically from URL.")
@@ -627,9 +710,13 @@ def startup_settings_update() -> SettingsUpdateResult | None:
         result = update_from_central_url()
     except Exception as exc:
         message = str(exc)
-        secret = str(getattr(cfg, "SETTINGS_PASSWORD", "") or "")
-        if secret:
-            message = message.replace(secret, "***")
+        secrets = (
+            str(getattr(cfg, "SETTINGS_PASSWORD", "") or ""),
+            str(getattr(cfg, "SETTINGS_AUTH_PASSWORD", "") or ""),
+        )
+        for secret in secrets:
+            if secret:
+                message = message.replace(secret, "***")
         print(f"Central settings update warning: {message}")
         return SettingsUpdateResult(False, 0, message)
     if result.changed:

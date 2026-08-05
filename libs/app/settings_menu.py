@@ -32,11 +32,21 @@ class SettingsPackageMenu(c_menu):
     def onShowMenu(self) -> None:
         url = str(cfg.SETTINGS_URL or "").strip()
         password_set = bool(cfg.SETTINGS_PASSWORD)
+        auth_user = str(cfg.SETTINGS_AUTH_USER or "")
+        auth_password_set = bool(cfg.SETTINGS_AUTH_PASSWORD)
+        auth_valid = bool(auth_user) == auth_password_set
+        if auth_user and auth_password_set:
+            auth_state = f"{auth_user} / password set"
+        elif auth_user or auth_password_set:
+            auth_state = "incomplete"
+        else:
+            auth_state = "off"
         last_hash = str(cfg.SETTINGS_LAST_SHA256 or "")
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(("Centralized settings", "c"))
         self.subTitle = c_menu_block_items()
         self.subTitle.append(("URL", url or "not set"))
+        self.subTitle.append(("HTTP Basic Auth", auth_state))
         self.subTitle.append(("Automatic update", "on" if cfg.SETTINGS_AUTO_UPDATE else "off"))
         self.subTitle.append(("Last revision", str(cfg.SETTINGS_LAST_REVISION or 0)))
         self.subTitle.append(("Last SHA-256", last_hash[:16] if last_hash else "not set"))
@@ -59,6 +69,25 @@ class SettingsPackageMenu(c_menu):
                 "cp",
                 self.clear_password,
                 enabled=password_set,
+            ),
+            c_menu_item(
+                text_color("HTTP Basic Auth user", en_color.BRIGHT_CYAN),
+                "bu",
+                self.edit_auth_user,
+                atRight=auth_user or "not set",
+            ),
+            c_menu_item(
+                text_color("HTTP Basic Auth password", en_color.BRIGHT_CYAN),
+                "bp",
+                self.edit_auth_password,
+                atRight="set" if auth_password_set else "not set",
+                enabled=bool(auth_user),
+            ),
+            c_menu_item(
+                text_color("Clear HTTP Basic Auth", en_color.BRIGHT_YELLOW),
+                "bc",
+                self.clear_http_auth,
+                enabled=bool(auth_user or auth_password_set),
             ),
             c_menu_item(
                 "Automatic update at startup",
@@ -95,7 +124,7 @@ class SettingsPackageMenu(c_menu):
                 "url",
                 self.import_from_url,
                 atRight=url or "URL not set",
-                enabled=bool(url and password_set),
+                enabled=bool(url and password_set and auth_valid),
             ),
         ]
 
@@ -149,6 +178,67 @@ class SettingsPackageMenu(c_menu):
         cfg.SETTINGS_PASSWORD = ""
         self._save()
         return onSelReturn(ok="Central settings password cleared.")
+
+    def edit_auth_user(self, selItem: c_menu_item) -> onSelReturn:
+        current = str(cfg.SETTINGS_AUTH_USER or "")
+        value = get_input(
+            f"HTTP Basic Auth user [{current}]:",
+            accept_empty=True,
+            maxLen=255,
+            titleNote=(
+                "Optional web-server username sent in the Authorization header.\n"
+                "It is local bootstrap data and is never exported in SYSAPP1E."
+            ),
+        )
+        if value is None:
+            return onSelReturn().errRet("Cancelled.")
+        value = value.strip()
+        if ":" in value or "\r" in value or "\n" in value:
+            return onSelReturn().errRet(
+                "HTTP Basic Auth user contains invalid characters."
+            )
+        if not value and cfg.SETTINGS_AUTH_PASSWORD:
+            if not confirm(
+                "Clearing the HTTP Basic Auth user also clears its password. Continue?"
+            ):
+                return onSelReturn().errRet("Cancelled.")
+            cfg.SETTINGS_AUTH_PASSWORD = ""
+        cfg.SETTINGS_AUTH_USER = value
+        self._save()
+        return onSelReturn(ok="HTTP Basic Auth user updated.")
+
+    def edit_auth_password(self, selItem: c_menu_item) -> onSelReturn:
+        if not cfg.SETTINGS_AUTH_USER:
+            return onSelReturn().errRet(
+                "Configure the HTTP Basic Auth user first."
+            )
+        value = get_pwd(
+            "HTTP Basic Auth password",
+            make_cls=False,
+            minMessageWidth=0,
+        )
+        if value is None:
+            return onSelReturn().errRet("Cancelled.")
+        confirmation = get_pwd(
+            "Confirm HTTP Basic Auth password",
+            make_cls=False,
+            minMessageWidth=0,
+        )
+        if confirmation != value:
+            return onSelReturn().errRet("Passwords do not match.")
+        cfg.SETTINGS_AUTH_PASSWORD = value
+        self._save()
+        return onSelReturn(ok="HTTP Basic Auth password updated.")
+
+    def clear_http_auth(self, selItem: c_menu_item) -> onSelReturn:
+        if not cfg.SETTINGS_AUTH_USER and not cfg.SETTINGS_AUTH_PASSWORD:
+            return onSelReturn(ok="HTTP Basic Auth is already empty.")
+        if not confirm("Clear the configured HTTP Basic Auth credentials?"):
+            return onSelReturn().errRet("Cancelled.")
+        cfg.SETTINGS_AUTH_USER = ""
+        cfg.SETTINGS_AUTH_PASSWORD = ""
+        self._save()
+        return onSelReturn(ok="HTTP Basic Auth credentials cleared.")
 
     def toggle_auto_update(self, selItem: c_menu_item) -> onSelReturn:
         cfg.SETTINGS_AUTO_UPDATE = not bool(cfg.SETTINGS_AUTO_UPDATE)
@@ -282,6 +372,8 @@ class SettingsPackageMenu(c_menu):
                 cfg.SETTINGS_URL,
                 int(cfg.SETTINGS_CONNECT_TIMEOUT),
                 bool(cfg.SETTINGS_ALLOW_HTTP),
+                str(cfg.SETTINGS_AUTH_USER or ""),
+                str(cfg.SETTINGS_AUTH_PASSWORD or ""),
             )
             decoded = decode_encrypted_settings(package, cfg.SETTINGS_PASSWORD)
             self._print_preview(decoded)
