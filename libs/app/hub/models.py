@@ -102,6 +102,7 @@ class HubDisk:
     partition_count: int
     mountpoint_count: int
     is_system_disk: bool
+    attached: bool = True
 
 
 @dataclass(frozen=True)
