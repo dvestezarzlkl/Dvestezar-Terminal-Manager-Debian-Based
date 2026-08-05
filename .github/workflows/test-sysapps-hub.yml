@@ -149,13 +149,17 @@ jobs:
           changelog = Path("changelog.md").read_text(encoding="utf-8")
           settings_package = Path("libs/app/settings_package.py").read_text(encoding="utf-8")
           settings_menu = Path("libs/app/settings_menu.py").read_text(encoding="utf-8")
+          hub_models = Path("libs/app/hub/models.py").read_text(encoding="utf-8")
           node_menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
           disk_menu = Path("libs/app/menus/app_10_disk/menu.py").read_text(encoding="utf-8")
+          disk_provider = Path("libs/app/menus/app_10_disk/hub_provider.py").read_text(encoding="utf-8")
           main_menu = Path("libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
-          assert version == "2.2.0"
+          disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
+          assert version == "2.2.1"
+          assert disk_version == "3.6.1"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
           assert "SETTINGS_AUTH_USER" in cfg
@@ -171,6 +175,8 @@ jobs:
           assert "Centralized import policy" in settings_menu
           assert "Processing centralized settings import" in settings_menu
           assert "No settings applied from revision" in settings_menu
+          assert "attached: bool = True" in hub_models
+          assert "catalog_ptuuids" in disk_provider
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu
