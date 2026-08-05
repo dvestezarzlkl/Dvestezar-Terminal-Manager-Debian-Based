@@ -11,7 +11,7 @@
     {
       "path": "libs/app/menus/app_10_disk/menu.py",
       "old": "                self.menu.append( c_menu_item(text_color(\"MachineID není platné nebo je již resetováno.\", color=en_color.BRIGHT_BLACK), atRight=\"nelze resetovat\") )            \n",
-      "new": "                self.menu.append( c_menu_item(text_color(\"Machine ID není platné nebo je již připravené pro první boot.\", color=en_color.BRIGHT_BLACK), atRight=\"nelze připravit\") )            \n",
+      "new": "                self.menu.append( c_menu_item(text_color(\"Machine ID není platné nebo je již připravené pro první boot.\", color=en_color.BRIGHT_BLACK), atRight=\"nelze připravit\") )\n",
       "expected": 1
     },
     {
