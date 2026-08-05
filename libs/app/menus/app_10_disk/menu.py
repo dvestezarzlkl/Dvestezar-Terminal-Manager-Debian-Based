@@ -176,7 +176,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.1"
+    _VERSION_:str="3.6.2"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -793,9 +793,9 @@ class m_disk_part(c_menu):
         else:
             self.menu.append( c_menu_item("-" ) )
             if self.checkMachineID():
-                self.menu.append( c_menu_item(text_color("Resetovat MachineID (RPi OPi)", color=en_color.RED), "m", self.reset_machine_id) )
+                self.menu.append( c_menu_item(text_color("Připravit nové Machine ID při prvním bootu", color=en_color.RED), "m", self.prepare_machine_id_for_first_boot) )
             else:
-                self.menu.append( c_menu_item(text_color("MachineID není platné nebo je již resetováno.", color=en_color.BRIGHT_BLACK), atRight="nelze resetovat") )            
+                self.menu.append( c_menu_item(text_color("Machine ID není platné nebo je již připravené pro první boot.", color=en_color.BRIGHT_BLACK), atRight="nelze připravit") )
             
             self.menu.append( c_menu_item(text_color("Nelze provést jinou operaci na připojené partition.", color=en_color.YELLOW) ) )
             
@@ -1001,20 +1001,26 @@ class m_disk_part(c_menu):
             return onSelReturn(err=f"Chyba při obnově partition {self.selectedPartition}: {e}")
         return onSelReturn(ok=f"Partition {self.selectedPartition} byla úspěšně obnovena ze zálohy.")
 
-    def reset_machine_id(self,selItem:c_menu_item) -> None|onSelReturn:
-        """Resetuje MachineID pro RPi a OPi, což může být užitečné při klonování SD karet pro RPi/OPi.
-        """
+    def prepare_machine_id_for_first_boot(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Připraví klonovaný systém pro vytvoření nové identity při prvním bootu."""
         ret = onSelReturn()
-        if not confirm("Jste si jisti, že chcete resetovat MachineID pro tento disk? Toto je užitečné pouze pro RPi a OPi a může pomoci při klonování SD karet."):
+        if not confirm(
+            "Aktuální Machine ID bude odstraněno. Nové ID se nevytvoří nyní; "
+            "systém ho vytvoří při prvním bootu, aby se spustily také další "
+            "ConditionFirstBoot služby. Pokračovat?"
+        ):
             ret.err="Zrušeno uživatelem."
             return ret
         try:
-            x=c_other.reset_machine_id(self.partInfo)
+            x=c_other.prepare_machine_id_for_first_boot(self.partInfo)
             if x:
                 ret.err=x
             else:
-                ret.ok="MachineID bylo resetováno."
+                ret.ok=(
+                    "Systém byl připraven pro vytvoření nového Machine ID "
+                    "při prvním bootu."
+                )
         except Exception as e:
-            ret.err=f"Chyba při resetování MachineID: {e}"
+            ret.err=f"Chyba při přípravě Machine ID pro první boot: {e}"
         return ret
                          
