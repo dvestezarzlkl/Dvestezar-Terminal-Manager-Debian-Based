@@ -176,7 +176,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.0"
+    _VERSION_:str="3.6.1"
     
     # choiceBack=None
     # ESC_is_quit=False

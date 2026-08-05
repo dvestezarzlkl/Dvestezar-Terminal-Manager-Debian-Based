@@ -1,5 +1,10 @@
 # Disk Manager changelog
 
+## v3.6.1
+
+- FIX SysApps Hub posílá do globálního katalogu také lokálně známé pojmenované PTUUID odpojených disků, aby byly názvy dostupné na dalších serverech při práci s image
+- FIX katalogový záznam bez připojeného zařízení nevytváří host-device vazbu a nemění dříve zjištěnou velikost ani čas posledního fyzického nalezení
+
 ## v3.6.0
 
 - ADD SysApps Hub provider synchronizuje fyzické disky podle normalizovaného PTUUID, jejich aktuální vazbu na host a bezpečná provozní metadata.
