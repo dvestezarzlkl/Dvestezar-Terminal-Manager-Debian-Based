@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Use normalized service host in shared helpers",
+  "replacements": [
+    {
+      "path": "libs/app/appHelper.py",
+      "old": "from .instanceHelper import getHttps,existsSelfSignedCert\nfrom typing import Union,List",
+      "new": "from .instanceHelper import getHttps,existsSelfSignedCert\nfrom .service_host import configured_service_host\nfrom typing import Union,List",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/appHelper.py",
+      "old": "        if not self.titleDisableURL:\n            # URL\n            s.append((          \n                TX_HD_URL,\n                ( 'http' if self.sslStatus==0 else 'https' ) + \"://\" + cfg.SERVER_URL+( ((\":\"+str(port)) if port else \":XXXX\"))\n            ))",
+      "new": "        if not self.titleDisableURL:\n            service_host = configured_service_host()\n            if service_host:\n                if \":\" in service_host and not service_host.startswith(\"[\"):\n                    service_host = f\"[{service_host}]\"\n                service_url = (\n                    ('http' if self.sslStatus == 0 else 'https')\n                    + \"://\"\n                    + service_host\n                    + ((\":\" + str(port)) if port else \":XXXX\")\n                )\n            else:\n                service_url = \"not set\"\n            s.append((TX_HD_URL, service_url))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/instanceHelper.py",
+      "old": "from libs.JBLibs.helper import userExists,getLogger,getUserHome\nfrom libs.JBLibs.input import confirm,anyKey",
+      "new": "from libs.JBLibs.helper import userExists,getLogger,getUserHome\nfrom libs.JBLibs.input import confirm,anyKey\nfrom libs.app.service_host import configured_service_host",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/instanceHelper.py",
+      "old": "    data = {\n        'instances': data,\n        'url': ( 'http' if sslStatus==0 else 'https' ) + \"://\" + cfg.SERVER_URL\n    }",
+      "new": "    service_host = configured_service_host()\n    if service_host and \":\" in service_host and not service_host.startswith(\"[\"):\n        service_host = f\"[{service_host}]\"\n    data = {\n        'instances': data,\n        'url': (\n            (('http' if sslStatus == 0 else 'https') + \"://\" + service_host)\n            if service_host\n            else \"\"\n        ),\n    }",
+      "expected": 1
+    }
+  ]
+}
