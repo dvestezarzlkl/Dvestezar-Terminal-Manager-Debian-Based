@@ -2,6 +2,9 @@
 
 ## v2.2.1
 
+- SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.
+- FIX seznam disků a partition zobrazuje skutečné mountpointy a zachovává zarovnání i u barevných uživatelských názvů.
+- UPD JBLibs na 1.2.18 s rekurzivní detekcí systémového disku.
 - UX Disk Manager 3.6.2 přejmenovává zavádějící reset Machine ID na přípravu identity pro první boot a dokumentuje záměrné zachování first-boot stavu
 - FIX Disk Hub synchronizuje také pojmenované PTUUID z lokálního katalogu Disk Manageru, i když fyzický disk právě není připojený
 - FIX globální záznam disku je oddělený od aktuální host-device vazby; katalogový sync nevytváří falešný device a nepřepisuje známou velikost ani poslední fyzické nalezení

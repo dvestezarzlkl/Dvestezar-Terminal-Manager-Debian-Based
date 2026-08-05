@@ -1,5 +1,12 @@
 # Disk Manager changelog
 
+## v3.6.3
+
+- SAFE živý systémový disk dovoluje pouze read-only přehled partition a změnu uživatelského názvu; celodisková záloha, obnova a změna PTUUID jsou zakázané v menu i uvnitř callbacků.
+- FIX hlavní seznam načítá kompletní systémový disk včetně root partition, zobrazuje skutečné mountpointy místo jejich počtu a ANSI barevné názvy již nerozbíjejí zarovnání sloupců.
+- FIX tabulka partition zobrazuje konkrétní mountpoint, například `/`, nikoli hodnotu `1`.
+- UPD JBLibs 1.2.18 rekurzivně rozpoznává systémový rodičovský disk podle jeho partition children.
+
 ## v3.6.2
 
 - UX akce `Resetovat MachineID` je přejmenovaná na přípravu nového Machine ID při prvním bootu, protože nové ID se záměrně negeneruje okamžitě.
