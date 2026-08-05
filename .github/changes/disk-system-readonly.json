@@ -5,7 +5,7 @@
     {
       "path": "libs/app/menus/app_10_disk/menu.py",
       "old": "def basicTitle(add:str|list=None, dir:str|Path|None=None) -> c_menu_block_items:\n    return c_other.basicTitle(\n        menuName=_MENU_NAME_,\n        menuVer=menu._VERSION_,\n        add=add,\n        dir=dir\n    )\n\nclass c_mountpointSelector:",
-      "new": "def basicTitle(add:str|list=None, dir:str|Path|None=None) -> c_menu_block_items:\n    return c_other.basicTitle(\n        menuName=_MENU_NAME_,\n        menuVer=menu._VERSION_,\n        add=add,\n        dir=dir\n    )\n\n_DISK_NAME_WIDTH = 34\n_MOUNTPOINT_WIDTH = 24\n\ndef _collect_mountpoints(device:lsblkDiskInfo) -> list[str]:\n    \"\"\"Vrátí unikátní mountpointy zařízení a všech jeho children.\"\"\"\n    result:list[str] = []\n\n    def collect(current:lsblkDiskInfo) -> None:\n        for mountpoint in current.mountpoints:\n            if mountpoint not in result:\n                result.append(mountpoint)\n        for child in current.children:\n            collect(child)\n\n    collect(device)\n    return result\n\ndef _format_mountpoints(device:lsblkDiskInfo, width:int=_MOUNTPOINT_WIDTH) -> str:\n    \"\"\"Převede skutečné mountpointy na krátký text pro tabulku.\"\"\"\n    text = \", \\".join(_collect_mountpoints(device)) or \"-\"\n    if width > 3 and len(text) > width:\n        return text[:width - 3] + \"...\"\n    return text\n\ndef _format_disk_display_name(\n    disk:lsblkDiskInfo,\n    width:int=_DISK_NAME_WIDTH,\n) -> str:\n    \"\"\"Doplní ANSI barevný název podle jeho skutečné viditelné délky.\"\"\"\n    user_name = disk_settings.find_disk_name(disk.ptuuid)\n    visible = f\"{disk.name} {user_name if user_name else '-unnamed-'}\"\n    colored = c_other.getDiskDisplayName(disk)\n    return colored + (\" \" * max(0, width - len(visible)))\n\ndef _can_write_whole_disk(disk:lsblkDiskInfo|None) -> bool:\n    \"\"\"Celodiskové zapisující operace jsou zakázané na živém systému.\"\"\"\n    return bool(disk is not None and not disk.isSystemDisk)\n\nclass c_mountpointSelector:",
+      "new": "def basicTitle(add:str|list=None, dir:str|Path|None=None) -> c_menu_block_items:\n    return c_other.basicTitle(\n        menuName=_MENU_NAME_,\n        menuVer=menu._VERSION_,\n        add=add,\n        dir=dir\n    )\n\n_DISK_NAME_WIDTH = 34\n_MOUNTPOINT_WIDTH = 24\n\ndef _collect_mountpoints(device:lsblkDiskInfo) -> list[str]:\n    \"\"\"Vrátí unikátní mountpointy zařízení a všech jeho children.\"\"\"\n    result:list[str] = []\n\n    def collect(current:lsblkDiskInfo) -> None:\n        for mountpoint in current.mountpoints:\n            if mountpoint not in result:\n                result.append(mountpoint)\n        for child in current.children:\n            collect(child)\n\n    collect(device)\n    return result\n\ndef _format_mountpoints(device:lsblkDiskInfo, width:int=_MOUNTPOINT_WIDTH) -> str:\n    \"\"\"Převede skutečné mountpointy na krátký text pro tabulku.\"\"\"\n    text = \", \".join(_collect_mountpoints(device)) or \"-\"\n    if width > 3 and len(text) > width:\n        return text[:width - 3] + \"...\"\n    return text\n\ndef _format_disk_display_name(\n    disk:lsblkDiskInfo,\n    width:int=_DISK_NAME_WIDTH,\n) -> str:\n    \"\"\"Doplní ANSI barevný název podle jeho skutečné viditelné délky.\"\"\"\n    user_name = disk_settings.find_disk_name(disk.ptuuid)\n    visible = f\"{disk.name} {user_name if user_name else '-unnamed-'}\"\n    colored = c_other.getDiskDisplayName(disk)\n    return colored + (\" \" * max(0, width - len(visible)))\n\ndef _can_write_whole_disk(disk:lsblkDiskInfo|None) -> bool:\n    \"\"\"Celodiskové zapisující operace jsou zakázané na živém systému.\"\"\"\n    return bool(disk is not None and not disk.isSystemDisk)\n\nclass c_mountpointSelector:",
       "expected": 1
     },
     {
@@ -66,54 +66,6 @@
       "path": "libs/app/menus/app_10_disk/menu.py",
       "old": "    def restore_disk(self,selItem:c_menu_item) -> None|onSelReturn:\n        \"\"\"Obnoví celý disk ze zálohy.\n        \"\"\"\n        # select adresář se zálohou\n",
       "new": "    def restore_disk(self,selItem:c_menu_item) -> None|onSelReturn:\n        \"\"\"Obnoví celý disk ze zálohy.\"\"\"\n        if not _can_write_whole_disk(self.diskInfo):\n            return onSelReturn(\n                err=\"Obnovu nelze spustit na živém systémovém disku. Nabootujte z jiného média.\"\n            )\n        # select adresář se zálohou\n",
-      "expected": 1
-    },
-    {
-      "path": "libs/app/menus/app_10_disk/changelog.md",
-      "old": "# Disk Manager changelog\n\n## v3.6.2\n",
-      "new": "# Disk Manager changelog\n\n## v3.6.3\n\n- SAFE živý systémový disk dovoluje pouze read-only přehled partition a změnu uživatelského názvu; celodisková záloha, obnova a změna PTUUID jsou zakázané v menu i uvnitř callbacků.\n- FIX hlavní seznam načítá kompletní systémový disk včetně root partition, zobrazuje skutečné mountpointy místo jejich počtu a ANSI barevné názvy již nerozbíjejí zarovnání sloupců.\n- FIX tabulka partition zobrazuje konkrétní mountpoint, například `/`, nikoli hodnotu `1`.\n- UPD JBLibs 1.2.18 rekurzivně rozpoznává systémový rodičovský disk podle jeho partition children.\n\n## v3.6.2\n",
-      "expected": 1
-    },
-    {
-      "path": "changelog.md",
-      "old": "## v2.2.1\n\n- UX Disk Manager 3.6.2 přejmenovává zavádějící reset Machine ID na přípravu identity pro první boot a dokumentuje záměrné zachování first-boot stavu\n",
-      "new": "## v2.2.1\n\n- SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.\n- FIX seznam disků a partition zobrazuje skutečné mountpointy a zachovává zarovnání i u barevných uživatelských názvů.\n- UPD JBLibs na 1.2.18 s rekurzivní detekcí systémového disku.\n- UX Disk Manager 3.6.2 přejmenovává zavádějící reset Machine ID na přípravu identity pro první boot a dokumentuje záměrné zachování first-boot stavu\n",
-      "expected": 1
-    },
-    {
-      "path": "AGENTS.md",
-      "old": "- Disk Manager příprava Machine ID pro první boot záměrně nevytváří nové ID okamžitě. Prázdný `/etc/machine-id` a jednotka s `ConditionFirstBoot=yes` zachovávají first-boot stav také pro další projektové služby; neměnit na okamžitou generaci bez vědomé změny tohoto kontraktu.\n",
-      "new": "- Disk Manager příprava Machine ID pro první boot záměrně nevytváří nové ID okamžitě. Prázdný `/etc/machine-id` a jednotka s `ConditionFirstBoot=yes` zachovávají first-boot stav také pro další projektové služby; neměnit na okamžitou generaci bez vědomé změny tohoto kontraktu.\n- Systémový disk se v Disk Manageru zobrazuje kompletní včetně partition a mountpointů, ale je read-only s výjimkou uživatelského názvu. Celodisková záloha/obnova, změna PTUUID, mount/umount systémových partition a operace měnící filesystem nebo layout musí být zakázané nejen v menu, ale také obrannou kontrolou v callbacku. `lsblkDiskInfo.isSystemDisk` v JBLibs musí stav dědit z child partition.\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "      - \"tests/test_disk_settings_sync.py\"\n      - \"tests/test_node_red_hub_provider.py\"\n",
-      "new": "      - \"tests/test_disk_settings_sync.py\"\n      - \"tests/test_disk_menu_system_disk.py\"\n      - \"tests/test_node_red_hub_provider.py\"\n",
-      "expected": 2
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests/test_disk_settings_sync.py \\\n            tests/test_node_red_hub_provider.py\n",
-      "new": "            tests/test_disk_settings_sync.py \\\n            tests/test_disk_menu_system_disk.py \\\n            tests/test_node_red_hub_provider.py\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests.test_disk_settings_sync \\\n            tests.test_node_red_hub_provider\n",
-      "new": "            tests.test_disk_settings_sync \\\n            tests.test_disk_menu_system_disk \\\n            tests.test_node_red_hub_provider\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert disk_version == \"3.6.2\"\n",
-      "new": "          assert disk_version == \"3.6.3\"\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert \"Připravit nové Machine ID při prvním bootu\" in disk_menu\n",
-      "new": "          assert \"Připravit nové Machine ID při prvním bootu\" in disk_menu\n          assert \"zakázáno: živý systémový disk\" in disk_menu\n          assert \"lsblk_list_disks(False)\" in disk_menu\n",
       "expected": 1
     }
   ]
