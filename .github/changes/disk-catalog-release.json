@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "Release disk catalog synchronization fix",
+  "replacements": [
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.2.0\"",
+      "new": "VERSION = \"2.2.1\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.2.0",
+      "new": "v2.2.1",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "    _VERSION_:str=\"3.6.0\"",
+      "new": "    _VERSION_:str=\"3.6.1\"",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.2.0\n",
+      "new": "# Changelog\n\n## v2.2.1\n\n- FIX Disk Hub synchronizuje také pojmenované PTUUID z lokálního katalogu Disk Manageru, i když fyzický disk právě není připojený\n- FIX globální záznam disku je oddělený od aktuální host-device vazby; katalogový sync nevytváří falešný device a nepřepisuje známou velikost ani poslední fyzické nalezení\n- UPD Disk Manager na 3.6.1 a hlavní aplikace na 2.2.1\n\n## v2.2.0\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/changelog.md",
+      "old": "# Disk Manager changelog\n\n## v3.6.0\n",
+      "new": "# Disk Manager changelog\n\n## v3.6.1\n\n- FIX SysApps Hub posílá do globálního katalogu také lokálně známé pojmenované PTUUID odpojených disků, aby byly názvy dostupné na dalších serverech při práci s image\n- FIX katalogový záznam bez připojeného zařízení nevytváří host-device vazbu a nemění dříve zjištěnou velikost ani čas posledního fyzického nalezení\n\n## v3.6.0\n",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Obousměrný Hub provider může vedle `hub_collect(context)` nabídnout `hub_apply_remote(updates)`. Provider nedostává DB/SQL a zpětné změny se smějí aplikovat až po úspěšném databázovém commitu.\n",
+      "new": "- Obousměrný Hub provider může vedle `hub_collect(context)` nabídnout `hub_apply_remote(updates)`. Provider nedostává DB/SQL a zpětné změny se smějí aplikovat až po úspěšném databázovém commitu.\n- Disk Hub rozlišuje globální katalog PTUUID/názvů a aktuální host-device vazby. Lokálně známý pojmenovaný disk se synchronizuje i odpojený, ale pouze fyzicky nalezený disk smí vytvořit `host_disks` vazbu nebo aktualizovat velikost a čas posledního nalezení.\n",
+      "expected": 1
+    }
+  ]
+}
