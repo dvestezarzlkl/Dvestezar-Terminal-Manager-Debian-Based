@@ -678,6 +678,7 @@ def _section_signature(
     prepared: list[
         tuple[SettingsSectionHandler, dict[str, Any], tuple[str, ...]]
     ],
+    policy_skipped: tuple[str, ...] = (),
 ) -> str:
     parts: list[str] = []
     for handler, _, preserved_fields in prepared:
@@ -687,7 +688,8 @@ def _section_signature(
             else ""
         )
         parts.append(f"{handler.key}:{handler.version}{suffix}")
-    return ",".join(parts)
+    parts.extend(f"{key}:skip" for key in policy_skipped)
+    return ",".join(sorted(parts))
 
 
 def preview_decoded_settings(
@@ -730,14 +732,17 @@ def apply_decoded_settings(
         decoded, skip_sections, policy
     )
     warnings = tuple(warnings) + tuple(extra_warnings)
-    effective_skip = set(skip_sections).union(policy.skip_sections)
-    if not prepared:
-        if effective_skip.intersection(decoded.sections):
+    transient_skip = set(skip_sections).intersection(decoded.sections)
+    policy_skipped = tuple(
+        sorted(set(policy.skip_sections).intersection(decoded.sections))
+    )
+    if not prepared and not policy_skipped:
+        if transient_skip:
             return SettingsApplyReport(
                 False, decoded.revision, (), skipped, warnings
             )
         raise ValueError("Package contains no supported settings sections.")
-    signature = _section_signature(prepared)
+    signature = _section_signature(prepared, policy_skipped)
     current_revision = int(getattr(cfg, "SETTINGS_LAST_REVISION", 0) or 0)
     current_hash = str(getattr(cfg, "SETTINGS_LAST_SHA256", "") or "")
     current_applied = str(getattr(cfg, "SETTINGS_LAST_APPLIED", "") or "")
@@ -984,10 +989,15 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         return SettingsUpdateResult(
             False, decoded.revision, message, report.warnings
         )
+    message = (
+        f"Applied central settings revision {decoded.revision}."
+        if report.applied_sections
+        else f"Recorded central settings revision {decoded.revision}; all supported sections are skipped by local policy."
+    )
     return SettingsUpdateResult(
         True,
         decoded.revision,
-        f"Applied central settings revision {decoded.revision}.",
+        message,
         report.warnings,
     )
 
