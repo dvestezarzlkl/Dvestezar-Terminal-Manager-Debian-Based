@@ -115,7 +115,11 @@ Dispatcher nesmí dynamicky načítat skript podle textu z URL. Použije pevnou 
 declare(strict_types=1);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-$path = '/' . trim(rawurldecode((string) $path), '/');
+if (!is_string($path)) {
+    http_response_code(404);
+    exit;
+}
+$path = '/' . trim($path, '/');
 
 $routes = [
     '/bnQFjPjxbuYndvZ4uys' => static function (): void {
