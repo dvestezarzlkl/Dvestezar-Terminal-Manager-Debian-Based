@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "commit_message": "Test Disk Manager system disk safety",
+  "replacements": [
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "      - \"tests/test_disk_settings_sync.py\"\n      - \"tests/test_node_red_hub_provider.py\"\n",
+      "new": "      - \"tests/test_disk_settings_sync.py\"\n      - \"tests/test_disk_menu_system_disk.py\"\n      - \"tests/test_node_red_hub_provider.py\"\n",
+      "expected": 2
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests/test_disk_settings_sync.py \\\n            tests/test_node_red_hub_provider.py\n",
+      "new": "            tests/test_disk_settings_sync.py \\\n            tests/test_disk_menu_system_disk.py \\\n            tests/test_node_red_hub_provider.py\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests.test_disk_settings_sync \\\n            tests.test_node_red_hub_provider\n",
+      "new": "            tests.test_disk_settings_sync \\\n            tests.test_disk_menu_system_disk \\\n            tests.test_node_red_hub_provider\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "          assert disk_version == \"3.6.2\"\n",
+      "new": "          assert disk_version == \"3.6.3\"\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "          assert \"Připravit nové Machine ID při prvním bootu\" in disk_menu\n",
+      "new": "          assert \"Připravit nové Machine ID při prvním bootu\" in disk_menu\n          assert \"zakázáno: živý systémový disk\" in disk_menu\n          assert \"lsblk_list_disks(False)\" in disk_menu\n",
+      "expected": 1
+    }
+  ]
+}
