@@ -1,5 +1,10 @@
 # Disk Manager changelog
 
+## v3.6.6
+
+- UX detail disku zobrazuje PTUUID hned pod názvem zařízení, aby šly snadno rozlišit klonované disky a ověřit jejich identitu před změnou ID.
+- SAFE chybějící PTUUID se zobrazí jako `-`; pravidla pro změnu PTUUID zůstávají beze změny a živý systémový disk je nadále chráněný.
+
 ## v3.6.5
 
 - FIX hlavní seznam zobrazuje pouze spravovatelná úložiště a loop image; zram, MTD bloky a interní eMMC boot/RPMB oblasti jsou vyřazené.

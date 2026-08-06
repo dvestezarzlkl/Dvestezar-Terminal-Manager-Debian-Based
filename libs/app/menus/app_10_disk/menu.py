@@ -215,7 +215,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.5"
+    _VERSION_:str="3.6.6"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -385,6 +385,7 @@ class m_disk_oper(c_menu):
         disk_name_display = c_other.getDiskDisplayName(disk)
         self.subTitle=c_menu_block_items([
             ("Disk",f"{disk_name_display}"),
+            ("PTUUID",f"{disk.ptuuid or '-'}"),
             ("Size",f"{bytesTx(disk.size)}"),
             ("Type",f"{disk.type}"),
             ("Image Path",f"{str(self.__loopPath) if self.__loopPath else '-'}"),
