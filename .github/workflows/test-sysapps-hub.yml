@@ -13,6 +13,7 @@ on:
       - "libs/app/menus/menuBoss.py"
       - "libs/app/menus/menu.md"
       - "libs/app/menus/app_10_disk/**"
+      - "libs/app/menus/app_12_swap/**"
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
@@ -39,7 +40,9 @@ on:
       - "libs/app/cfg.py"
       - "libs/app/c_cfg.py"
       - "libs/app/menus/menuBoss.py"
+      - "libs/app/menus/menu.md"
       - "libs/app/menus/app_10_disk/**"
+      - "libs/app/menus/app_12_swap/**"
       - "libs/app/menus/app_20_node_red/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
@@ -104,8 +107,10 @@ jobs:
             libs/app/settings_menu.py \
             libs/app/service_host.py \
             libs/app/disk_hlp.py \
+            libs/app/menus/app_10_disk/device_policy.py \
             libs/app/menus/app_10_disk/hub_provider.py \
             libs/app/menus/app_10_disk/menu.py \
+            libs/app/menus/app_12_swap/menu.py \
             libs/app/menus/app_20_node_red/hub_provider.py \
             libs/app/menus/app_20_node_red/menu.py \
             libs/app/menus/menuBoss.py \
@@ -156,6 +161,7 @@ jobs:
           hub_models = Path("libs/app/hub/models.py").read_text(encoding="utf-8")
           node_menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
           disk_menu = Path("libs/app/menus/app_10_disk/menu.py").read_text(encoding="utf-8")
+          swap_menu = Path("libs/app/menus/app_12_swap/menu.py").read_text(encoding="utf-8")
           disk_helper = Path("libs/app/disk_hlp.py").read_text(encoding="utf-8")
           disk_provider = Path("libs/app/menus/app_10_disk/hub_provider.py").read_text(encoding="utf-8")
           main_menu = Path("libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
@@ -163,8 +169,10 @@ jobs:
 
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
+          swap_version = re.search(r'_VERSION_:str="([^"]+)"', swap_menu).group(1)
           assert version == "2.2.1"
-          assert disk_version == "3.6.4"
+          assert disk_version == "3.6.5"
+          assert swap_version == "2.5.1"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
           assert "SETTINGS_AUTH_USER" in cfg
@@ -186,6 +194,8 @@ jobs:
           assert "Připravit nové Machine ID při prvním bootu" in disk_menu
           assert "zakázáno: živý systémový disk" in disk_menu
           assert "lsblk_list_disks(False)" in disk_menu
+          assert "getListOfActiveSwaps(False)" in swap_menu
+          assert 'if s.type == "file"' in swap_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
           assert '_HUB_PROVIDER_KEY_:str = "disks"' in disk_menu
           assert "def hub_collect(context):" in disk_menu

@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import patch
 
 from libs.JBLibs.fs_utils import lsblkDiskInfo
+from libs.app.menus.app_10_disk.device_policy import is_manageable_storage_device
 from libs.app.menus.app_10_disk.menu import (
     _can_write_whole_disk,
     _collect_mountpoints,
@@ -103,6 +104,32 @@ class DiskMenuSystemDiskTests(unittest.TestCase):
 
         self.assertIn("lsblk_list_disks(False)", source)
         self.assertNotIn("lsblk_list_disks(True)", source)
+
+    def test_device_policy_keeps_storage_and_hides_internal_devices(self):
+        for storage in (
+            device("sda"),
+            device("nvme0n1"),
+            device("mmcblk0"),
+            device("loop0", type_="loop"),
+        ):
+            self.assertTrue(is_manageable_storage_device(storage), storage.name)
+
+        for internal in (
+            device("zram0"),
+            device("mtdblock0"),
+            device("mmcblk0boot0"),
+            device("mmcblk0boot1"),
+            device("mmcblk0rpmb"),
+        ):
+            self.assertFalse(is_manageable_storage_device(internal), internal.name)
+
+    def test_swap_menu_lists_all_swaps_but_edits_only_files(self):
+        from libs.app.menus.app_12_swap.menu import menu as swap_menu
+
+        source = inspect.getsource(swap_menu.onShowMenu)
+        self.assertIn("getListOfActiveSwaps(False)", source)
+        self.assertIn('if s.type == "file"', source)
+        self.assertIn('itm.atRight="informativní"', source)
 
 
 if __name__ == "__main__":

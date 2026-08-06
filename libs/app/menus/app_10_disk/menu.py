@@ -9,6 +9,7 @@ from libs.JBLibs.fs_helper import c_fs_itm
 from libs.JBLibs.helper import run,sanitizeFileName
 from libs.JBLibs.input import anyKey,selectDir,selectFile,text_color,en_color,get_input,confirm
 from libs.app.disk_hlp import disk_settings,c_other
+from libs.app.menus.app_10_disk.device_policy import is_manageable_storage_device
 from libs.JBLibs.helper import getLogger
 log = getLogger("disk_mng")
 
@@ -214,7 +215,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.4"
+    _VERSION_:str="3.6.5"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -245,7 +246,11 @@ class menu(c_menu):
             
             # Systémový disk zobrazujeme kompletní, ale zapisující operace
             # na něm zůstávají zakázané v menu i v samotných callback funkcích.
-            ls=lsblk_list_disks(False)
+            ls={
+                name: device
+                for name, device in (lsblk_list_disks(False) or {}).items()
+                if is_manageable_storage_device(device)
+            }
             if ls:
                 choice=0
                 self.menu.append( c_menu_title_label( text_color("Select Disk", color=en_color.BRIGHT_CYAN)) )
