@@ -37,12 +37,6 @@
       "old": "## v2.2.1\n\n- SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.\n",
       "new": "## v2.2.1\n\n- FIX Disk Manager 3.6.4 zahrnuje živý systémový disk do Hub inventáře a synchronizuje jej s `is_system_disk=1`; provozní blokace zapisujících operací zůstávají beze změny.\n- SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.\n",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert disk_version == \"3.6.3\"",
-      "new": "          assert disk_version == \"3.6.4\"",
-      "expected": 1
     }
   ]
 }
