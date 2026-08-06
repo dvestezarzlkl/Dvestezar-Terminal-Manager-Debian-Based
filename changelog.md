@@ -2,6 +2,7 @@
 
 ## v2.2.1
 
+- FIX Disk Manager 3.6.4 zahrnuje živý systémový disk do Hub inventáře a synchronizuje jej s `is_system_disk=1`; provozní blokace zapisujících operací zůstávají beze změny.
 - SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.
 - FIX seznam disků a partition zobrazuje skutečné mountpointy a zachovává zarovnání i u barevných uživatelských názvů.
 - UPD JBLibs na 1.2.18 s rekurzivní detekcí systémového disku.
