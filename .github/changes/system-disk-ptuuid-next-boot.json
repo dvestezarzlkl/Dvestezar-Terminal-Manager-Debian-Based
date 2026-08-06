@@ -67,48 +67,6 @@
       "old": "## v2.2.1\n\n- UX Disk Manager 3.6.6",
       "new": "## v2.2.1\n\n- ADD Disk Manager 3.6.7 podporuje dvojitě potvrzenou one-shot změnu PTUUID živého systémového GPT disku v initramfs, s GPT backupem a kontrolou PARTUUID po bootu.\n- UX Disk Manager 3.6.6",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "      - \"tests/test_disk_menu_system_disk.py\"\n      - \"tests/test_node_red_hub_provider.py\"",
-      "new": "      - \"tests/test_disk_menu_system_disk.py\"\n      - \"tests/test_ptuuid_repair.py\"\n      - \"tests/test_node_red_hub_provider.py\"",
-      "expected": 2
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            libs/app/menus/app_10_disk/hub_provider.py \\\n            libs/app/menus/app_10_disk/menu.py \\\n",
-      "new": "            libs/app/menus/app_10_disk/hub_provider.py \\\n            libs/app/menus/app_10_disk/ptuuid_repair.py \\\n            libs/app/menus/app_10_disk/menu.py \\\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests/test_disk_menu_system_disk.py \\\n            tests/test_node_red_hub_provider.py",
-      "new": "            tests/test_disk_menu_system_disk.py \\\n            tests/test_ptuuid_repair.py \\\n            tests/test_node_red_hub_provider.py",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests.test_disk_menu_system_disk \\\n            tests.test_node_red_hub_provider",
-      "new": "            tests.test_disk_menu_system_disk \\\n            tests.test_ptuuid_repair \\\n            tests.test_node_red_hub_provider",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert disk_version == \"3.6.6\"",
-      "new": "          assert disk_version == \"3.6.7\"",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert \"disk.ptuuid or '-'\" in disk_menu\n          assert \"getListOfActiveSwaps(False)\" in swap_menu",
-      "new": "          assert \"disk.ptuuid or '-'\" in disk_menu\n          assert \"Připravit nové PTUUID při restartu\" in disk_menu\n          assert \"KRITICKÁ OPERACE NA SYSTÉMOVÉM DISKU\" in disk_menu\n          assert \"prepare_system_disk_change\" in disk_menu\n          assert \"getListOfActiveSwaps(False)\" in swap_menu",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-runtime-dependencies.yml",
-      "old": "          grep -Eq 'for pkg in .*lsof' setup.sh",
-      "new": "          grep -Eq 'for pkg in .*lsof.*gdisk.*initramfs-tools' setup.sh",
-      "expected": 1
     }
   ]
 }
