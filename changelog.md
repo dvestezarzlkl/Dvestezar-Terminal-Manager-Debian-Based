@@ -2,6 +2,7 @@
 
 ## v2.2.1
 
+- UX Disk Manager 3.6.6 zobrazuje PTUUID přímo v detailu disku pro rychlou identifikaci klonů.
 - FIX Disk Manager 3.6.5 odděluje skutečná úložiště a loop image od zram, MTD a interních eMMC boot/RPMB zařízení.
 - FIX Swap Manager 2.5.1 zobrazuje všechny aktivní swapy z `swapon --show`; pouze souborové swapy mají editační submenu, zram a swap partition jsou informativní.
 - FIX Disk Manager 3.6.4 zahrnuje živý systémový disk do Hub inventáře a synchronizuje jej s `is_system_disk=1`; provozní blokace zapisujících operací zůstávají beze změny.

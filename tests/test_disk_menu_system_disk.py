@@ -105,6 +105,16 @@ class DiskMenuSystemDiskTests(unittest.TestCase):
         self.assertIn("lsblk_list_disks(False)", source)
         self.assertNotIn("lsblk_list_disks(True)", source)
 
+    def test_disk_detail_header_shows_ptuuid_after_disk_name(self):
+        source = inspect.getsource(m_disk_oper.onShowMenu)
+
+        disk_pos = source.index('("Disk"')
+        ptuuid_pos = source.index('("PTUUID"')
+        size_pos = source.index('("Size"')
+        self.assertLess(disk_pos, ptuuid_pos)
+        self.assertLess(ptuuid_pos, size_pos)
+        self.assertIn("disk.ptuuid or '-'", source)
+
     def test_device_policy_keeps_storage_and_hides_internal_devices(self):
         for storage in (
             device("sda"),

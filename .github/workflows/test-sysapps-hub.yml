@@ -171,7 +171,7 @@ jobs:
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
           swap_version = re.search(r'_VERSION_:str="([^"]+)"', swap_menu).group(1)
           assert version == "2.2.1"
-          assert disk_version == "3.6.5"
+          assert disk_version == "3.6.6"
           assert swap_version == "2.5.1"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
@@ -194,6 +194,8 @@ jobs:
           assert "Připravit nové Machine ID při prvním bootu" in disk_menu
           assert "zakázáno: živý systémový disk" in disk_menu
           assert "lsblk_list_disks(False)" in disk_menu
+          assert '("PTUUID"' in disk_menu
+          assert "disk.ptuuid or '-'" in disk_menu
           assert "getListOfActiveSwaps(False)" in swap_menu
           assert 'if s.type == "file"' in swap_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
