@@ -226,7 +226,8 @@ fi
 
 CURRENT_PTUUID="$(blkid -p -s PTUUID -o value "$DEVICE" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
 if [ "$CURRENT_PTUUID" = "$NEW_PTUUID" ]; then
-    log_success_msg "SysApps PTUUID: disk už používá připravené PTUUID."
+    log_begin_msg "SysApps PTUUID: disk už používá připravené PTUUID"
+    log_end_msg 0
     exit 0
 fi
 if [ "$CURRENT_PTUUID" != "$OLD_PTUUID" ]; then

@@ -1,5 +1,12 @@
 # Disk Manager changelog
 
+## v3.6.7
+
+- ADD živý systémový GPT disk lze bezpečně připravit na jednorázovou změnu PTUUID při příštím bootu v initramfs před připojením root filesystemu.
+- SAFE příprava vyžaduje dvě potvrzení, z toho druhé opsáním celého nového PTUUID; výrazné červené varování upozorňuje na možnost nebootujícího vzdáleného zařízení a nutnost snapshotu nebo zálohy.
+- SAFE před restartem se ověří GPT, původní PTUUID, velikost a PARTUUID partition a uloží se GPT backup; initramfs mění pouze disk GUID přes `sgdisk --disk-guid`, nikdy partition GUID.
+- ADD po bootu systemd finalizer ověří nové PTUUID, nezměněná PARTUUID a konzistenci GPT, převede lokální název disku a provede best-effort Hub sync; připravenou změnu lze před restartem zrušit.
+
 ## v3.6.6
 
 - UX detail disku zobrazuje PTUUID hned pod názvem zařízení, aby šly snadno rozlišit klonované disky a ověřit jejich identitu před změnou ID.

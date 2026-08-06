@@ -53,7 +53,7 @@ check_and_install_python310() {
     fi
 
     # Kontrola a instalace systémových runtime balíčků (i při existujícím Pythonu)
-    for pkg in python3.10-venv python3.10-distutils python3.10-dev lsof; do
+    for pkg in python3.10-venv python3.10-distutils python3.10-dev lsof gdisk initramfs-tools; do
         if ! dpkg -s "$pkg" &>/dev/null; then
             echo "Instaluji chybějící balík: $pkg"
             sudo apt install -y "$pkg"
