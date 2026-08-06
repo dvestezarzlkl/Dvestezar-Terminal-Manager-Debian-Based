@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+import uuid
 from libs.JBLibs import fs_smart_bkp as bkp
 from libs.JBLibs.c_menu import c_menu,c_menu_title_label,c_menu_item,c_menu_block_items,onSelReturn
 from libs.JBLibs.disk_shrink import shrink_disk,extend_disk_part_max as expand_disk
@@ -10,6 +11,7 @@ from libs.JBLibs.helper import run,sanitizeFileName
 from libs.JBLibs.input import anyKey,selectDir,selectFile,text_color,en_color,get_input,confirm
 from libs.app.disk_hlp import disk_settings,c_other
 from libs.app.menus.app_10_disk.device_policy import is_manageable_storage_device
+from libs.app.menus.app_10_disk import ptuuid_repair
 from libs.JBLibs.helper import getLogger
 log = getLogger("disk_mng")
 
@@ -215,7 +217,7 @@ class menu(c_menu):
     """Menu pro utilitiy disku.
     """
     
-    _VERSION_:str="3.6.6"
+    _VERSION_:str="3.6.7"
     
     # choiceBack=None
     # ESC_is_quit=False
@@ -383,13 +385,20 @@ class m_disk_oper(c_menu):
 
         self.title=basicTitle()
         disk_name_display = c_other.getDiskDisplayName(disk)
-        self.subTitle=c_menu_block_items([
+        pending_ptuuid_change = ptuuid_repair.get_pending_change(disk.name)
+        subtitle_items = [
             ("Disk",f"{disk_name_display}"),
             ("PTUUID",f"{disk.ptuuid or '-'}"),
             ("Size",f"{bytesTx(disk.size)}"),
             ("Type",f"{disk.type}"),
             ("Image Path",f"{str(self.__loopPath) if self.__loopPath else '-'}"),
-        ])
+        ]
+        if pending_ptuuid_change is not None:
+            subtitle_items.insert(2, (
+                "PTUUID změna",
+                f"čeká na restart -> {pending_ptuuid_change['new_ptuuid']}",
+            ))
+        self.subTitle=c_menu_block_items(subtitle_items)
         self.menu=[]
                 
         self.menu.append( c_menu_title_label(f"Disk Menu: {self.diskName}") )
@@ -420,10 +429,25 @@ class m_disk_oper(c_menu):
 
             if _can_write_whole_disk(disk):
                 self.menu.append( c_menu_item("Vygeneruj nové ID disku", "i", self.generate_new_disk_id) )
+            elif disk.isSystemDisk:
+                if pending_ptuuid_change is not None:
+                    self.menu.append( c_menu_item(
+                        "Zrušit připravenou změnu PTUUID",
+                        "i",
+                        self.cancel_system_disk_ptuuid_change,
+                        atRight=f"čeká na restart: {pending_ptuuid_change['new_ptuuid']}",
+                    ) )
+                else:
+                    self.menu.append( c_menu_item(
+                        "Připravit nové PTUUID při restartu",
+                        "i",
+                        self.prepare_system_disk_ptuuid_change,
+                        atRight="kritická operace",
+                    ) )
             else:
                 self.menu.append( c_menu_item(
                     text_color("Vygeneruj nové ID disku", color=en_color.BRIGHT_BLACK),
-                    atRight="zakázáno: systémový disk"
+                    atRight="zakázáno"
                 ) )
         
         if disk.children:
@@ -650,8 +674,86 @@ class m_disk_oper(c_menu):
             anyKey()
         return x
     
+    def prepare_system_disk_ptuuid_change(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Připraví jednorázovou změnu GPT disk GUID v initramfs."""
+        ret = onSelReturn()
+        disk = self.diskInfo
+        if disk is None or not disk.isSystemDisk:
+            return ret.errRet("Tato akce je určená pouze pro živý systémový disk.")
+        if ptuuid_repair.get_pending_change() is not None:
+            return ret.errRet("Jiná změna PTUUID už čeká na restart.")
+
+        new_ptuuid = str(uuid.uuid4())
+        warning_lines = [
+            " KRITICKÁ OPERACE NA SYSTÉMOVÉM DISKU ",
+            " Při chybě zápisu, výpadku napájení nebo neočekávaném boot procesu může zařízení přestat bootovat. ",
+            " U vzdáleného zařízení pak může být nutný fyzický zásah, konzole nebo obnova snapshotu/image. ",
+            " SysApps mění pouze GPT disk GUID a kontroluje zachování PARTUUID, ale riziko nelze zcela vyloučit. ",
+            " Pokračujte jen s ověřenou zálohou nebo snapshotem a možností zařízení obnovit. ",
+        ]
+        print()
+        for line in warning_lines:
+            print(text_color(
+                line,
+                color=en_color.BRIGHT_RED,
+                inverse=True,
+                bold=True,
+            ))
+        print()
+        print(text_color(f"Původní PTUUID: {disk.ptuuid}", color=en_color.YELLOW))
+        print(text_color(f"Nové PTUUID:    {new_ptuuid}", color=en_color.BRIGHT_YELLOW))
+
+        if not confirm(
+            "Rozumíte riziku a chcete připravit změnu PTUUID při příštím restartu?"
+        ):
+            return ret.errRet("Zrušeno uživatelem.")
+
+        confirmation = get_input(
+            f"Pro konečné potvrzení opište nové PTUUID přesně:\n{new_ptuuid}",
+            rgx=lambda value: value.strip().lower() == new_ptuuid,
+            maxLen=36,
+            errTx="Hodnota musí přesně odpovídat novému PTUUID.",
+            titleNote="q = zrušit bez jakékoli změny",
+            minMessageWidth=self.minMenuWidth,
+        )
+        if confirmation is None:
+            return ret.errRet("Zrušeno uživatelem.")
+
+        try:
+            state = ptuuid_repair.prepare_system_disk_change(disk, new_ptuuid)
+        except Exception as exc:
+            log.exception("Preparation of system disk PTUUID change failed")
+            return ret.errRet(f"Příprava změny PTUUID selhala: {exc}")
+
+        return ret.okRet(
+            "Změna PTUUID je připravena pro příští restart: "
+            f"{state['old_ptuuid']} -> {state['new_ptuuid']}. "
+            "Zařízení nyní restartujte a po návratu ověřte výsledek v Disk Manageru a Hubu.",
+            endMenu=True,
+        )
+
+    def cancel_system_disk_ptuuid_change(self,selItem:c_menu_item) -> None|onSelReturn:
+        """Bezpečně deaktivuje připravenou initramfs změnu před restartem."""
+        ret = onSelReturn()
+        disk = self.diskInfo
+        if disk is None:
+            return ret.errRet("Neznámý disk.")
+        pending = ptuuid_repair.get_pending_change(disk.name)
+        if pending is None:
+            return ret.errRet("Pro tento disk není připravená změna PTUUID.")
+        if not confirm(
+            f"Opravdu chcete zrušit připravenou změnu na {pending['new_ptuuid']}?"
+        ):
+            return ret.errRet("Zrušeno uživatelem.")
+        try:
+            ptuuid_repair.cancel_pending_change(disk.name)
+        except Exception as exc:
+            log.exception("Cancellation of system disk PTUUID change failed")
+            return ret.errRet(f"Zrušení připravené změny selhalo: {exc}")
+        return ret.okRet("Připravená změna PTUUID byla bezpečně zrušena.", endMenu=True)
+
     def generate_new_disk_id(self,selItem:c_menu_item) -> None|onSelReturn:
-        """Vygeneruje nové ID disku (PUUID) a aktualizuje ho v systému.
+        """Vygeneruje nové PTUUID nesystémového disku a aktualizuje ho v systému.
         """
         ret = onSelReturn()
         if self.diskInfo.isSystemDisk:
