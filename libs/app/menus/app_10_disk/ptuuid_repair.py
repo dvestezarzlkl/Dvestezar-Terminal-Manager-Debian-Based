@@ -163,7 +163,7 @@ def _active_initramfs_path() -> Path:
 
 def _verify_initramfs_payload(*, expect_pending: bool) -> None:
     initramfs = _active_initramfs_path()
-    listing = _run(["lsinitramfs", str(initramfs)]).stdout.splitlines()
+    listing = _run(_sudo(["lsinitramfs", str(initramfs)])).stdout.splitlines()
     entries = {line.strip().lstrip("./") for line in listing if line.strip()}
 
     if _INITRAMFS_SCRIPT_ENTRY not in entries:
@@ -461,12 +461,8 @@ def prepare_system_disk_change(
     _run(_sudo(["sgdisk", f"--backup={GPT_BACKUP}", device]))
 
     try:
-        _install_text(
-            PENDING_JSON,
-            json.dumps(state, indent=2, sort_keys=True) + "\n",
-            0o644,
-        )
-        _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
+        # Infrastruktura se instaluje dříve než pending stav. Chyba v této
+        # fázi proto ještě nemůže vložit aktivní payload do initramfs.
         _install_text(INITRAMFS_HOOK, build_initramfs_hook(), 0o755)
         _install_text(INITRAMFS_SCRIPT, build_initramfs_boot_script(), 0o755)
         _install_text(
@@ -475,6 +471,12 @@ def prepare_system_disk_change(
             0o644,
         )
         _run(_sudo(["systemctl", "daemon-reload"]))
+        _install_text(
+            PENDING_JSON,
+            json.dumps(state, indent=2, sort_keys=True) + "\n",
+            0o644,
+        )
+        _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
 
         # Nejprve se ověří, že lze sestavit initramfs s deaktivovaným stavem.
         _rebuild_initramfs(expect_pending=True)
@@ -485,7 +487,14 @@ def prepare_system_disk_change(
         _run(_sudo(["systemctl", "enable", FINALIZE_SERVICE_NAME]))
     except Exception as exc:
         try:
-            _disarm_and_clean_pending_state(state, remove_json=True)
+            if PENDING_ENV.exists():
+                _disarm_and_clean_pending_state(state, remove_json=True)
+            else:
+                _remove_privileged(PENDING_JSON)
+                _run(
+                    _sudo(["systemctl", "disable", FINALIZE_SERVICE_NAME]),
+                    check=False,
+                )
         except Exception as disarm_exc:
             raise RuntimeError(
                 "Příprava změny PTUUID selhala a nepodařilo se bezpečně "

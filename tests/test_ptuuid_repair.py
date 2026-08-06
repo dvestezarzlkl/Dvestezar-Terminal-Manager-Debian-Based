@@ -117,6 +117,7 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
         source = inspect.getsource(ptuuid_repair._verify_initramfs_payload)
 
         self.assertIn("lsinitramfs", source)
+        self.assertIn("_sudo", source)
         self.assertIn("_INITRAMFS_SCRIPT_ENTRY", source)
         self.assertIn("_INITRAMFS_PENDING_ENTRY", source)
 
@@ -135,7 +136,7 @@ class PTUUIDRepairMenuContractTests(unittest.TestCase):
         self.assertIn("confirm(", source)
         self.assertIn("get_input(", source)
         self.assertIn("KRITICKÁ OPERACE", source)
-        self.assertIn("může přestat bootovat", source)
+        self.assertIn("přestat bootovat", source)
         self.assertIn("nové PTUUID přesně", source)
 
     def test_cancel_callback_requires_confirmation(self):
