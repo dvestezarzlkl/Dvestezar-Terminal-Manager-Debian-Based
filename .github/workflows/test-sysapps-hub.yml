@@ -21,6 +21,7 @@ on:
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
       - "tests/test_disk_menu_system_disk.py"
+      - "tests/test_ptuuid_repair.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -50,6 +51,7 @@ on:
       - "tests/test_disk_hub_provider.py"
       - "tests/test_disk_settings_sync.py"
       - "tests/test_disk_menu_system_disk.py"
+      - "tests/test_ptuuid_repair.py"
       - "tests/test_node_red_hub_provider.py"
       - "requirements.txt"
       - "readme.md"
@@ -109,6 +111,7 @@ jobs:
             libs/app/disk_hlp.py \
             libs/app/menus/app_10_disk/device_policy.py \
             libs/app/menus/app_10_disk/hub_provider.py \
+            libs/app/menus/app_10_disk/ptuuid_repair.py \
             libs/app/menus/app_10_disk/menu.py \
             libs/app/menus/app_12_swap/menu.py \
             libs/app/menus/app_20_node_red/hub_provider.py \
@@ -124,6 +127,7 @@ jobs:
             tests/test_disk_hub_provider.py \
             tests/test_disk_settings_sync.py \
             tests/test_disk_menu_system_disk.py \
+            tests/test_ptuuid_repair.py \
             tests/test_node_red_hub_provider.py
 
       - name: Run Hub and central settings tests
@@ -145,6 +149,7 @@ jobs:
             tests.test_disk_hub_provider \
             tests.test_disk_settings_sync \
             tests.test_disk_menu_system_disk \
+            tests.test_ptuuid_repair \
             tests.test_node_red_hub_provider
 
       - name: Verify version and provider contracts
@@ -164,6 +169,7 @@ jobs:
           swap_menu = Path("libs/app/menus/app_12_swap/menu.py").read_text(encoding="utf-8")
           disk_helper = Path("libs/app/disk_hlp.py").read_text(encoding="utf-8")
           disk_provider = Path("libs/app/menus/app_10_disk/hub_provider.py").read_text(encoding="utf-8")
+          ptuuid_repair = Path("libs/app/menus/app_10_disk/ptuuid_repair.py").read_text(encoding="utf-8")
           main_menu = Path("libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
           requirements = Path("requirements.txt").read_text(encoding="utf-8")
 
@@ -171,7 +177,7 @@ jobs:
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
           swap_version = re.search(r'_VERSION_:str="([^"]+)"', swap_menu).group(1)
           assert version == "2.2.1"
-          assert disk_version == "3.6.6"
+          assert disk_version == "3.6.7"
           assert swap_version == "2.5.1"
           assert f"v{version}" in readme
           assert f"## v{version}" in changelog
@@ -196,6 +202,14 @@ jobs:
           assert "lsblk_list_disks(False)" in disk_menu
           assert '("PTUUID"' in disk_menu
           assert "disk.ptuuid or '-'" in disk_menu
+          assert "Připravit nové PTUUID při restartu" in disk_menu
+          assert "KRITICKÁ OPERACE NA SYSTÉMOVÉM DISKU" in disk_menu
+          assert "prepare_system_disk_change" in disk_menu
+          assert "sgdisk --disk-guid" in ptuuid_repair
+          assert "--randomize-guids" not in ptuuid_repair
+          assert "--partition-guid" not in ptuuid_repair
+          assert "verify_partuuids" in ptuuid_repair
+          assert "NERESTARTUJTE zařízení" in ptuuid_repair
           assert "getListOfActiveSwaps(False)" in swap_menu
           assert 'if s.type == "file"' in swap_menu
           assert '_HUB_PROVIDER_KEY_:str = "node_red"' in node_menu
