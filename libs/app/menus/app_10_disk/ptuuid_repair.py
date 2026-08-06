@@ -481,10 +481,13 @@ def prepare_system_disk_change(
         # Nejprve se ověří, že lze sestavit initramfs s deaktivovaným stavem.
         _rebuild_initramfs(expect_pending=True)
 
+        # Finalizer se zapne ještě před armingem. I při výpadku uprostřed
+        # přípravy tak další boot buď nic nezmění, nebo výsledek ověří.
+        _run(_sudo(["systemctl", "enable", FINALIZE_SERVICE_NAME]))
+
         # Teprve druhý atomický rebuild vloží do initramfs aktivní payload.
         _install_text(PENDING_ENV, _pending_env(state, enabled=True), 0o600)
         _rebuild_initramfs(expect_pending=True)
-        _run(_sudo(["systemctl", "enable", FINALIZE_SERVICE_NAME]))
     except Exception as exc:
         try:
             if PENDING_ENV.exists():

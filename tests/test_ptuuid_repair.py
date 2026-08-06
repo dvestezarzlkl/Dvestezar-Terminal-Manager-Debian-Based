@@ -104,13 +104,13 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
 
         disabled = source.index("_pending_env(state, enabled=False)")
         baseline = source.index("_rebuild_initramfs(expect_pending=True)", disabled)
-        enabled = source.index("_pending_env(state, enabled=True)", baseline)
+        service = source.index('"enable", FINALIZE_SERVICE_NAME', baseline)
+        enabled = source.index("_pending_env(state, enabled=True)", service)
         armed = source.index("_rebuild_initramfs(expect_pending=True)", enabled)
-        service = source.index('"enable", FINALIZE_SERVICE_NAME', armed)
         self.assertLess(disabled, baseline)
-        self.assertLess(baseline, enabled)
+        self.assertLess(baseline, service)
+        self.assertLess(service, enabled)
         self.assertLess(enabled, armed)
-        self.assertLess(armed, service)
         self.assertIn("NERESTARTUJTE zařízení", source)
 
     def test_initramfs_payload_verification_checks_active_kernel_image(self):
