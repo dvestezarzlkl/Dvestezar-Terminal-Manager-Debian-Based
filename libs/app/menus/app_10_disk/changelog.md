@@ -1,5 +1,10 @@
 # Disk Manager changelog
 
+## v3.6.4
+
+- FIX SysApps Hub inventář znovu zahrnuje také živý systémový disk; provider používá úplný read-only `lsblk` strom a ukládá `is_system_disk=1`.
+- TEST hlídá, že Hub collector volá `lsblk_list_disks(False)`, aby bezpečnostní filtr určený pro zapisující operace systémový disk nevyřadil z inventáře.
+
 ## v3.6.3
 
 - SAFE živý systémový disk dovoluje pouze read-only přehled partition a změnu uživatelského názvu; celodisková záloha, obnova a změna PTUUID jsou zakázané v menu i uvnitř callbacků.

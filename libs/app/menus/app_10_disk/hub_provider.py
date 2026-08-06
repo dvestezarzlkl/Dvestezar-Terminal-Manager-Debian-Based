@@ -30,7 +30,9 @@ def _is_system_disk(disk: lsblkDiskInfo) -> bool:
 def collect_disk_snapshot(context: HubContext) -> HubProviderSnapshot:
     del context
     disk_settings.init()
-    discovered = lsblk_list_disks(True) or {}
+    # Hub inventory must include the live system disk. Safety restrictions belong
+    # to Disk Manager operations, not to the read-only inventory collector.
+    discovered = lsblk_list_disks(False) or {}
     seen: dict[str, str] = {}
     items: list[HubDisk] = []
 

@@ -43,7 +43,7 @@ class DiskHubProviderTests(unittest.TestCase):
         with patch(
             "libs.app.menus.app_10_disk.hub_provider.lsblk_list_disks",
             return_value={"sda": disk("sda", "ABC-123", 4096)},
-        ), patch(
+        ) as list_disks, patch(
             "libs.app.menus.app_10_disk.hub_provider.disk_settings.init"
         ), patch(
             "libs.app.menus.app_10_disk.hub_provider.disk_settings.find_disk_name",
@@ -54,6 +54,7 @@ class DiskHubProviderTests(unittest.TestCase):
         ):
             snapshot = collect_disk_snapshot(self.context)
 
+        list_disks.assert_called_once_with(False)
         self.assertEqual(snapshot.source_key, "disks")
         self.assertEqual(snapshot.dataset, "disks")
         self.assertEqual(len(snapshot.items), 1)
