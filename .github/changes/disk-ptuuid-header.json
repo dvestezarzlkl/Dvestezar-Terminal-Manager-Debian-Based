@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "commit_message": "Show PTUUID in Disk Manager detail header",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "    _VERSION_:str=\"3.6.5\"",
+      "new": "    _VERSION_:str=\"3.6.6\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "        self.subTitle=c_menu_block_items([\n            (\"Disk\",f\"{disk_name_display}\"),\n            (\"Size\",f\"{bytesTx(disk.size)}\"),\n            (\"Type\",f\"{disk.type}\"),\n            (\"Image Path\",f\"{str(self.__loopPath) if self.__loopPath else '-'}\"),\n        ])",
+      "new": "        self.subTitle=c_menu_block_items([\n            (\"Disk\",f\"{disk_name_display}\"),\n            (\"PTUUID\",f\"{disk.ptuuid or '-'}\"),\n            (\"Size\",f\"{bytesTx(disk.size)}\"),\n            (\"Type\",f\"{disk.type}\"),\n            (\"Image Path\",f\"{str(self.__loopPath) if self.__loopPath else '-'}\"),\n        ])",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/changelog.md",
+      "old": "# Disk Manager changelog\n\n## v3.6.5",
+      "new": "# Disk Manager changelog\n\n## v3.6.6\n\n- UX detail disku zobrazuje PTUUID hned pod názvem zařízení, aby šly snadno rozlišit klonované disky a ověřit jejich identitu před změnou ID.\n- SAFE chybějící PTUUID se zobrazí jako `-`; pravidla pro změnu PTUUID zůstávají beze změny a živý systémový disk je nadále chráněný.\n\n## v3.6.5",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.1\n\n- FIX Disk Manager 3.6.5",
+      "new": "## v2.2.1\n\n- UX Disk Manager 3.6.6 zobrazuje PTUUID přímo v detailu disku pro rychlou identifikaci klonů.\n- FIX Disk Manager 3.6.5",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_disk_menu_system_disk.py",
+      "old": "    def test_device_policy_keeps_storage_and_hides_internal_devices(self):",
+      "new": "    def test_disk_detail_header_shows_ptuuid_after_disk_name(self):\n        source = inspect.getsource(m_disk_oper.onShowMenu)\n\n        disk_pos = source.index('(\"Disk\"')\n        ptuuid_pos = source.index('(\"PTUUID\"')\n        size_pos = source.index('(\"Size\"')\n        self.assertLess(disk_pos, ptuuid_pos)\n        self.assertLess(ptuuid_pos, size_pos)\n        self.assertIn(\"disk.ptuuid or '-'\", source)\n\n    def test_device_policy_keeps_storage_and_hides_internal_devices(self):",
+      "expected": 1
+    }
+  ]
+}
