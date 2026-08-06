@@ -2,6 +2,8 @@
 
 ## v2.2.1
 
+- FIX Disk Manager 3.6.5 odděluje skutečná úložiště a loop image od zram, MTD a interních eMMC boot/RPMB zařízení.
+- FIX Swap Manager 2.5.1 zobrazuje všechny aktivní swapy z `swapon --show`; pouze souborové swapy mají editační submenu, zram a swap partition jsou informativní.
 - FIX Disk Manager 3.6.4 zahrnuje živý systémový disk do Hub inventáře a synchronizuje jej s `is_system_disk=1`; provozní blokace zapisujících operací zůstávají beze změny.
 - SAFE Disk Manager 3.6.3 zpřístupňuje systémový disk pouze pro přehled a přejmenování; záloha, obnova a změna PTUUID živého systémového disku jsou blokované.
 - FIX seznam disků a partition zobrazuje skutečné mountpointy a zachovává zarovnání i u barevných uživatelských názvů.

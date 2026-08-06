@@ -32,7 +32,7 @@ class menu(c_menu):
     """Menu pro správu SWAP souborů
     """
     
-    _VERSION_:str="2.5.0"
+    _VERSION_:str="2.5.1"
     
     minMenuWidth=80
     
@@ -55,13 +55,13 @@ class menu(c_menu):
         
         self.menu=[]
         self.menu.append( c_menu_title_label("SWAP Manager") )
-        self.menu.append( c_menu_item("Přidat SWAP image", "a", self.create_swap_img) )
+        self.menu.append( c_menu_item("Přidat SWAP soubor", "a", self.create_swap_img) )
         self.menu.append( c_menu_item("Ukaž procesy využívající SWAP", "p", self.show_swap_processes) )
-        
-        self.menu.append( c_menu_title_label(text_color("Aktivní SWAP image", color=en_color.BRIGHT_CYAN) ) )
-        lst=swp.getListOfActiveSwaps()
+
+        self.menu.append( c_menu_title_label(text_color("Aktivní SWAP", color=en_color.BRIGHT_CYAN) ) )
+        lst=swp.getListOfActiveSwaps(False)
         if not lst:
-            self.menu.append( c_menu_item( text_color("Žádná aktivní SWAP image.",color=en_color.BRIGHT_RED) ) )
+            self.menu.append( c_menu_item( text_color("Žádný aktivní SWAP.",color=en_color.BRIGHT_RED) ) )
         else:
             tit=f"{'Device':<26} | {'Type':>8} | {'Size':>8} | {'Used':>8} | {'Priority':>8}"
             self.menu.append( c_menu_item( text_color(tit, color=en_color.BRIGHT_BLACK) ) )
@@ -81,12 +81,15 @@ class menu(c_menu):
                 itm= c_menu_item(
                     f"{str(s.file):<26} | {s.type:>8} | {s.size:>8} | {used} | {s.priority:>8}"
                 )
-                itm.choice=f"{choice:02}"
-                itm.onSelect=m_swap_img_mngr()
-                itm.data=s
-                itm.atRight="menu"
+                if s.type == "file":
+                    itm.choice=f"{choice:02}"
+                    itm.onSelect=m_swap_img_mngr()
+                    itm.data=s
+                    itm.atRight="menu"
+                    choice+=1
+                else:
+                    itm.atRight="informativní"
                 self.menu.append( itm )
-                choice+=1
                 
     def create_swap_img(self,selItem:c_menu_item) -> None|onSelReturn:
         ret = onSelReturn()

@@ -1,5 +1,10 @@
 # Disk Manager changelog
 
+## v3.6.5
+
+- FIX hlavní seznam zobrazuje pouze spravovatelná úložiště a loop image; zram, MTD bloky a interní eMMC boot/RPMB oblasti jsou vyřazené.
+- SAFE hlavní systémové zařízení, například `mmcblk0`, zůstává viditelné read-only a Hub inventář nadále zahrnuje systémové disky.
+
 ## v3.6.4
 
 - FIX SysApps Hub inventář znovu zahrnuje také živý systémový disk; provider používá úplný read-only `lsblk` strom a ukládá `is_system_disk=1`.
