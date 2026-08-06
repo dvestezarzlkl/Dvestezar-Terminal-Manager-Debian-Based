@@ -33,6 +33,9 @@ INITRAMFS_SCRIPT = Path(
 FINALIZE_SERVICE = Path("/etc/systemd/system/sysapps-ptuuid-finalize.service")
 FINALIZE_SERVICE_NAME = FINALIZE_SERVICE.name
 
+_INITRAMFS_PENDING_ENTRY = "conf/sysapps-ptuuid/pending.env"
+_INITRAMFS_SCRIPT_ENTRY = "scripts/local-premount/sysapps-ptuuid"
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="microseconds")
@@ -130,9 +133,7 @@ def _read_size_bytes(device: str) -> int:
 
 
 def _read_partuuids(device: str) -> dict[str, str]:
-    result = _run(
-        ["lsblk", "-nrpo", "NAME,TYPE,PARTUUID", device]
-    )
+    result = _run(["lsblk", "-nrpo", "NAME,TYPE,PARTUUID", device])
     partitions: dict[str, str] = {}
     for raw_line in result.stdout.splitlines():
         fields = raw_line.split()
@@ -146,6 +147,35 @@ def _read_partuuids(device: str) -> dict[str, str]:
 
 def _verify_gpt(device: str) -> None:
     _run(_sudo(["sgdisk", "--verify", device]))
+
+
+def _active_initramfs_path() -> Path:
+    kernel = _run(["uname", "-r"]).stdout.strip()
+    if not kernel:
+        raise RuntimeError("Nelze zjistit verzi právě běžícího kernelu.")
+    path = Path(f"/boot/initrd.img-{kernel}")
+    if not path.is_file():
+        raise RuntimeError(
+            f"Pro právě běžící kernel nebyl nalezen initramfs {path}."
+        )
+    return path
+
+
+def _verify_initramfs_payload(*, expect_pending: bool) -> None:
+    initramfs = _active_initramfs_path()
+    listing = _run(["lsinitramfs", str(initramfs)]).stdout.splitlines()
+    entries = {line.strip().lstrip("./") for line in listing if line.strip()}
+
+    if _INITRAMFS_SCRIPT_ENTRY not in entries:
+        raise RuntimeError(
+            f"Initramfs {initramfs} neobsahuje SysApps PTUUID boot script."
+        )
+    has_pending = _INITRAMFS_PENDING_ENTRY in entries
+    if has_pending != expect_pending:
+        expected = "obsahovat" if expect_pending else "neobsahovat"
+        raise RuntimeError(
+            f"Initramfs {initramfs} má {expected} připravený PTUUID stav."
+        )
 
 
 def get_pending_change(device_name: str | None = None) -> dict[str, Any] | None:
@@ -219,6 +249,23 @@ STATE=/conf/sysapps-ptuuid/pending.env
 
 [ "${ENABLED:-0}" = "1" ] || exit 0
 
+verify_partuuids()
+{
+    index=1
+    [ "${PART_COUNT:-0}" -gt 0 ] 2>/dev/null || return 1
+    while [ "$index" -le "$PART_COUNT" ]; do
+        eval "PART_DEVICE=\${PART_${index}_DEVICE:-}"
+        eval "EXPECTED_PARTUUID=\${PART_${index}_UUID:-}"
+        [ -n "$PART_DEVICE" ] || return 1
+        [ -n "$EXPECTED_PARTUUID" ] || return 1
+        [ -b "$PART_DEVICE" ] || return 1
+        CURRENT_PARTUUID="$(blkid -p -s PARTUUID -o value "$PART_DEVICE" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+        [ "$CURRENT_PARTUUID" = "$EXPECTED_PARTUUID" ] || return 1
+        index=$((index + 1))
+    done
+    return 0
+}
+
 if [ ! -b "$DEVICE" ]; then
     log_warning_msg "SysApps PTUUID: zařízení $DEVICE neexistuje; změna přeskočena."
     exit 0
@@ -241,6 +288,11 @@ if [ "$CURRENT_SIZE" != "$SIZE_BYTES" ]; then
     exit 0
 fi
 
+if ! verify_partuuids; then
+    log_warning_msg "SysApps PTUUID: PARTUUID před změnou nesouhlasí; změna přeskočena."
+    exit 0
+fi
+
 if ! sgdisk --verify "$DEVICE" >/dev/null 2>&1; then
     log_warning_msg "SysApps PTUUID: GPT před změnou neprošla kontrolou; změna přeskočena."
     exit 0
@@ -257,6 +309,10 @@ blockdev --rereadpt "$DEVICE" >/dev/null 2>&1 || true
 
 if ! sgdisk --verify "$DEVICE" >/dev/null 2>&1; then
     log_warning_msg "SysApps PTUUID: GPT po změně neprošla kontrolou. Boot pokračuje."
+    exit 0
+fi
+if ! verify_partuuids; then
+    log_warning_msg "SysApps PTUUID: PARTUUID se po změně liší. Boot pokračuje."
     exit 0
 fi
 
@@ -276,8 +332,7 @@ def build_finalize_service(
 ) -> str:
     return f"""[Unit]
 Description=Finalize SysApps one-shot PTUUID change
-After=local-fs.target network-online.target
-Wants=network-online.target
+After=local-fs.target
 ConditionPathExists={PENDING_JSON}
 
 [Service]
@@ -291,15 +346,45 @@ WantedBy=multi-user.target
 
 
 def _pending_env(state: dict[str, Any], enabled: bool = True) -> str:
-    values = {
+    partuuids = dict(state.get("partuuids", {}))
+    values: dict[str, str] = {
         "ENABLED": "1" if enabled else "0",
         "DEVICE": str(state["device"]),
         "OLD_PTUUID": str(state["old_ptuuid"]),
         "NEW_PTUUID": str(state["new_ptuuid"]),
         "SIZE_BYTES": str(state["size_bytes"]),
+        "PART_COUNT": str(len(partuuids)),
     }
+    for index, (device, partuuid) in enumerate(
+        sorted(partuuids.items()),
+        start=1,
+    ):
+        values[f"PART_{index}_DEVICE"] = str(device)
+        values[f"PART_{index}_UUID"] = str(partuuid)
     return "".join(
         f"{key}={shlex.quote(value)}\n" for key, value in values.items()
+    )
+
+
+def _rebuild_initramfs(*, expect_pending: bool) -> None:
+    _run(_sudo(["update-initramfs", "-u"]), capture=False)
+    _verify_initramfs_payload(expect_pending=expect_pending)
+
+
+def _disarm_and_clean_pending_state(
+    state: dict[str, Any],
+    *,
+    remove_json: bool,
+) -> None:
+    _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
+    _rebuild_initramfs(expect_pending=True)
+    _remove_privileged(PENDING_ENV)
+    _rebuild_initramfs(expect_pending=False)
+    if remove_json:
+        _remove_privileged(PENDING_JSON)
+    _run(
+        _sudo(["systemctl", "disable", FINALIZE_SERVICE_NAME]),
+        check=False,
     )
 
 
@@ -317,11 +402,15 @@ def prepare_system_disk_change(
     if get_pending_change() is not None:
         raise RuntimeError("Jiná změna PTUUID už čeká na restart.")
 
-    _require_command("sgdisk")
-    _require_command("update-initramfs")
-    _require_command("systemctl")
-    _require_command("blkid")
-    _require_command("blockdev")
+    for command in (
+        "sgdisk",
+        "update-initramfs",
+        "lsinitramfs",
+        "systemctl",
+        "blkid",
+        "blockdev",
+    ):
+        _require_command(command)
     if not Path("/usr/share/initramfs-tools/hook-functions").is_file():
         raise RuntimeError("initramfs-tools hook-functions nejsou dostupné.")
 
@@ -344,9 +433,12 @@ def prepare_system_disk_change(
 
     size_bytes = _read_size_bytes(device)
     partuuids = _read_partuuids(device)
-    if not partuuids:
-        raise RuntimeError("Na systémovém GPT disku nebyly nalezeny partition GUID.")
+    if not partuuids or any(not value for value in partuuids.values()):
+        raise RuntimeError(
+            "Na systémovém GPT disku nebyla zjištěna platná PARTUUID všech partition."
+        )
     _verify_gpt(device)
+    _active_initramfs_path()
 
     state: dict[str, Any] = {
         "version": 1,
@@ -363,14 +455,10 @@ def prepare_system_disk_change(
     if app_root is None:
         app_root = Path(__file__).resolve().parents[4]
     if python_executable is None:
-        python_executable = Path(sys.executable).resolve()
+        python_executable = Path(sys.executable).absolute()
 
     _run(_sudo(["install", "-d", "-m", "0755", str(STATE_DIR)]))
-    _run(
-        _sudo(
-            ["sgdisk", f"--backup={GPT_BACKUP}", device]
-        )
-    )
+    _run(_sudo(["sgdisk", f"--backup={GPT_BACKUP}", device]))
 
     try:
         _install_text(
@@ -378,26 +466,33 @@ def prepare_system_disk_change(
             json.dumps(state, indent=2, sort_keys=True) + "\n",
             0o644,
         )
-        _install_text(PENDING_ENV, _pending_env(state), 0o600)
+        _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
         _install_text(INITRAMFS_HOOK, build_initramfs_hook(), 0o755)
-        _install_text(
-            INITRAMFS_SCRIPT,
-            build_initramfs_boot_script(),
-            0o755,
-        )
+        _install_text(INITRAMFS_SCRIPT, build_initramfs_boot_script(), 0o755)
         _install_text(
             FINALIZE_SERVICE,
             build_finalize_service(app_root, python_executable),
             0o644,
         )
         _run(_sudo(["systemctl", "daemon-reload"]))
+
+        # Nejprve se ověří, že lze sestavit initramfs s deaktivovaným stavem.
+        _rebuild_initramfs(expect_pending=True)
+
+        # Teprve druhý atomický rebuild vloží do initramfs aktivní payload.
+        _install_text(PENDING_ENV, _pending_env(state, enabled=True), 0o600)
+        _rebuild_initramfs(expect_pending=True)
         _run(_sudo(["systemctl", "enable", FINALIZE_SERVICE_NAME]))
-        _run(_sudo(["update-initramfs", "-u"]), capture=False)
-    except Exception:
+    except Exception as exc:
         try:
-            _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
-        except Exception:
-            log.exception("Failed to disable PTUUID pending state after preparation error")
+            _disarm_and_clean_pending_state(state, remove_json=True)
+        except Exception as disarm_exc:
+            raise RuntimeError(
+                "Příprava změny PTUUID selhala a nepodařilo se bezpečně "
+                "deaktivovat initramfs payload. NERESTARTUJTE zařízení, dokud "
+                "nebude stav ručně zkontrolován. "
+                f"Původní chyba: {exc}; chyba deaktivace: {disarm_exc}"
+            ) from exc
         raise
 
     return state
@@ -408,8 +503,7 @@ def cancel_pending_change(device_name: str | None = None) -> dict[str, Any]:
     if state is None:
         raise RuntimeError("Pro vybraný disk není připravená změna PTUUID.")
 
-    _install_text(PENDING_ENV, _pending_env(state, enabled=False), 0o600)
-    _run(_sudo(["update-initramfs", "-u"]), capture=False)
+    _disarm_and_clean_pending_state(state, remove_json=False)
 
     result = dict(state)
     result.update(
@@ -425,7 +519,6 @@ def cancel_pending_change(device_name: str | None = None) -> dict[str, Any]:
         0o644,
     )
     _remove_privileged(PENDING_JSON)
-    _remove_privileged(PENDING_ENV)
     return result
 
 
@@ -464,6 +557,7 @@ def finalize_pending_change() -> int:
     }
 
     errors: list[str] = []
+    warnings: list[str] = []
     current_ptuuid = ""
     current_partuuids: dict[str, str] = {}
     try:
@@ -486,6 +580,25 @@ def finalize_pending_change() -> int:
         errors.append(str(exc))
 
     success = not errors
+
+    if success:
+        try:
+            _transfer_local_disk_name(expected_old, expected_new)
+        except Exception as exc:
+            warnings.append(f"Přenos lokálního názvu disku selhal: {exc}")
+
+    try:
+        PENDING_ENV.unlink(missing_ok=True)
+        _run(["update-initramfs", "-u"], capture=False)
+        _verify_initramfs_payload(expect_pending=False)
+    except Exception as exc:
+        warnings.append(f"Odstranění pending payloadu z initramfs selhalo: {exc}")
+
+    try:
+        _run(["systemctl", "disable", FINALIZE_SERVICE_NAME], check=False)
+    except Exception as exc:
+        warnings.append(f"Deaktivace finalizační služby selhala: {exc}")
+
     result = dict(state)
     result.update(
         {
@@ -494,16 +607,9 @@ def finalize_pending_change() -> int:
             "current_ptuuid": current_ptuuid,
             "current_partuuids": current_partuuids,
             "errors": errors,
+            "warnings": warnings,
         }
     )
-
-    if success:
-        try:
-            _transfer_local_disk_name(expected_old, expected_new)
-        except Exception as exc:
-            errors.append(f"Přenos lokálního názvu disku selhal: {exc}")
-            result["errors"] = errors
-            result["name_transfer_warning"] = str(exc)
 
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     LAST_RESULT_JSON.write_text(
@@ -512,11 +618,6 @@ def finalize_pending_change() -> int:
     )
     PENDING_JSON.unlink(missing_ok=True)
     PENDING_ENV.unlink(missing_ok=True)
-
-    try:
-        _run(["update-initramfs", "-u"], capture=False)
-    except Exception:
-        log.exception("Failed to remove PTUUID payload from initramfs")
 
     if success:
         try:
