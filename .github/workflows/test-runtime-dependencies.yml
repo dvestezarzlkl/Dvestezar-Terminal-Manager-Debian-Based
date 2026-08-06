@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           bash -n setup.sh
-          grep -Eq 'for pkg in .*lsof' setup.sh
+          grep -Eq 'for pkg in .*lsof.*gdisk.*initramfs-tools' setup.sh
           python - <<'PY'
           from unittest.mock import patch
 
