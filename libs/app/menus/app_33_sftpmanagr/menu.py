@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from .lng.default import *
 from libs.JBLibs.helper import getLogger, loadLng
 
@@ -61,7 +63,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.7"
+    _VERSION_: str = "1.2.8"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -454,9 +456,10 @@ class m_user_mountpoints(c_menu):
             if not isinstance(current_target, str):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
 
+            start_path = current_target if os.path.isdir(current_target) else "/"
             while True:
                 target = selectDir(
-                    "/",
+                    start_path,
                     TXT_SFTP_MENU_SELECT_NEW_MOUNTPOINT_PATH.format(path=current_target),
                 )
                 if not target:

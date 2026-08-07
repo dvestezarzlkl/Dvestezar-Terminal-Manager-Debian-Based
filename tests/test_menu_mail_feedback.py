@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.7")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.8")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -111,13 +111,43 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         with patch.object(
             sftp_menu, "select", return_value=selected
         ), patch.object(
+            sftp_menu.os.path, "isdir", return_value=True
+        ), patch.object(
             sftp_menu, "selectDir", return_value="/srv/new"
-        ):
+        ) as select_dir:
             submenu.modify_mountpoint(SimpleNamespace(data="docs"))
 
+        self.assertEqual(select_dir.call_args.args[0], "/srv/old")
         self.assertEqual(cfg["users"][0]["sftpmounts"]["docs"], "/srv/new")
         self.assertEqual(cfg["users"][0]["pointsSet"]["docs"]["rw"], False)
         self.assertTrue(main_menu.changed)
+
+    def test_sftp_mountpoint_path_edit_falls_back_to_root_when_current_path_missing(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/missing"},
+                "pointsSet": {"docs": {"rw": False}},
+            }]
+        }
+        main_menu = SimpleNamespace(cfg=cfg, changed=False)
+        submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
+        submenu.cfg = cfg
+        selected = SimpleNamespace(item=SimpleNamespace(data="P"))
+
+        with patch.object(
+            sftp_menu, "select", return_value=selected
+        ), patch.object(
+            sftp_menu.os.path, "isdir", return_value=False
+        ) as is_dir, patch.object(
+            sftp_menu, "selectDir", return_value=None
+        ) as select_dir:
+            submenu.modify_mountpoint(SimpleNamespace(data="docs"))
+
+        is_dir.assert_called_once_with("/srv/missing")
+        self.assertEqual(select_dir.call_args.args[0], "/")
+        self.assertFalse(main_menu.changed)
 
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()

@@ -1,5 +1,10 @@
 # SFTP Manager Changelog
 
+## 1.2.8
+
+- FIX změna cesty existujícího mountpointu otevírá výběr adresáře na jeho aktuální reálné cestě, pokud stále existuje; `/` se použije pouze jako fallback pro chybějící nebo neplatný adresář.
+- TEST regresní pokrytí ověřuje start na aktuální cestě i fallback na root.
+
 ## 1.2.7
 
 - FIX Apply nyní detekuje i samostatnou změnu RO/RW u Samba-backed mountpointu, i když alias a reálná cesta zůstaly stejné.

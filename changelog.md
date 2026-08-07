@@ -2,6 +2,7 @@
 
 ## v2.2.2
 
+- FIX SFTP Manager 1.2.8 při změně cesty existujícího mountpointu otevírá adresářový výběr na aktuální reálné cestě; na `/` padá pouze tehdy, když uložená cesta už není platný adresář.
 - FIX SFTP Manager 1.2.7 při Apply synchronizuje také samotnou změnu RO/RW u Samba-backed mountpointu bez nutnosti měnit cestu nebo point ručně mazat; JBLibs aktualizováno na 1.2.20.
 - FIX SFTP Manager 1.2.6 správně respektuje volbu pouze pro čtení při vytvoření mountpointu; výsledek `select()` se vyhodnocuje přes zvolená data místo porovnání wrapper objektu.
 - UX SFTP Manager 1.2.6 umožňuje u existujícího mountpointu změnit reálnou cestu při zachování aliasu a RO/RW nastavení; následný Apply využije stávající detekci změny cesty a znovu synchronizuje Samba/CIFS/jail konfiguraci.
