@@ -18,6 +18,8 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
         self.assertIn('CURRENT_PTUUID" != "$OLD_PTUUID', script)
         self.assertIn('CURRENT_SIZE" != "$SIZE_BYTES', script)
         self.assertIn("verify_partuuids", script)
+        self.assertIn('lsblk -ndo PARTUUID "$PART_DEVICE"', script)
+        self.assertNotIn('blkid -p -s PARTUUID', script)
         self.assertIn("PARTUUID před změnou nesouhlasí", script)
         self.assertIn("PARTUUID se po změně liší", script)
         self.assertIn('sgdisk --verify "$DEVICE"', script)
@@ -43,7 +45,7 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
 
         self.assertIn("/conf/sysapps-ptuuid/pending.env", hook)
         self.assertIn("copy_exec", hook)
-        for command in ("sgdisk", "blkid", "blockdev", "tr"):
+        for command in ("sgdisk", "blkid", "lsblk", "blockdev", "tr"):
             self.assertIn(command, hook)
 
     def test_finalize_service_uses_selected_runtime_without_network_wait(self):
@@ -52,7 +54,8 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
             Path("/opt/sys_apps/venv310/bin/python"),
         )
 
-        self.assertIn('WorkingDirectory="/opt/sys_apps"', service)
+        self.assertIn('WorkingDirectory=/opt/sys_apps', service)
+        self.assertNotIn('WorkingDirectory="/opt/sys_apps"', service)
         self.assertIn(
             'ExecStart="/opt/sys_apps/venv310/bin/python" -m '
             "libs.app.menus.app_10_disk.ptuuid_repair --finalize",
@@ -61,6 +64,15 @@ class PTUUIDRepairTemplateTests(unittest.TestCase):
         self.assertIn("After=local-fs.target", service)
         self.assertNotIn("network-online.target", service)
         self.assertIn("ConditionPathExists=", service)
+
+    def test_prepare_preflights_finalize_unit_before_arming(self):
+        source = inspect.getsource(ptuuid_repair.prepare_system_disk_change)
+        verify = source.index("_verify_finalize_service()")
+        disabled = source.index("_pending_env(state, enabled=False)")
+        enabled = source.index("_pending_env(state, enabled=True)")
+        self.assertLess(verify, disabled)
+        self.assertLess(verify, enabled)
+        self.assertIn("systemd-analyze", inspect.getsource(ptuuid_repair._verify_finalize_service))
 
     def test_prepare_rejects_non_system_disk_before_commands(self):
         disk = SimpleNamespace(

@@ -213,7 +213,7 @@ mkdir -p "${DESTDIR}/conf/sysapps-ptuuid"
 cp "$STATE" "${DESTDIR}/conf/sysapps-ptuuid/pending.env"
 chmod 0600 "${DESTDIR}/conf/sysapps-ptuuid/pending.env"
 
-for command_name in sgdisk blkid blockdev tr; do
+for command_name in sgdisk blkid lsblk blockdev tr; do
     command_path="$(command -v "$command_name" || true)"
     if [ -z "$command_path" ]; then
         echo "sysapps-ptuuid: missing command $command_name" >&2
@@ -259,7 +259,7 @@ verify_partuuids()
         [ -n "$PART_DEVICE" ] || return 1
         [ -n "$EXPECTED_PARTUUID" ] || return 1
         [ -b "$PART_DEVICE" ] || return 1
-        CURRENT_PARTUUID="$(blkid -p -s PARTUUID -o value "$PART_DEVICE" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+        CURRENT_PARTUUID="$(lsblk -ndo PARTUUID "$PART_DEVICE" 2>/dev/null | tr '[:upper:]' '[:lower:]')"
         [ "$CURRENT_PARTUUID" = "$EXPECTED_PARTUUID" ] || return 1
         index=$((index + 1))
     done
@@ -337,12 +337,16 @@ ConditionPathExists={PENDING_JSON}
 
 [Service]
 Type=oneshot
-WorkingDirectory={_systemd_quote(app_root)}
+WorkingDirectory={app_root}
 ExecStart={_systemd_quote(python_executable)} -m libs.app.menus.app_10_disk.ptuuid_repair --finalize
 
 [Install]
 WantedBy=multi-user.target
 """
+
+
+def _verify_finalize_service() -> None:
+    _run(_sudo(["systemd-analyze", "verify", str(FINALIZE_SERVICE)]))
 
 
 def _pending_env(state: dict[str, Any], enabled: bool = True) -> str:
@@ -407,6 +411,7 @@ def prepare_system_disk_change(
         "update-initramfs",
         "lsinitramfs",
         "systemctl",
+        "systemd-analyze",
         "blkid",
         "blockdev",
     ):
@@ -470,6 +475,7 @@ def prepare_system_disk_change(
             build_finalize_service(app_root, python_executable),
             0o644,
         )
+        _verify_finalize_service()
         _run(_sudo(["systemctl", "daemon-reload"]))
         _install_text(
             PENDING_JSON,

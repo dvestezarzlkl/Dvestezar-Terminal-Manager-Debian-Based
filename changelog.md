@@ -2,6 +2,7 @@
 
 ## v2.2.1
 
+- FIX Disk Manager 3.6.8 opravuje Ubuntu Server/U-Boot one-shot PTUUID: PARTUUID v initramfs ověřuje přes `lsblk` a finalizační unit před armingem validuje přes `systemd-analyze verify`.
 - ADD Disk Manager 3.6.7 podporuje dvojitě potvrzenou one-shot změnu PTUUID živého systémového GPT disku v initramfs, s GPT backupem a kontrolou PARTUUID po bootu.
 - UX Disk Manager 3.6.6 zobrazuje PTUUID přímo v detailu disku pro rychlou identifikaci klonů.
 - FIX Disk Manager 3.6.5 odděluje skutečná úložiště a loop image od zram, MTD a interních eMMC boot/RPMB zařízení.

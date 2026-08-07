@@ -1,5 +1,11 @@
 # Disk Manager changelog
 
+## v3.6.8
+
+- FIX initramfs ověřuje PARTUUID partition přes `lsblk`, protože na testovaném Ubuntu Serveru pro eMMC vracel `blkid -p -s PARTUUID` prázdnou hodnotu a bezpečnostní kontrola proto změnu vždy přeskočila.
+- FIX generovaná finalizační systemd jednotka používá nequoted absolutní `WorkingDirectory=`, kompatibilní i se starším systemd; příprava navíc před armingem spouští `systemd-analyze verify` a vadnou jednotku odmítne ještě před restartem.
+- SAFE první fyzický test potvrdil fail-open chování: při neúspěšné validaci se GPT nezměnila a systém normálně nabootoval.
+
 ## v3.6.7
 
 - ADD živý systémový GPT disk lze bezpečně připravit na jednorázovou změnu PTUUID při příštím bootu v initramfs před připojením root filesystemu.
