@@ -3,7 +3,8 @@
 ## 1.2.9
 
 - FIX po úspěšném Apply se konfigurace znovu načte z perzistentního souboru a obnoví se `cfg` i seznam uživatelů; další změna cesty nebo RO/RW ve stejném běhu aplikace tak nepoužívá stale objekty z předchozí transakce.
-- TEST regresní pokrytí ověřuje, že úspěšný Apply nahradí in-memory konfiguraci čerstvě načtenou instancí před dalším editováním.
+- UPD JBLibs 1.2.21 opravuje obecné `c_menu` veto výstupu: `onExitMenu() -> False` se nyní respektuje pro ESC i `endMenu`, takže odmítnutí zahození neuložených změn skutečně ponechá SFTP menu otevřené.
+- TEST regresní pokrytí ověřuje, že úspěšný Apply nahradí in-memory konfiguraci čerstvě načtenou instancí před dalším editováním; JBLibs testy pokrývají ESC i `endMenu` veto.
 
 ## 1.2.8
 
