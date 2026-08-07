@@ -61,7 +61,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.6"
+    _VERSION_: str = "1.2.7"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
