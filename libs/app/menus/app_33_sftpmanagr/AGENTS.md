@@ -26,3 +26,4 @@
 - Apply must verify that `createUserFromJson()` processed every configured user and that unwanted-user cleanup succeeded before reporting success.
 - Wrap user synchronization and unwanted-user cleanup in one outer `smbHelp.beginBatch()` / `endBatch()` transaction; the menu helper must not call `daemon-reload` directly.
 - `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.
+- Editing an existing mountpoint path keeps its alias and only changes `sftpmounts[label]` in the pending configuration. Do not persist a separate changed-item registry: Apply already compares the configured real path with the active mountpoint, removes the stale Samba/CIFS/jail definition, and re-ensures the same alias from the new path; operational failures belong in the existing Apply return/log flow.

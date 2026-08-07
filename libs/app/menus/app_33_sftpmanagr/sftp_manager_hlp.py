@@ -489,6 +489,22 @@ def add_mountpoint(cfg: Dict, username: str, label: str, path: str, readOnly:boo
     
     return True
 
+def set_mountpoint_path(cfg: Dict, username: str, label: str, path: str) -> bool:
+    """Update only the configured real path of an existing mountpoint.
+
+    Apply detects the changed real path against the active mountpoint, removes
+    the old system/Samba/CIFS definition and then ensures the same alias from
+    the new path.
+    """
+    usr = find_user(cfg, username)
+    if not usr:
+        return False
+    mounts = usr.get("sftpmounts", {})
+    if label not in mounts:
+        return False
+    mounts[label] = path
+    return True
+
 def set_mountpoint_readonly(cfg: Dict, username: str, label: str, readOnly: bool) -> bool:
     """Set the read-only status of an existing mountpoint.
 
