@@ -40,8 +40,8 @@
     },
     {
       "path": "libs/app/menus/app_33_sftpmanagr/helper_lng/lng/default.py",
-      "old": "TXT_SFTP_HLP_NO_USERS_PROCESSED = \"No SFTP user was created or updated. Check the SFTP Manager log for details.\"",
-      "new": "TXT_SFTP_HLP_NO_USERS_PROCESSED = \"No SFTP user was created or updated. Check the SFTP Manager log for details.\"\nTXT_SFTP_HLP_NO_USERS_PROCESSED_DETAIL = \"No SFTP user was created or updated. Last error: {error}\"\nTXT_SFTP_HLP_USERS_PARTIAL_DETAIL = \"Only {created} of {expected} SFTP users were processed. Last error: {error}\"",
+      "old": "TXT_SFTP_HLP_NO_USERS_PROCESSED = \"No SFTP users were created or updated. Check the SFTP manager log for the underlying error.\"",
+      "new": "TXT_SFTP_HLP_NO_USERS_PROCESSED = \"No SFTP users were created or updated. Check the SFTP manager log for the underlying error.\"\nTXT_SFTP_HLP_NO_USERS_PROCESSED_DETAIL = \"No SFTP users were created or updated. Last error: {error}\"\nTXT_SFTP_HLP_USERS_PARTIAL_DETAIL = \"Only {created} of {expected} SFTP users were processed. Last error: {error}\"",
       "expected": 1
     },
     {
