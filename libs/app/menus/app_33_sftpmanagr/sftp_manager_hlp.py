@@ -896,13 +896,8 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
     if not ok:
         return False, TXT_SFTP_HLP_CONFIG_VALIDATION_FAILED.format(error=msg)
 
-    if save:
-        cfg_path = getDefaultEtcConfigPath()
-        try:
-            save_config(cfg, cfg_path)
-        except Exception as e:
-            return False, TXT_SFTP_HLP_SAVE_CONFIG_FAILED.format(error=e)
-    else:
+    cfg_path = getDefaultEtcConfigPath()
+    if not save:
         exists, cfg_path = check_config_exists()
         if not exists:
             return False, TXT_SFTP_HLP_CONFIG_PATH_FAILED.format(path=cfg_path)
@@ -915,20 +910,24 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
 
     smbHelp.beginBatch()
     try:
-        log.info(f"Applying configuration via sftpmanager lib with config file: {cfg_path}")
-        created_users = createUserFromJson()
+        log.info("Applying configuration via sftpmanager lib from in-memory desired state.")
+        create_errors: List[str] = []
+        created_users = createUserFromJson(cfg=cfg, errors_out=create_errors)
         expected_users = len(cfg.get("users", []))
         if not created_users:
-            apply_error = TXT_SFTP_HLP_NO_USERS_PROCESSED
+            detail = create_errors[-1] if create_errors else TXT_SFTP_HLP_NO_USERS_PROCESSED
+            apply_error = TXT_SFTP_HLP_NO_USERS_PROCESSED_DETAIL.format(error=detail)
         elif len(created_users) != expected_users:
-            apply_error = TXT_SFTP_HLP_USERS_PARTIAL.format(
+            detail = create_errors[-1] if create_errors else TXT_SFTP_HLP_NO_USERS_PROCESSED
+            apply_error = TXT_SFTP_HLP_USERS_PARTIAL_DETAIL.format(
                 created=len(created_users),
-                expected=expected_users
+                expected=expected_users,
+                error=detail,
             )
 
         if apply_error is None:
-            log.info("Uninstalling unwanted users who are not in the configuration...")
-            if not uninstallUnwantedUsers():
+            log.info("Uninstalling unwanted users who are not in the in-memory configuration...")
+            if not uninstallUnwantedUsers(cfg=cfg):
                 apply_error = TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED
     except Exception as e:
         apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)
@@ -943,6 +942,12 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
     log.info("Restarting sshd after SFTP configuration changes...")
     if not restart_sshd():
         return False, TXT_SFTP_HLP_SSHD_RESTART_FAILED
+
+    if save:
+        try:
+            save_config(cfg, cfg_path)
+        except Exception as e:
+            return False, TXT_SFTP_HLP_SAVE_CONFIG_FAILED.format(error=e)
 
     return True, None
 

@@ -2,6 +2,8 @@
 
 ## v2.2.2
 
+- FIX SFTP Manager 1.2.10 opravuje cancel ve výběru mountpointu, nepersistuje neúspěšný Apply před fyzickou synchronizací a zobrazuje konkrétní příčinu selhání reconcile.
+- UPD SFTP Manager 1.2.10 vyžaduje JBLibs 1.2.22 s in-memory desired-state synchronizací.
 - FIX SFTP Manager 1.2.9 po úspěšném Apply znovu načítá uloženou konfiguraci, aby opakované změny mountpointu nebo RO/RW ve stejném běhu nepoužívaly stale in-memory stav.
 - FIX JBLibs 1.2.21 opravuje `c_menu` veto výstupu pro ESC a `endMenu`; odpověď N na zahození neuložených SFTP změn tak skutečně ponechá menu otevřené.
 - FIX SFTP Manager 1.2.8 při změně cesty existujícího mountpointu otevírá adresářový výběr na aktuální reálné cestě; na `/` padá pouze tehdy, když uložená cesta už není platný adresář.
