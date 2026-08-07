@@ -1,5 +1,12 @@
 # SFTP Manager Changelog
 
+## 1.2.8
+
+- FIX změna cesty existujícího mountpointu otevírá výběr adresáře na jeho aktuální reálné cestě, pokud stále existuje; `/` se použije pouze jako fallback pro chybějící nebo neplatný adresář.
+- FIX hlavní SFTP menu při neuložených změnách před odchodem vyžaduje potvrzení jejich zahození; odmítnutí výstup zablokuje a zachová pending konfiguraci.
+- SAFE potvrzení při odchodu pouze rozhoduje o zahození pending změn; výstup z menu nikdy automaticky nespouští Apply ani jiné systémové změny.
+- TEST regresní pokrytí ověřuje start na aktuální cestě, fallback na root a ochranu výstupu s neuloženými změnami.
+
 ## 1.2.7
 
 - FIX Apply nyní detekuje i samostatnou změnu RO/RW u Samba-backed mountpointu, i když alias a reálná cesta zůstaly stejné.
