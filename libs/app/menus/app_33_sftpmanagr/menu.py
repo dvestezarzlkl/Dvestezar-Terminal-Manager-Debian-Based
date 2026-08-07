@@ -63,7 +63,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.8"
+    _VERSION_: str = "1.2.9"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -229,7 +229,9 @@ class menu(c_menu):
             print(text_color(TXT_SFTP_MENU_ERROR.format(message=msg), en_color.BRIGHT_RED))
             anyKey()
             return onSelReturn().errRet(TXT_SFTP_MENU_APPLY_FAILED.format(message=msg))
-        self.changed=False
+        # Apply is a transaction boundary: reload the persisted configuration so
+        # subsequent edits in the same process use fresh config/user objects.
+        self.onEnterMenu()
         anyKey()
         return onSelReturn(ok=TXT_SFTP_MENU_CHANGES_APPLIED)
     

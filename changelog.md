@@ -2,6 +2,8 @@
 
 ## v2.2.2
 
+- FIX SFTP Manager 1.2.9 po úspěšném Apply znovu načítá uloženou konfiguraci, aby opakované změny mountpointu nebo RO/RW ve stejném běhu nepoužívaly stale in-memory stav.
+- FIX JBLibs 1.2.21 opravuje `c_menu` veto výstupu pro ESC a `endMenu`; odpověď N na zahození neuložených SFTP změn tak skutečně ponechá menu otevřené.
 - FIX SFTP Manager 1.2.8 při změně cesty existujícího mountpointu otevírá adresářový výběr na aktuální reálné cestě; na `/` padá pouze tehdy, když uložená cesta už není platný adresář.
 - SAFE SFTP Manager 1.2.8 při pokusu opustit hlavní menu s neuloženými změnami vyžaduje potvrzení jejich zahození; odmítnutí ponechá menu i změny otevřené.
 - FIX SFTP Manager 1.2.7 při Apply synchronizuje také samotnou změnu RO/RW u Samba-backed mountpointu bez nutnosti měnit cestu nebo point ručně mazat; JBLibs aktualizováno na 1.2.20.
