@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.9")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.10")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -93,6 +93,53 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertFalse(cfg["users"][0]["pointsSet"]["docs"]["rw"])
         self.assertTrue(sftp_hlp.get_mountpointReadOnlyStatus(cfg, "alice", "docs"))
         self.assertTrue(main_menu.changed)
+
+    def test_sftp_mountpoint_add_escape_selection_does_not_crash(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {},
+                "pointsSet": {},
+            }]
+        }
+        main_menu = SimpleNamespace(cfg=cfg, changed=False)
+        submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
+        submenu.cfg = cfg
+
+        with patch.object(sftp_menu, "cls"), patch.object(
+            sftp_menu, "get_input", return_value="docs"
+        ), patch.object(
+            sftp_menu, "selectDir", return_value="/srv/docs"
+        ), patch.object(
+            sftp_menu, "select", return_value=SimpleNamespace(item=None)
+        ):
+            result = submenu.add_mountpoint(SimpleNamespace())
+
+        self.assertFalse(main_menu.changed)
+        self.assertEqual(cfg["users"][0]["sftpmounts"], {})
+        self.assertIsNotNone(result.err)
+
+    def test_sftp_mountpoint_action_escape_selection_does_not_crash(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/docs"},
+                "pointsSet": {"docs": {"rw": False}},
+            }]
+        }
+        main_menu = SimpleNamespace(cfg=cfg, changed=False)
+        submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
+        submenu.cfg = cfg
+
+        with patch.object(
+            sftp_menu, "select", return_value=SimpleNamespace(item=None)
+        ):
+            result = submenu.modify_mountpoint(SimpleNamespace(data="docs"))
+
+        self.assertFalse(main_menu.changed)
+        self.assertIsNotNone(result.err)
 
     def test_sftp_mountpoint_path_edit_keeps_alias_for_apply_diff(self):
         cfg = {
@@ -215,6 +262,73 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertIs(main_menu.users[0], fresh_cfg["users"][0])
         self.assertFalse(main_menu.changed)
         self.assertEqual(result.ok, sftp_menu.TXT_SFTP_MENU_CHANGES_APPLIED)
+
+    def test_sftp_helper_failed_apply_does_not_persist_unapplied_config(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {},
+            }]
+        }
+
+        def fail_create_user(*, cfg, errors_out):
+            errors_out.append("synthetic reconcile failure")
+            return None
+
+        with patch.object(
+            sftp_hlp, "check_config_valid", return_value=(True, None)
+        ), patch.object(
+            sftp_hlp, "config_requires_cifs", return_value=False
+        ), patch.object(
+            sftp_hlp.smbHelp, "beginBatch"
+        ), patch.object(
+            sftp_hlp.smbHelp, "endBatch", return_value=True
+        ), patch.object(
+            sftp_hlp, "createUserFromJson", side_effect=fail_create_user
+        ), patch.object(
+            sftp_hlp, "save_config"
+        ) as save_mock, patch.object(
+            sftp_hlp, "restart_sshd"
+        ) as restart_mock:
+            ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)
+
+        self.assertFalse(ok)
+        self.assertIn("synthetic reconcile failure", error)
+        save_mock.assert_not_called()
+        restart_mock.assert_not_called()
+
+    def test_sftp_helper_persists_only_after_successful_apply(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {},
+            }]
+        }
+
+        with patch.object(
+            sftp_hlp, "check_config_valid", return_value=(True, None)
+        ), patch.object(
+            sftp_hlp, "config_requires_cifs", return_value=False
+        ), patch.object(
+            sftp_hlp.smbHelp, "beginBatch"
+        ), patch.object(
+            sftp_hlp.smbHelp, "endBatch", return_value=True
+        ), patch.object(
+            sftp_hlp, "createUserFromJson", return_value=[SimpleNamespace()]
+        ), patch.object(
+            sftp_hlp, "uninstallUnwantedUsers", return_value=True
+        ), patch.object(
+            sftp_hlp, "restart_sshd", return_value=True
+        ) as restart_mock, patch.object(
+            sftp_hlp, "save_config"
+        ) as save_mock:
+            ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)
+
+        self.assertTrue(ok, error)
+        restart_mock.assert_called_once_with()
+        save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())
 
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()

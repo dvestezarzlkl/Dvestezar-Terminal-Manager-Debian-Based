@@ -63,7 +63,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.9"
+    _VERSION_: str = "1.2.10"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -424,7 +424,7 @@ class m_user_mountpoints(c_menu):
         ]
         show_header()
         x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)
-        if not x:
+        if not x or x.item is None:
             return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)
 
         access_mode = x.item.data
@@ -446,7 +446,7 @@ class m_user_mountpoints(c_menu):
         opt.append(select_item(TXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH, "P", "P"))
         opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), "D", "D"))
         x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)
-        if x is None:
+        if not x or x.item is None:
             return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)
         x=x.item.data
 

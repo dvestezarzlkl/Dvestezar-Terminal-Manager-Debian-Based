@@ -1,5 +1,12 @@
 # SFTP Manager Changelog
 
+## 1.2.10
+
+- FIX ESC ve výběru akce mountpointu i režimu při přidání bezpečně vrací cancel; výsledek `select()` s `item=None` už nezpůsobí `AttributeError`.
+- FIX Apply používá požadovanou konfiguraci přímo z paměti a zapisuje ji do `/etc/jb_sftpmanager/config.jsonc` až po úspěšné systémové synchronizaci a restartu SSHD; neúspěšný Apply tak nepřepíše poslední známou uloženou konfiguraci neaplikovaným stavem.
+- DIAG při selhání `createUserFromJson()` se do chyby Apply přenese poslední konkrétní chyba uživatele místo samotného obecného `NO_USERS_PROCESSED`.
+- UPD vyžaduje JBLibs 1.2.22 s in-memory SFTP reconcile a diagnostikou chyb.
+
 ## 1.2.9
 
 - FIX po úspěšném Apply se konfigurace znovu načte z perzistentního souboru a obnoví se `cfg` i seznam uživatelů; další změna cesty nebo RO/RW ve stejném běhu aplikace tak nepoužívá stale objekty z předchozí transakce.
