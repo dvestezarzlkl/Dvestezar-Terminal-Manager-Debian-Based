@@ -1,5 +1,12 @@
 # SFTP Manager Changelog
 
+## 1.2.11
+
+- FIX aktualizace na JBLibs 1.2.23 opravuje Samba/CIFS batch transakci při změně RO/RW nebo reálné cesty existujícího mountpointu; fyzický unmount a cleanup se provádí až při finalizaci celé dávky.
+- FIX finalizace nejprve odmountuje všechny spravované CIFS mounty, zachová cíle znovu vytvořené ve stejné dávce, odstraní pouze skutečně obsolete adresáře a až poté reloaduje Sambu, systemd a připojí výsledný stav.
+- FIX kontrola existujícího Samba mountu používá identitu SFTP uživatele místo vlastníka zdrojového adresáře.
+- TEST JBLibs regrese pokrývají pořadí batch operací, zákaz předčasného cleanupu, remove+recreate stejného cíle a správnou identitu share.
+
 ## 1.2.10
 
 - FIX ESC ve výběru akce mountpointu i režimu při přidání bezpečně vrací cancel; výsledek `select()` s `item=None` už nezpůsobí `AttributeError`.
