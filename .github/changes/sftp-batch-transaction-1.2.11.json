@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "Integrate JBLibs 1.2.23 into SFTP Manager 1.2.11",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.2.10\"",
+      "new": "    _VERSION_: str = \"1.2.11\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.10\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.11\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.2.10",
+      "new": "# SFTP Manager Changelog\n\n## 1.2.11\n\n- FIX aktualizace na JBLibs 1.2.23 opravuje Samba/CIFS batch transakci při změně RO/RW nebo reálné cesty existujícího mountpointu; fyzický unmount a cleanup se provádí až při finalizaci celé dávky.\n- FIX finalizace nejprve odmountuje všechny spravované CIFS mounty, zachová cíle znovu vytvořené ve stejné dávce, odstraní pouze skutečně obsolete adresáře a až poté reloaduje Sambu, systemd a připojí výsledný stav.\n- FIX kontrola existujícího Samba mountu používá identitu SFTP uživatele místo vlastníka zdrojového adresáře.\n- TEST JBLibs regrese pokrývají pořadí batch operací, zákaz předčasného cleanupu, remove+recreate stejného cíle a správnou identitu share.\n\n## 1.2.10",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.2\n\n- FIX SFTP Manager 1.2.10",
+      "new": "## v2.2.2\n\n- FIX SFTP Manager 1.2.11 integruje JBLibs 1.2.23 s opravenou Samba/CIFS batch transakcí; změny RO/RW a reálné cesty stejného mountpointu se dokončují v jednom Apply bez předčasného unmount/cleanup mezistavu.\n- TEST JBLibs 1.2.23 ověřuje pořadí finalizace, zachování cíle odstraněného a znovu vytvořeného v jedné dávce a správnou identitu Samba share.\n- FIX SFTP Manager 1.2.10",
+      "expected": 1
+    }
+  ]
+}
