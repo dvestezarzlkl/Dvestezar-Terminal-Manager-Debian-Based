@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commit_message": "Reload SFTP config after successful Apply",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.2.8\"",
+      "new": "    _VERSION_: str = \"1.2.9\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        self.changed=False\n        anyKey()\n        return onSelReturn(ok=TXT_SFTP_MENU_CHANGES_APPLIED)",
+      "new": "        # Apply is a transaction boundary: reload the persisted configuration so\n        # subsequent edits in the same process use fresh config/user objects.\n        self.onEnterMenu()\n        anyKey()\n        return onSelReturn(ok=TXT_SFTP_MENU_CHANGES_APPLIED)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.8\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.9\")",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "    def test_shared_mail_transport_prints_delivery_progress(self):\n",
+      "new": "    def test_sftp_apply_reloads_persisted_config_for_next_edit(self):\n        old_cfg = {\n            \"users\": [{\n                \"sftpuser\": \"alice\",\n                \"sambaVault\": True,\n                \"sftpmounts\": {\"docs\": \"/srv/old\"},\n                \"pointsSet\": {\"docs\": {\"rw\": False}},\n            }]\n        }\n        fresh_cfg = {\n            \"users\": [{\n                \"sftpuser\": \"alice\",\n                \"sambaVault\": True,\n                \"sftpmounts\": {\"docs\": \"/srv/old\"},\n                \"pointsSet\": {\"docs\": {\"rw\": False}},\n            }]\n        }\n        main_menu = sftp_menu.menu()\n        main_menu.cfg = old_cfg\n        main_menu.users = old_cfg[\"users\"]\n        main_menu.changed = True\n\n        with patch.object(\n            sftp_menu, \"apply_changes\", return_value=(True, None)\n        ) as apply_mock, patch.object(\n            sftp_menu, \"load_config\", return_value=(True, None, fresh_cfg)\n        ) as load_mock, patch.object(\n            sftp_menu, \"anyKey\"\n        ):\n            result = main_menu.apply_changes(SimpleNamespace())\n\n        apply_mock.assert_called_once_with(cfg=old_cfg, save=True)\n        load_mock.assert_called_once_with()\n        self.assertIs(main_menu.cfg, fresh_cfg)\n        self.assertIs(main_menu.users[0], fresh_cfg[\"users\"][0])\n        self.assertFalse(main_menu.changed)\n        self.assertEqual(result.ok, sftp_menu.TXT_SFTP_MENU_CHANGES_APPLIED)\n\n    def test_shared_mail_transport_prints_delivery_progress(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.2.8",
+      "new": "# SFTP Manager Changelog\n\n## 1.2.9\n\n- FIX po úspěšném Apply se konfigurace znovu načte z perzistentního souboru a obnoví se `cfg` i seznam uživatelů; další změna cesty nebo RO/RW ve stejném běhu aplikace tak nepoužívá stale objekty z předchozí transakce.\n- TEST regresní pokrytí ověřuje, že úspěšný Apply nahradí in-memory konfiguraci čerstvě načtenou instancí před dalším editováním.\n\n## 1.2.8",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.2\n\n- FIX SFTP Manager 1.2.8",
+      "new": "## v2.2.2\n\n- FIX SFTP Manager 1.2.9 po úspěšném Apply znovu načítá uloženou konfiguraci, aby opakované změny mountpointu nebo RO/RW ve stejném běhu nepoužívaly stale in-memory stav.\n- FIX SFTP Manager 1.2.8",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Apply/save flows should keep using `apply_changes(cfg=self.cfg, save=True)` and must restart SSHD through the shared helper.",
+      "new": "- Apply/save flows should keep using `apply_changes(cfg=self.cfg, save=True)` and must restart SSHD through the shared helper. After a successful Apply, reload the persisted config and rebuild the top-level `cfg`/user objects before allowing another edit in the same process; Apply is the transaction boundary and stale pre-Apply menu objects must not remain authoritative.",
+      "expected": 1
+    }
+  ]
+}
