@@ -29,6 +29,7 @@ TXT_SFTP_MENU_ADMIN_MAIL_SET = "E-mail administrátora byl nastaven na '{mail}'.
 TXT_SFTP_MENU_APPLY_FAILED = "Nepodařilo se aplikovat změny: {message}"
 TXT_SFTP_MENU_CHANGES_APPLIED = "Změny byly aplikovány."
 TXT_SFTP_MENU_DISCARD_CONFIRM = "Zahodit neuložené změny?"
+TXT_SFTP_MENU_EXIT_UNSAVED_CONFIRM = "V konfiguraci SFTP jsou neuložené změny. Opravdu odejít a zahodit je?"
 TXT_SFTP_MENU_CHANGES_DISCARDED = "Změny byly zahozeny."
 TXT_SFTP_MENU_SECTION_USER_DETAILS = " *** Detail uživatele ***"
 TXT_SFTP_MENU_USER_TITLE = "Uživatel: {username}"

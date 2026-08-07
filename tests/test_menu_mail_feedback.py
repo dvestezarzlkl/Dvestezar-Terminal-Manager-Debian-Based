@@ -149,6 +149,35 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(select_dir.call_args.args[0], "/")
         self.assertFalse(main_menu.changed)
 
+    def test_sftp_exit_without_changes_does_not_prompt(self):
+        main_menu = sftp_menu.menu()
+        main_menu.changed = False
+
+        with patch.object(sftp_menu, "confirm") as confirm_mock:
+            self.assertIsNone(main_menu.onExitMenu())
+
+        confirm_mock.assert_not_called()
+
+    def test_sftp_exit_with_changes_can_be_vetoed(self):
+        main_menu = sftp_menu.menu()
+        main_menu.changed = True
+
+        with patch.object(sftp_menu, "confirm", return_value=False) as confirm_mock:
+            result = main_menu.onExitMenu()
+
+        self.assertIs(result, False)
+        confirm_mock.assert_called_once_with(sftp_menu.TXT_SFTP_MENU_EXIT_UNSAVED_CONFIRM)
+
+    def test_sftp_exit_with_changes_can_discard_after_confirmation(self):
+        main_menu = sftp_menu.menu()
+        main_menu.changed = True
+
+        with patch.object(sftp_menu, "confirm", return_value=True) as confirm_mock:
+            result = main_menu.onExitMenu()
+
+        self.assertIsNone(result)
+        confirm_mock.assert_called_once_with(sftp_menu.TXT_SFTP_MENU_EXIT_UNSAVED_CONFIRM)
+
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()
         with self.configured_mail(), patch.object(

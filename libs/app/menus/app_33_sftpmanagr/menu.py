@@ -104,6 +104,13 @@ class menu(c_menu):
         self.users = list_users(self.cfg)
         self.changed = False
 
+    def onExitMenu(self):
+        if not self.changed:
+            return None
+        if confirm(TXT_SFTP_MENU_EXIT_UNSAVED_CONFIRM):
+            return None
+        return False
+
     def onShowMenu(self) -> None:
         # Compose the menu dynamically.  The header shows how many
         # users are configured.

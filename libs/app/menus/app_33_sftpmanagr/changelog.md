@@ -3,7 +3,8 @@
 ## 1.2.8
 
 - FIX změna cesty existujícího mountpointu otevírá výběr adresáře na jeho aktuální reálné cestě, pokud stále existuje; `/` se použije pouze jako fallback pro chybějící nebo neplatný adresář.
-- TEST regresní pokrytí ověřuje start na aktuální cestě i fallback na root.
+- FIX hlavní SFTP menu při neuložených změnách před odchodem vyžaduje potvrzení jejich zahození; odmítnutí výstup zablokuje a zachová pending konfiguraci.
+- TEST regresní pokrytí ověřuje start na aktuální cestě, fallback na root a ochranu výstupu s neuloženými změnami.
 
 ## 1.2.7
 
