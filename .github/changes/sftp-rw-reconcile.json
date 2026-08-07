@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "commit_message": "Integrate SFTP RO/RW reconciliation",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.2.6\"",
+      "new": "    _VERSION_: str = \"1.2.7\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.6\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.7\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.2.6",
+      "new": "# SFTP Manager Changelog\n\n## 1.2.7\n\n- FIX Apply nyní detekuje i samostatnou změnu RO/RW u Samba-backed mountpointu, i když alias a reálná cesta zůstaly stejné.\n- UPD JBLibs 1.2.20 porovnává požadované `pointsSet[label].rw` se skutečným `read only = yes/no` v řízené Samba sekci; při rozdílu nebo nečitelném stavu point bezpečně znovu synchronizuje v existující Samba/CIFS transakci.\n- SAFE interní `.sftp_mounts_mng` se nepoužívá jako zdroj RO/RW stavu, protože historicky ukládá pouze alias a reálnou cestu.\n\n## 1.2.6",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.2\n\n- FIX SFTP Manager 1.2.6",
+      "new": "## v2.2.2\n\n- FIX SFTP Manager 1.2.7 při Apply synchronizuje také samotnou změnu RO/RW u Samba-backed mountpointu bez nutnosti měnit cestu nebo point ručně mazat; JBLibs aktualizováno na 1.2.20.\n- FIX SFTP Manager 1.2.6",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Editing an existing mountpoint path keeps its alias and only changes `sftpmounts[label]` in the pending configuration. Do not persist a separate changed-item registry: Apply already compares the configured real path with the active mountpoint, removes the stale Samba/CIFS/jail definition, and re-ensures the same alias from the new path; operational failures belong in the existing Apply return/log flow.",
+      "new": "- Editing an existing mountpoint path keeps its alias and only changes `sftpmounts[label]` in the pending configuration. Do not persist a separate changed-item registry: Apply already compares the configured real path with the active mountpoint, removes the stale Samba/CIFS/jail definition, and re-ensures the same alias from the new path; operational failures belong in the existing Apply return/log flow.\n- RO/RW reconciliation must compare `pointsSet[label].rw` with the effective managed Samba section (`read only = yes/no`), not with the in-memory mount object loaded from `.sftp_mounts_mng`; that historical manifest stores only alias/path. A mismatch or unreadable managed access mode is repaired by the normal Apply transaction without requiring the operator to delete/recreate the point manually.",
+      "expected": 1
+    }
+  ]
+}
