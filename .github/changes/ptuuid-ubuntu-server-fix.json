@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "commit_message": "Fix PTUUID one-shot compatibility on Ubuntu Server",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "for command_name in sgdisk blkid blockdev tr; do",
+      "new": "for command_name in sgdisk blkid lsblk blockdev tr; do",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "        CURRENT_PARTUUID=\"$(blkid -p -s PARTUUID -o value \"$PART_DEVICE\" 2>/dev/null | tr '[:upper:]' '[:lower:]')\"",
+      "new": "        CURRENT_PARTUUID=\"$(lsblk -ndo PARTUUID \"$PART_DEVICE\" 2>/dev/null | tr '[:upper:]' '[:lower:]')\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "WorkingDirectory={_systemd_quote(app_root)}",
+      "new": "WorkingDirectory={app_root}",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "WantedBy=multi-user.target\n\"\"\"\n\n\ndef _pending_env",
+      "new": "WantedBy=multi-user.target\n\"\"\"\n\n\ndef _verify_finalize_service() -> None:\n    _run(_sudo([\"systemd-analyze\", \"verify\", str(FINALIZE_SERVICE)]))\n\n\ndef _pending_env",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "        \"systemctl\",\n        \"blkid\",",
+      "new": "        \"systemctl\",\n        \"systemd-analyze\",\n        \"blkid\",",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/ptuuid_repair.py",
+      "old": "        _install_text(\n            FINALIZE_SERVICE,\n            build_finalize_service(app_root, python_executable),\n            0o644,\n        )\n        _run(_sudo([\"systemctl\", \"daemon-reload\"]))",
+      "new": "        _install_text(\n            FINALIZE_SERVICE,\n            build_finalize_service(app_root, python_executable),\n            0o644,\n        )\n        _verify_finalize_service()\n        _run(_sudo([\"systemctl\", \"daemon-reload\"]))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/menu.py",
+      "old": "3.6.7",
+      "new": "3.6.8",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_ptuuid_repair.py",
+      "old": "        for command in (\"sgdisk\", \"blkid\", \"blockdev\", \"tr\"):\n            self.assertIn(command, hook)",
+      "new": "        for command in (\"sgdisk\", \"blkid\", \"lsblk\", \"blockdev\", \"tr\"):\n            self.assertIn(command, hook)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_ptuuid_repair.py",
+      "old": "        self.assertIn(\"verify_partuuids\", script)\n        self.assertIn(\"PARTUUID před změnou nesouhlasí\", script)",
+      "new": "        self.assertIn(\"verify_partuuids\", script)\n        self.assertIn('lsblk -ndo PARTUUID \"$PART_DEVICE\"', script)\n        self.assertNotIn('blkid -p -s PARTUUID', script)\n        self.assertIn(\"PARTUUID před změnou nesouhlasí\", script)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_ptuuid_repair.py",
+      "old": "        self.assertIn('WorkingDirectory=\"/opt/sys_apps\"', service)",
+      "new": "        self.assertIn('WorkingDirectory=/opt/sys_apps', service)\n        self.assertNotIn('WorkingDirectory=\"/opt/sys_apps\"', service)",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_ptuuid_repair.py",
+      "old": "        self.assertIn(\"ConditionPathExists=\", service)\n\n    def test_prepare_rejects_non_system_disk_before_commands",
+      "new": "        self.assertIn(\"ConditionPathExists=\", service)\n\n    def test_prepare_preflights_finalize_unit_before_arming(self):\n        source = inspect.getsource(ptuuid_repair.prepare_system_disk_change)\n        verify = source.index(\"_verify_finalize_service()\")\n        disabled = source.index(\"_pending_env(state, enabled=False)\")\n        enabled = source.index(\"_pending_env(state, enabled=True)\")\n        self.assertLess(verify, disabled)\n        self.assertLess(verify, enabled)\n        self.assertIn(\"systemd-analyze\", inspect.getsource(ptuuid_repair._verify_finalize_service))\n\n    def test_prepare_rejects_non_system_disk_before_commands",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/changelog.md",
+      "old": "# Disk Manager changelog\n\n## v3.6.7",
+      "new": "# Disk Manager changelog\n\n## v3.6.8\n\n- FIX initramfs ověřuje PARTUUID partition přes `lsblk`, protože na testovaném Ubuntu Serveru pro eMMC vracel `blkid -p -s PARTUUID` prázdnou hodnotu a bezpečnostní kontrola proto změnu vždy přeskočila.\n- FIX generovaná finalizační systemd jednotka používá nequoted absolutní `WorkingDirectory=`, kompatibilní i se starším systemd; příprava navíc před armingem spouští `systemd-analyze verify` a vadnou jednotku odmítne ještě před restartem.\n- SAFE první fyzický test potvrdil fail-open chování: při neúspěšné validaci se GPT nezměnila a systém normálně nabootoval.\n\n## v3.6.7",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.1\n\n- ADD Disk Manager 3.6.7 podporuje",
+      "new": "## v2.2.1\n\n- FIX Disk Manager 3.6.8 opravuje Ubuntu Server/U-Boot one-shot PTUUID: PARTUUID v initramfs ověřuje přes `lsblk` a finalizační unit před armingem validuje přes `systemd-analyze verify`.\n- ADD Disk Manager 3.6.7 podporuje",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "Jediná povolená výjimka pro PTUUID je explicitně připravený one-shot initramfs workflow: dvojí potvrzení včetně opsání nového UUID, GPT backup, kontrola původního PTUUID/velikosti/PARTUUID, změna výhradně přes `sgdisk --disk-guid` před mountem rootu a povinná kontrola po bootu. `lsblkDiskInfo.isSystemDisk` v JBLibs musí stav dědit z child partition.",
+      "new": "Jediná povolená výjimka pro PTUUID je explicitně připravený one-shot initramfs workflow: dvojí potvrzení včetně opsání nového UUID, GPT backup, kontrola původního PTUUID/velikosti/PARTUUID, změna výhradně přes `sgdisk --disk-guid` před mountem rootu a povinná kontrola po bootu. V initramfs ověřuj PARTUUID přes `lsblk`, ne přes `blkid -p -s PARTUUID`, protože na některých Ubuntu Server/eMMC kombinacích vrací druhý způsob prázdnou hodnotu; finalizační systemd unit musí před armingem projít `systemd-analyze verify`. `lsblkDiskInfo.isSystemDisk` v JBLibs musí stav dědit z child partition.",
+      "expected": 1
+    }
+  ]
+}
