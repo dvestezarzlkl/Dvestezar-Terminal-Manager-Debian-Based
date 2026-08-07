@@ -16,7 +16,7 @@
 - If the SFTP user admin mail is missing, the global fallback admin mail from `libs.app.mail_hlp` may be used.
 - If neither app-specific admin mail nor fallback admin mail exists, mail actions must fail.
 - Apply/save flows use `apply_changes(cfg=self.cfg, save=True)` and must restart SSHD through the shared helper. The desired config is applied in-memory first and persisted only after successful system synchronization; a failed Apply must not overwrite the last persisted config with an unapplied desired state. After success, reload the persisted config and rebuild the top-level `cfg`/user objects before allowing another edit in the same process.
-- With `save=True`, validate first, then save to `getDefaultEtcConfigPath()` before checking file existence; `check_config_exists()` is only for apply operations that do not save.
+- With `save=True`, validate and reconcile the in-memory desired state first, then persist it to `getDefaultEtcConfigPath()` only after successful system synchronization and sshd restart; `check_config_exists()` is only for apply operations that do not save.
 - Use `c_menu` properties like `choiceBack`, `choiceQuit`, and `ESC_is_quit` for submenu navigation instead of custom back/quit logic.
 - Keep changes aligned with the existing `c_menu` patterns and avoid introducing new menu frameworks.
 - Show a bright red informational warning in the top-level SFTP menu when `mount.cifs` is unavailable.

@@ -875,12 +875,13 @@ def delete_key(cfg: Dict, username: str, key: str) -> bool:
 
 
 def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool, Optional[str]]:
-    """Apply the SFTP configuration and optionally persist it first.
+    """Apply the SFTP configuration and optionally persist it after success.
 
     Args:
         cfg: Configuration dictionary to validate and apply.
-        save: If True, save ``cfg`` to the default configuration path before
-            applying it. If False, an existing configuration file is required.
+        save: If True, persist ``cfg`` to the default configuration path only after
+            successful system reconciliation and sshd restart. If False, an existing
+            configuration file is required.
 
     Returns:
         Tuple[bool, Optional[str]]: ``(True, None)`` on success, otherwise
