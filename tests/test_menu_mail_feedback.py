@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.5")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.6")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -65,6 +65,59 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
                 self.assertFalse(menuBoss.menuBoss.showGlobalTitle)
         finally:
             menuBoss.c_menu.globalTitle = original
+
+    def test_sftp_mountpoint_add_honors_read_only_selection(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {},
+                "pointsSet": {},
+            }]
+        }
+        main_menu = SimpleNamespace(cfg=cfg, changed=False)
+        submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
+        submenu.cfg = cfg
+        selected = SimpleNamespace(item=SimpleNamespace(data="R"))
+
+        with patch.object(sftp_menu, "cls"), patch.object(
+            sftp_menu, "get_input", return_value="docs"
+        ), patch.object(
+            sftp_menu, "selectDir", return_value="/srv/docs"
+        ), patch.object(
+            sftp_menu, "select", return_value=selected
+        ):
+            submenu.add_mountpoint(SimpleNamespace())
+
+        self.assertEqual(cfg["users"][0]["sftpmounts"]["docs"], "/srv/docs")
+        self.assertFalse(cfg["users"][0]["pointsSet"]["docs"]["rw"])
+        self.assertTrue(sftp_hlp.get_mountpointReadOnlyStatus(cfg, "alice", "docs"))
+        self.assertTrue(main_menu.changed)
+
+    def test_sftp_mountpoint_path_edit_keeps_alias_for_apply_diff(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/old"},
+                "pointsSet": {"docs": {"rw": False}},
+            }]
+        }
+        main_menu = SimpleNamespace(cfg=cfg, changed=False)
+        submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
+        submenu.cfg = cfg
+        selected = SimpleNamespace(item=SimpleNamespace(data="P"))
+
+        with patch.object(
+            sftp_menu, "select", return_value=selected
+        ), patch.object(
+            sftp_menu, "selectDir", return_value="/srv/new"
+        ):
+            submenu.modify_mountpoint(SimpleNamespace(data="docs"))
+
+        self.assertEqual(cfg["users"][0]["sftpmounts"]["docs"], "/srv/new")
+        self.assertEqual(cfg["users"][0]["pointsSet"]["docs"]["rw"], False)
+        self.assertTrue(main_menu.changed)
 
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()

@@ -2,6 +2,8 @@
 
 ## v2.2.2
 
+- FIX SFTP Manager 1.2.6 správně respektuje volbu pouze pro čtení při vytvoření mountpointu; výsledek `select()` se vyhodnocuje přes zvolená data místo porovnání wrapper objektu.
+- UX SFTP Manager 1.2.6 umožňuje u existujícího mountpointu změnit reálnou cestu při zachování aliasu a RO/RW nastavení; následný Apply využije stávající detekci změny cesty a znovu synchronizuje Samba/CIFS/jail konfiguraci.
 - UX všechny podnabídky `c_menu` v SysApps trvale zobrazují identitu aktuálního hostu/FQDN, takže je stroj viditelný i hluboko v Disk, Swap, SSH, SFTP a dalších manažerech.
 - UPD JBLibs na 1.2.19 s obecným persistentním `c_menu.globalTitle`; jednotlivé menu mohou globální kontext vypnout přes `showGlobalTitle=False`.
 - UX hlavní HOME globální řádek skrývá, protože FQDN už zobrazuje ve vlastním systémovém souhrnu.

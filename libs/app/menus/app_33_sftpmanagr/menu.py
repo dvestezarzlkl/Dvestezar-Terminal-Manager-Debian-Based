@@ -35,6 +35,7 @@ from .sftp_manager_hlp import (
     cifs_exists,
     get_mountpointReadOnlyStatus,
     set_mountpoint_readonly,
+    set_mountpoint_path,
     get_printable_keys,
     get_admin_mail,
     set_admin_mail,
@@ -60,7 +61,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.5"
+    _VERSION_: str = "1.2.6"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -414,43 +415,70 @@ class m_user_mountpoints(c_menu):
         x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)
         if not x:
             return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)
-        
-        if not hlp_add_mountpoint(self.cfg, self.username, label, target, readOnly=(x=="R")):
+
+        access_mode = x.item.data
+        if not hlp_add_mountpoint(self.cfg, self.username, label, target, readOnly=(access_mode=="R")):
             return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))
         
         self.mainMenu.changed=True
         return ret.okRet(TXT_SFTP_MENU_MOUNTPOINT_ADDED)
 
     def modify_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:
-        
-        # přes sel uděláme modify, tzn set R nebo RW podle aktuální stavu a druhá močnost bude červená delete
+        from .sftp_manager_hlp import checkMountPointPathExists
+
         opt=[]
         rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, selItem.data)
         if rTx:
             opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, "W", "W"))
         else:
             opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, "R", "R"))
+        opt.append(select_item(TXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH, "P", "P"))
         opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), "D", "D"))
         x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)
         if x is None:
             return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)
         x=x.item.data
-        
+
         if x == "D":
             if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):
                 return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
             if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
-            else:
-                self.mainMenu.changed=True
-                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)
-        else:
-            # nastavíme readonly nebo rw podle výběru
-            if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x=="R")):
+            self.mainMenu.changed=True
+            return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)
+
+        if x == "P":
+            usr = find_user(self.cfg, self.username)
+            mounts = usr.get("sftpmounts", {}) if usr else {}
+            current_target = mounts.get(selItem.data)
+            if not isinstance(current_target, str):
+                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
+
+            while True:
+                target = selectDir(
+                    "/",
+                    TXT_SFTP_MENU_SELECT_NEW_MOUNTPOINT_PATH.format(path=current_target),
+                )
+                if not target:
+                    return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
+                if target == current_target:
+                    return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED)
+                existing_label = checkMountPointPathExists(self.cfg, self.username, target)
+                if existing_label and existing_label != selItem.data:
+                    print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))
+                    anyKey()
+                    continue
+                break
+
+            if not set_mountpoint_path(self.cfg, self.username, selItem.data, target):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
-            else:
-                self.mainMenu.changed=True
-                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)
+            self.mainMenu.changed=True
+            return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UPDATED.format(path=target))
+
+        if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x=="R")):
+            return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
+        self.mainMenu.changed=True
+        return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)
 
 class m_key_actions(c_menu):
     """Submenu with actions for a single SFTP key entry."""
