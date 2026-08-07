@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "commit_message": "Fix SFTP mountpoint access mode and path editing",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    get_mountpointReadOnlyStatus,\n    set_mountpoint_readonly,\n    get_printable_keys,",
+      "new": "    get_mountpointReadOnlyStatus,\n    set_mountpoint_readonly,\n    set_mountpoint_path,\n    get_printable_keys,",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.2.5\"",
+      "new": "    _VERSION_: str = \"1.2.6\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)\n        if not x:\n            return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)\n        \n        if not hlp_add_mountpoint(self.cfg, self.username, label, target, readOnly=(x==\"R\")):\n            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))",
+      "new": "        x = select(TXT_SFTP_MENU_SELECT_ACCESS_MODE, opts)\n        if not x:\n            return ret.errRet(TXT_SFTP_MENU_NO_ACCESS_MODE)\n\n        access_mode = x.item.data\n        if not hlp_add_mountpoint(self.cfg, self.username, label, target, readOnly=(access_mode==\"R\")):\n            return ret.errRet(TXT_SFTP_MENU_USER_NOT_FOUND.format(username=self.username))",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    def modify_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:\n        \n        # přes sel uděláme modify, tzn set R nebo RW podle aktuální stavu a druhá močnost bude červená delete\n        opt=[]\n        rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, selItem.data)\n        if rTx:\n            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, \"W\", \"W\"))\n        else:\n            opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, \"R\", \"R\"))\n        opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), \"D\", \"D\"))\n        x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)\n        if x is None:\n            return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)\n        x=x.item.data\n        \n        if x == \"D\":\n            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):\n                return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)\n            if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)\n        else:\n            # nastavíme readonly nebo rw podle výběru\n            if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x==\"R\")):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)\n            else:\n                self.mainMenu.changed=True\n                return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)",
+      "new": "    def modify_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:\n        from .sftp_manager_hlp import checkMountPointPathExists\n\n        opt=[]\n        rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, selItem.data)\n        if rTx:\n            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, \"W\", \"W\"))\n        else:\n            opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, \"R\", \"R\"))\n        opt.append(select_item(TXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH, \"P\", \"P\"))\n        opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), \"D\", \"D\"))\n        x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)\n        if x is None:\n            return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)\n        x=x.item.data\n\n        if x == \"D\":\n            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):\n                return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)\n            if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)\n            self.mainMenu.changed=True\n            return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)\n\n        if x == \"P\":\n            usr = find_user(self.cfg, self.username)\n            mounts = usr.get(\"sftpmounts\", {}) if usr else {}\n            current_target = mounts.get(selItem.data)\n            if not isinstance(current_target, str):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)\n\n            while True:\n                target = selectDir(\n                    \"/\",\n                    TXT_SFTP_MENU_SELECT_NEW_MOUNTPOINT_PATH.format(path=current_target),\n                )\n                if not target:\n                    return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)\n                if target == current_target:\n                    return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED)\n                existing_label = checkMountPointPathExists(self.cfg, self.username, target)\n                if existing_label and existing_label != selItem.data:\n                    print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))\n                    anyKey()\n                    continue\n                break\n\n            if not set_mountpoint_path(self.cfg, self.username, selItem.data, target):\n                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)\n            self.mainMenu.changed=True\n            return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UPDATED.format(path=target))\n\n        if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x==\"R\")):\n            return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)\n        self.mainMenu.changed=True\n        return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "    pointSet[label] = {\"rw\": not readOnly}\n    \n    return True\ndef set_mountpoint_readonly(cfg: Dict, username: str, label: str, readOnly: bool) -> bool:",
+      "new": "    pointSet[label] = {\"rw\": not readOnly}\n\n    return True\n\ndef set_mountpoint_path(cfg: Dict, username: str, label: str, path: str) -> bool:\n    \"\"\"Update only the configured real path of an existing mountpoint.\n\n    Apply detects the changed real path against the active mountpoint, removes\n    the old system/Samba/CIFS definition and then ensures the same alias from\n    the new path.\n    \"\"\"\n    usr = find_user(cfg, username)\n    if not usr:\n        return False\n    mounts = usr.get(\"sftpmounts\", {})\n    if label not in mounts:\n        return False\n    mounts[label] = path\n    return True\n\ndef set_mountpoint_readonly(cfg: Dict, username: str, label: str, readOnly: bool) -> bool:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/default.py",
+      "old": "TXT_SFTP_MENU_SET_READ_WRITE = \"Set to Read-Write\"\nTXT_SFTP_MENU_SET_READ_ONLY = \"Set to Read-Only\"\nTXT_SFTP_MENU_DELETE_MOUNTPOINT = \"Delete mountpoint\"",
+      "new": "TXT_SFTP_MENU_SET_READ_WRITE = \"Set to Read-Write\"\nTXT_SFTP_MENU_SET_READ_ONLY = \"Set to Read-Only\"\nTXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH = \"Change mountpoint path\"\nTXT_SFTP_MENU_SELECT_NEW_MOUNTPOINT_PATH = \"Select a new absolute path (current: {path}):\"\nTXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED = \"Mountpoint path was not changed.\"\nTXT_SFTP_MENU_MOUNTPOINT_PATH_UPDATED = \"Mountpoint path changed to '{path}'. Apply changes to synchronize the active SFTP configuration.\"\nTXT_SFTP_MENU_DELETE_MOUNTPOINT = \"Delete mountpoint\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/cs-CZ.py",
+      "old": "TXT_SFTP_MENU_SET_READ_WRITE = \"Nastavit čtení a zápis\"\nTXT_SFTP_MENU_SET_READ_ONLY = \"Nastavit pouze čtení\"\nTXT_SFTP_MENU_DELETE_MOUNTPOINT = \"Smazat mountpoint\"",
+      "new": "TXT_SFTP_MENU_SET_READ_WRITE = \"Nastavit čtení a zápis\"\nTXT_SFTP_MENU_SET_READ_ONLY = \"Nastavit pouze čtení\"\nTXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH = \"Změnit cestu mountpointu\"\nTXT_SFTP_MENU_SELECT_NEW_MOUNTPOINT_PATH = \"Vyberte novou absolutní cestu (aktuální: {path}):\"\nTXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED = \"Cesta mountpointu nebyla změněna.\"\nTXT_SFTP_MENU_MOUNTPOINT_PATH_UPDATED = \"Cesta mountpointu změněna na '{path}'. Pro synchronizaci aktivního SFTP použijte Aplikovat změny.\"\nTXT_SFTP_MENU_DELETE_MOUNTPOINT = \"Smazat mountpoint\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.5\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.6\")",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        finally:\n            menuBoss.c_menu.globalTitle = original\n\n    def test_shared_mail_transport_prints_delivery_progress(self):",
+      "new": "        finally:\n            menuBoss.c_menu.globalTitle = original\n\n    def test_sftp_mountpoint_add_honors_read_only_selection(self):\n        cfg = {\n            \"users\": [{\n                \"sftpuser\": \"alice\",\n                \"sambaVault\": True,\n                \"sftpmounts\": {},\n                \"pointsSet\": {},\n            }]\n        }\n        main_menu = SimpleNamespace(cfg=cfg, changed=False)\n        submenu = sftp_menu.m_user_mountpoints(\"alice\", main_menu, cfg[\"users\"][0])\n        submenu.cfg = cfg\n        selected = SimpleNamespace(item=SimpleNamespace(data=\"R\"))\n\n        with patch.object(sftp_menu, \"cls\"), patch.object(\n            sftp_menu, \"get_input\", return_value=\"docs\"\n        ), patch.object(\n            sftp_menu, \"selectDir\", return_value=\"/srv/docs\"\n        ), patch.object(\n            sftp_menu, \"select\", return_value=selected\n        ):\n            submenu.add_mountpoint(SimpleNamespace())\n\n        self.assertEqual(cfg[\"users\"][0][\"sftpmounts\"][\"docs\"], \"/srv/docs\")\n        self.assertFalse(cfg[\"users\"][0][\"pointsSet\"][\"docs\"][\"rw\"])\n        self.assertTrue(sftp_hlp.get_mountpointReadOnlyStatus(cfg, \"alice\", \"docs\"))\n        self.assertTrue(main_menu.changed)\n\n    def test_sftp_mountpoint_path_edit_keeps_alias_for_apply_diff(self):\n        cfg = {\n            \"users\": [{\n                \"sftpuser\": \"alice\",\n                \"sambaVault\": True,\n                \"sftpmounts\": {\"docs\": \"/srv/old\"},\n                \"pointsSet\": {\"docs\": {\"rw\": False}},\n            }]\n        }\n        main_menu = SimpleNamespace(cfg=cfg, changed=False)\n        submenu = sftp_menu.m_user_mountpoints(\"alice\", main_menu, cfg[\"users\"][0])\n        submenu.cfg = cfg\n        selected = SimpleNamespace(item=SimpleNamespace(data=\"P\"))\n\n        with patch.object(\n            sftp_menu, \"select\", return_value=selected\n        ), patch.object(\n            sftp_menu, \"selectDir\", return_value=\"/srv/new\"\n        ):\n            submenu.modify_mountpoint(SimpleNamespace(data=\"docs\"))\n\n        self.assertEqual(cfg[\"users\"][0][\"sftpmounts\"][\"docs\"], \"/srv/new\")\n        self.assertEqual(cfg[\"users\"][0][\"pointsSet\"][\"docs\"][\"rw\"], False)\n        self.assertTrue(main_menu.changed)\n\n    def test_shared_mail_transport_prints_delivery_progress(self):",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.2\n\n- UX všechny podnabídky `c_menu` v SysApps trvale zobrazují identitu aktuálního hostu/FQDN, takže je stroj viditelný i hluboko v Disk, Swap, SSH, SFTP a dalších manažerech.",
+      "new": "## v2.2.2\n\n- FIX SFTP Manager 1.2.6 správně respektuje volbu pouze pro čtení při vytvoření mountpointu; výsledek `select()` se vyhodnocuje přes zvolená data místo porovnání wrapper objektu.\n- UX SFTP Manager 1.2.6 umožňuje u existujícího mountpointu změnit reálnou cestu při zachování aliasu a RO/RW nastavení; následný Apply využije stávající detekci změny cesty a znovu synchronizuje Samba/CIFS/jail konfiguraci.\n- UX všechny podnabídky `c_menu` v SysApps trvale zobrazují identitu aktuálního hostu/FQDN, takže je stroj viditelný i hluboko v Disk, Swap, SSH, SFTP a dalších manažerech.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.\n",
+      "new": "- `venv_install_step.py` owns the required `cifs-utils` system dependency for Samba-backed SFTP mountpoints.\n- Editing an existing mountpoint path keeps its alias and only changes `sftpmounts[label]` in the pending configuration. Do not persist a separate changed-item registry: Apply already compares the configured real path with the active mountpoint, removes the stale Samba/CIFS/jail definition, and re-ensures the same alias from the new path; operational failures belong in the existing Apply return/log flow.\n",
+      "expected": 1
+    }
+  ]
+}
