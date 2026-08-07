@@ -1,5 +1,10 @@
 # SFTP Manager Changelog
 
+## 1.2.9
+
+- FIX po úspěšném Apply se konfigurace znovu načte z perzistentního souboru a obnoví se `cfg` i seznam uživatelů; další změna cesty nebo RO/RW ve stejném běhu aplikace tak nepoužívá stale objekty z předchozí transakce.
+- TEST regresní pokrytí ověřuje, že úspěšný Apply nahradí in-memory konfiguraci čerstvě načtenou instancí před dalším editováním.
+
 ## 1.2.8
 
 - FIX změna cesty existujícího mountpointu otevírá výběr adresáře na jeho aktuální reálné cestě, pokud stále existuje; `/` se použije pouze jako fallback pro chybějící nebo neplatný adresář.

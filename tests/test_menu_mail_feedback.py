@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.8")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.9")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -177,6 +177,44 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
 
         self.assertIsNone(result)
         confirm_mock.assert_called_once_with(sftp_menu.TXT_SFTP_MENU_EXIT_UNSAVED_CONFIRM)
+
+    def test_sftp_apply_reloads_persisted_config_for_next_edit(self):
+        old_cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/old"},
+                "pointsSet": {"docs": {"rw": False}},
+            }]
+        }
+        fresh_cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/old"},
+                "pointsSet": {"docs": {"rw": False}},
+            }]
+        }
+        main_menu = sftp_menu.menu()
+        main_menu.cfg = old_cfg
+        main_menu.users = old_cfg["users"]
+        main_menu.changed = True
+
+        with patch.object(
+            sftp_menu, "apply_changes", return_value=(True, None)
+        ) as apply_mock, patch.object(
+            sftp_menu, "load_config", return_value=(True, None, fresh_cfg)
+        ) as load_mock, patch.object(
+            sftp_menu, "anyKey"
+        ):
+            result = main_menu.apply_changes(SimpleNamespace())
+
+        apply_mock.assert_called_once_with(cfg=old_cfg, save=True)
+        load_mock.assert_called_once_with()
+        self.assertIs(main_menu.cfg, fresh_cfg)
+        self.assertIs(main_menu.users[0], fresh_cfg["users"][0])
+        self.assertFalse(main_menu.changed)
+        self.assertEqual(result.ok, sftp_menu.TXT_SFTP_MENU_CHANGES_APPLIED)
 
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()
