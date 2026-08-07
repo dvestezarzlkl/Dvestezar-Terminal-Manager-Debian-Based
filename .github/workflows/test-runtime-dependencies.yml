@@ -54,7 +54,7 @@ jobs:
           from libs.JBLibs import __version__
           from libs.JBLibs.sftp import mounts
 
-          assert __version__ == "1.2.18"
+          assert __version__ == "1.2.19"
 
           with patch.object(mounts.os.path, "ismount", return_value=True), patch.object(
               mounts.subprocess, "run", side_effect=FileNotFoundError

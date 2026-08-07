@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.2.2
+
+- UX všechny podnabídky `c_menu` v SysApps trvale zobrazují identitu aktuálního hostu/FQDN, takže je stroj viditelný i hluboko v Disk, Swap, SSH, SFTP a dalších manažerech.
+- UPD JBLibs na 1.2.19 s obecným persistentním `c_menu.globalTitle`; jednotlivé menu mohou globální kontext vypnout přes `showGlobalTitle=False`.
+- UX hlavní HOME globální řádek skrývá, protože FQDN už zobrazuje ve vlastním systémovém souhrnu.
+- UPD hlavní verze aplikace na 2.2.2.
+
 ## v2.2.1
 
 - FIX Disk Manager 3.6.8 opravuje Ubuntu Server/U-Boot one-shot PTUUID: PARTUUID v initramfs ověřuje přes `lsblk` a finalizační unit před armingem validuje přes `systemd-analyze verify`.
