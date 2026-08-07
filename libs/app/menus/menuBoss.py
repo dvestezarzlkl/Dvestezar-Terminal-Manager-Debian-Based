@@ -19,6 +19,23 @@ from libs.JBLibs.term import cls, text_color,en_color
 
 _items_:List[c_menu_item]=[]
 
+def _global_host_title() -> c_menu_block_items:
+    """Return the current machine identity shown in every SysApps submenu."""
+    machine_info = getattr(cfg, "machineInfo", None)
+    host = ""
+    if machine_info is not None:
+        host = str(
+            getattr(machine_info, "hostname_full", "")
+            or getattr(machine_info, "static_hostname", "")
+            or ""
+        ).strip()
+    if not host:
+        return c_menu_block_items()
+    return c_menu_block_items([("Host", host)])
+
+def _configure_global_menu_context() -> None:
+    c_menu.globalTitle = _global_host_title
+
 def _get_menu_version(menu_class: type) -> str:
     """Return the component version declared by a dynamic app menu."""
     for attr_name in ("_VERSION_", "__VERSION__", "__version__"):
@@ -43,6 +60,7 @@ class menuBoss(menu):
     # override protected
     choiceBack=None
     ESC_is_quit=False
+    showGlobalTitle=False  # HOME already shows FQDN in its own system summary
     
     # apphelper menu props protected
     titleShowMyIP=True
@@ -454,6 +472,7 @@ def init() -> bool:
     global _items_
     _items_.clear()
     hub_runtime.clear_providers()
+    _configure_global_menu_context()
 
     # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři
     root=os.path.dirname(__file__)

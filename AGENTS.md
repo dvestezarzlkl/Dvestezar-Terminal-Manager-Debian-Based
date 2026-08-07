@@ -48,6 +48,7 @@ Po každé změně kódu je potřeba aktualizovat `changelog.md` v poslední ver
 - Drobné změny uvnitř právě rozpracované a dosud nevydané verze nemusí zakládat další verzi, ale musí být uvedené v jejím changelogu.
 - Hlavní verze je uvedená v `changelog.md`, `libs/app/cfg.py` a badge v `readme.md`. Všechny tři hodnoty musí být stejné, jinak může vzniknout problém při update.
 - Verze pluginů a JBLibs se spravují samostatně; jejich změna sama o sobě automaticky neznamená zvýšení hlavní verze, pokud nejde zároveň o větší uživatelskou změnu `sys_apps`.
+- SysApps nastavuje `c_menu.globalTitle` na aktuální FQDN/hostname, aby identita spravovaného stroje zůstala viditelná ve všech podmenu; hlavní HOME používá `showGlobalTitle=False`, protože FQDN už obsahuje ve vlastním systémovém souhrnu. Nové podaplikace tento globální kontext standardně neskrývají.
 
 ## verze knihoven
 

@@ -48,6 +48,24 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.5")
 
+    def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
+        original = menuBoss.c_menu.globalTitle
+        try:
+            with patch.object(
+                menuBoss.cfg,
+                "machineInfo",
+                SimpleNamespace(
+                    hostname_full="server-01.example.test",
+                    static_hostname="server-01",
+                ),
+            ):
+                menuBoss._configure_global_menu_context()
+                title = menuBoss.c_menu.globalTitle()
+                self.assertIn(("Host", "server-01.example.test"), list(title))
+                self.assertFalse(menuBoss.menuBoss.showGlobalTitle)
+        finally:
+            menuBoss.c_menu.globalTitle = original
+
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()
         with self.configured_mail(), patch.object(
