@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "commit_message": "Add SFTP user backup integration",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "from libs.JBLibs.term import text_color, en_color\nfrom libs.app import cfg as app_cfg",
+      "new": "from libs.JBLibs.term import text_color, en_color\nfrom libs.JBLibs.archive_backup import get_backup_stats\nfrom libs.app import cfg as app_cfg",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "log = getLogger(\"sftpprs\")\n\ndef cifs_exists() -> bool:",
+      "new": "log = getLogger(\"sftpprs\")\n\n_SFTP_BACKUP_DIRNAME = \"sftpusers\"\n\ndef _get_sftp_backup_root(create: bool = False) -> str:\n    \"\"\"Return the secure root used for automatic SFTP user backups.\"\"\"\n    base = app_cfg.BACKUP_DIRECTORY\n    if not isinstance(base, str) or not os.path.isabs(base):\n        raise RuntimeError(f\"Invalid BACKUP_DIRECTORY for SFTP backups: {base!r}\")\n    root = os.path.join(base, _SFTP_BACKUP_DIRNAME)\n    if create:\n        os.makedirs(root, mode=0o700, exist_ok=True)\n        os.chown(root, 0, 0)\n        os.chmod(root, 0o700)\n    return root\n\ndef get_sftp_backup_stats() -> Tuple[int, int]:\n    \"\"\"Return count and total archive bytes for SFTP user backups.\"\"\"\n    try:\n        stats = get_backup_stats(_get_sftp_backup_root(create=False))\n        return stats.count, stats.size_bytes\n    except Exception as e:\n        log.warning(f\"Cannot read SFTP backup statistics: {e}\")\n        return 0, 0\n\ndef cifs_exists() -> bool:",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "        if apply_error is None:\n            log.info(\"Uninstalling unwanted users who are not in the in-memory configuration...\")\n            if not uninstallUnwantedUsers(cfg=cfg):\n                apply_error = TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED\n    except Exception as e:\n        apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)\n    finally:\n        transaction_ok = smbHelp.endBatch()\n\n    if not transaction_ok:\n        return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED\n    if apply_error is not None:\n        return False, apply_error\n\n    log.info(\"Restarting sshd after SFTP configuration changes...\")",
+      "new": "    except Exception as e:\n        apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)\n    finally:\n        transaction_ok = smbHelp.endBatch()\n\n    if not transaction_ok:\n        return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED\n    if apply_error is not None:\n        return False, apply_error\n\n    # Destructive user cleanup runs after the Samba/CIFS batch is physically\n    # finalized. The complete local home is then mount-free and can be archived\n    # without pulling data from the real mounted source directories into backup.\n    try:\n        backup_root = _get_sftp_backup_root(create=True)\n        log.info(\"Uninstalling unwanted users with pre-delete home backups...\")\n        if not uninstallUnwantedUsers(cfg=cfg, backup_root=backup_root):\n            return False, TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED\n    except Exception as e:\n        return False, TXT_SFTP_HLP_APPLY_FAILED.format(error=e)\n\n    log.info(\"Restarting sshd after SFTP configuration changes...\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "    try:\n        if unInstAll():\n            return True, None",
+      "new": "    try:\n        backup_root = _get_sftp_backup_root(create=True)\n        if unInstAll(backup_root=backup_root):\n            return True, None",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "from libs.JBLibs.term import cls\nfrom libs.app import mail_hlp",
+      "new": "from libs.JBLibs.term import cls\nfrom libs.JBLibs.format import bytesTx\nfrom libs.app import mail_hlp",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    send_key_by_mail,\n)",
+      "new": "    send_key_by_mail,\n    get_sftp_backup_stats,\n)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.2.12\"",
+      "new": "    _VERSION_: str = \"1.2.13\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "        self.menu = [\n            c_menu_title_label(text_color(title,en_color.CYAN)),\n        ]\n        if not cifs_exists():",
+      "new": "        self.menu = [\n            c_menu_title_label(text_color(title,en_color.CYAN)),\n        ]\n        backup_count, backup_size = get_sftp_backup_stats()\n        if backup_count > 0:\n            self.menu.append(\n                c_menu_title_label(\n                    text_color(\n                        TXT_SFTP_MENU_BACKUP_SUMMARY.format(\n                            count=backup_count,\n                            size=bytesTx.encode(backup_size),\n                        ),\n                        en_color.YELLOW,\n                    )\n                )\n            )\n        if not cifs_exists():",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/default.py",
+      "old": "TXT_SFTP_MENU_USERS_COUNT = \"{name} ({count} users)\"",
+      "new": "TXT_SFTP_MENU_USERS_COUNT = \"{name} ({count} users)\"\nTXT_SFTP_MENU_BACKUP_SUMMARY = \"Backups: {count} / {size}\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/cs-CZ.py",
+      "old": "TXT_SFTP_MENU_USERS_COUNT = \"{name} ({count} uživatelů)\"",
+      "new": "TXT_SFTP_MENU_USERS_COUNT = \"{name} ({count} uživatelů)\"\nTXT_SFTP_MENU_BACKUP_SUMMARY = \"Zálohy: {count} / {size}\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/default.py",
+      "old": "TXT_SFTP_MENU_UNINSTALL_CONFIRM = \"Really uninstall all active SFTP users?\\nThis will remove all SFTP user accounts currently active on the system.\\nThis action does not modify the configuration, so you can use 'Apply changes'\\nafterwards to reinstall users according to the current configuration.\\n\\nProceed?\"",
+      "new": "TXT_SFTP_MENU_UNINSTALL_CONFIRM = \"Really uninstall all active SFTP users?\\nEach local SFTP home is backed up after mountpoints are detached and before deletion.\\nThis action does not modify the configuration, so you can use 'Apply changes'\\nafterwards to reinstall users according to the current configuration.\\n\\nProceed?\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/cs-CZ.py",
+      "old": "TXT_SFTP_MENU_UNINSTALL_CONFIRM = \"Opravdu odinstalovat všechny aktivní SFTP uživatele?\\nTímto odstraníte všechny aktuálně aktivní SFTP účty v systému.\\nKonfigurační soubor se nezmění, takže následně můžete použít 'Aplikovat změny'\\na uživatele znovu nainstalovat podle aktuální konfigurace.\\n\\nPokračovat?\"",
+      "new": "TXT_SFTP_MENU_UNINSTALL_CONFIRM = \"Opravdu odinstalovat všechny aktivní SFTP uživatele?\\nPo odpojení mountpointů se před smazáním automaticky zazálohuje celý lokální home každého SFTP uživatele.\\nKonfigurační soubor se nezmění, takže následně můžete použít 'Aplikovat změny'\\na uživatele znovu nainstalovat podle aktuální konfigurace.\\n\\nPokračovat?\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.12\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.2.13\")",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        ), patch.object(\n            sftp_hlp, \"uninstallUnwantedUsers\", return_value=True\n        ), patch.object(\n            sftp_hlp, \"restart_sshd\", return_value=True\n        ) as restart_mock, patch.object(\n            sftp_hlp, \"save_config\"\n        ) as save_mock:\n            ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)\n\n        self.assertTrue(ok, error)\n        restart_mock.assert_called_once_with()\n        save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())",
+      "new": "        ), patch.object(\n            sftp_hlp, \"_get_sftp_backup_root\", return_value=\"/var/backups/sftpusers\"\n        ), patch.object(\n            sftp_hlp, \"uninstallUnwantedUsers\", return_value=True\n        ) as uninstall_mock, patch.object(\n            sftp_hlp, \"restart_sshd\", return_value=True\n        ) as restart_mock, patch.object(\n            sftp_hlp, \"save_config\"\n        ) as save_mock:\n            ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)\n\n        self.assertTrue(ok, error)\n        uninstall_mock.assert_called_once_with(\n            cfg=cfg, backup_root=\"/var/backups/sftpusers\"\n        )\n        restart_mock.assert_called_once_with()\n        save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertTrue(ok, error)\n        uninstall_mock.assert_called_once_with(\n            cfg=cfg, backup_root=\"/var/backups/sftpusers\"\n        )\n        restart_mock.assert_called_once_with()\n        save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())\n\n    def test_shared_mail_transport_prints_delivery_progress(self):",
+      "new": "        self.assertTrue(ok, error)\n        uninstall_mock.assert_called_once_with(\n            cfg=cfg, backup_root=\"/var/backups/sftpusers\"\n        )\n        restart_mock.assert_called_once_with()\n        save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())\n\n    def test_sftp_uninstall_all_uses_secure_backup_root(self):\n        with patch.object(\n            sftp_hlp, \"_get_sftp_backup_root\", return_value=\"/var/backups/sftpusers\"\n        ) as backup_root, patch.object(\n            sftp_hlp, \"unInstAll\", return_value=True\n        ) as uninstall:\n            ok, error = sftp_hlp.uninstall_all_users()\n\n        self.assertTrue(ok, error)\n        backup_root.assert_called_once_with(create=True)\n        uninstall.assert_called_once_with(backup_root=\"/var/backups/sftpusers\")\n\n    def test_shared_mail_transport_prints_delivery_progress(self):",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.2.12",
+      "new": "# SFTP Manager Changelog\n\n## 1.2.13\n\n- SAFE před destruktivním odstraněním SFTP uživatele se po fyzickém odpojení všech mountpointů automaticky zazálohuje celý jeho lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/YYYY-MM-DD_HHMMSS_<user>_backup.7z`; připojená zdrojová data se do archivu nedostanou.\n- SAFE pokud pod home po odpojení zůstane živý mount nebo vytvoření archivu selže, odstranění uživatele se zastaví. Neočekávaný obsah pod historickým mountpointem tak zůstane zachovaný v backupu před rebuildem.\n- ADD hlavní SFTP menu zobrazuje pouze souhrn počtu a celkové velikosti existujících SFTP backupů; správu/restore archivů záměrně nepřidává.\n- UPD JBLibs 1.2.26 přidává obecný timestampovaný 7z directory-backup helper použitelný i pro další aplikace.\n\n## 1.2.12",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.2\n\n- FIX SFTP Manager 1.2.12",
+      "new": "## v2.2.2\n\n- SAFE SFTP Manager 1.2.13 + JBLibs 1.2.26 před destruktivním odstraněním SFTP uživatele po odpojení mountpointů archivují celý lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/...`; hlavní menu zobrazuje počet a celkovou velikost těchto záloh bez další správy/restore UI.\n- FIX SFTP Manager 1.2.12",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Wrap user synchronization and unwanted-user cleanup in one outer `smbHelp.beginBatch()` / `endBatch()` transaction; the menu helper must not call `daemon-reload` directly.",
+      "new": "- Wrap desired-user synchronization in one outer `smbHelp.beginBatch()` / `endBatch()` transaction; the menu helper must not call `daemon-reload` directly. Destructive cleanup of users removed from the desired config runs only after that batch has physically finalized, because their complete local homes must be mount-free before the mandatory pre-delete backup is created.\n- Destructive SFTP user removal must archive the complete local home after all managed mountpoints are detached and mountinfo confirms no live mount remains below the home. SysApps stores these root-only archives under `BACKUP_DIRECTORY/sftpusers/<user>/`; backup failure vetoes user deletion. The backup is a safety/forensic artifact, not an automatic restore source.",
+      "expected": 1
+    }
+  ]
+}
