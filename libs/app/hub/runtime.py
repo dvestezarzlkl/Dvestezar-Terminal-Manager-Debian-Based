@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 import re
 from time import perf_counter
-from typing import Optional
+from typing import Callable, Optional
 
 from libs.JBLibs.helper import getLogger
 from libs.app.service_host import configured_service_host
@@ -177,15 +177,26 @@ class HubRuntime:
         )
         return result.item_count
 
-    def sync_all(self) -> HubSyncReport:
+    def sync_all(
+        self,
+        progress: Callable[[int, int, str], None] | None = None,
+    ) -> HubSyncReport:
         report = HubSyncReport()
         settings = HubSettings.from_cfg()
         started = perf_counter()
+        providers = sorted(self._providers.items())
+        total_steps = len(providers) + 2
+
+        def emit_progress(step: int, label: str) -> None:
+            if progress is not None:
+                progress(step, total_steps, label)
+
         log.info(
             "SysApps Hub synchronization: start (%d provider(s))",
-            len(self._providers),
+            len(providers),
         )
         try:
+            emit_progress(1, "core inventory")
             phase_started = perf_counter()
             log.info("SysApps Hub database readiness check: start")
             _, database = self._ready_database()
@@ -219,7 +230,8 @@ class HubRuntime:
             )
             return report
 
-        for key, registration in sorted(self._providers.items()):
+        for step, (key, registration) in enumerate(providers, start=2):
+            emit_progress(step, key.replace("_", " "))
             try:
                 report.provider_counts[key] = self._sync_registration(
                     database,
@@ -234,6 +246,7 @@ class HubRuntime:
                 database.record_source_error(host.machine_id, key, str(exc))
 
         self.last_sync_at = datetime.now().astimezone()
+        emit_progress(total_steps, "finalization")
         phase_started = perf_counter()
         log.info("SysApps Hub final status refresh: start")
         self.refresh_status()
@@ -289,8 +302,10 @@ class HubRuntime:
         settings = HubSettings.from_cfg()
         if not status.ready or not settings.auto_sync:
             return None
-        print("SysApps Hub: synchronizing inventory...")
-        report = self.sync_all()
+        def print_progress(step: int, total: int, label: str) -> None:
+            print(f"SysApps Hub: synchronization {step}/{total} - {label}...")
+
+        report = self.sync_all(print_progress)
         if report.error:
             print(f"SysApps Hub synchronization failed: {report.error}")
         else:

@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.2.4
+
+- PERF startup už neobsahuje historický pevný 2s splash delay; po základním bootstrapu pokračuje rovnou inicializací menu.
+- UX automatická SysApps Hub synchronizace při startu zobrazuje dynamický postup `x/y` přes základní inventář, každý registrovaný provider a finalizaci; detailní DB/collector časování zůstává v logu.
+- UPD hlavní verze aplikace na 2.2.4.
+
 ## v2.2.3
 
 - DIAG startup nyní časuje celý bootstrap: načtení cfg, logger/jazyk/terminal a `menuBoss` import, runtime preflight, explicitní 2s splash delay, discovery a import každého `app_*`, update-check, central settings, Hub a předání do hlavního menu; z jednoho logu je tak vidět přesná fáze případného čekání.
