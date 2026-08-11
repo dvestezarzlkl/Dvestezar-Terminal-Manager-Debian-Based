@@ -4,7 +4,7 @@ from typing import List
 from libs.app import cfg
 from libs.app import mail_hlp
 from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_item
-from libs.JBLibs.helper import getInterfaces,getMainScriptDir
+from libs.JBLibs.helper import getInterfaces,getMainScriptDir,getLogger
 from libs.app.plugin_manager import PluginRegistry
 from libs.app.plugin_settings import PluginSettingsMenu
 from libs.app.self_updater import UpdateAvailability, check_update_availability
@@ -15,11 +15,13 @@ from libs.app.settings_menu import SettingsPackageMenu
 from libs.app.settings_package import startup_settings_update
 from libs.app.service_host import configured_service_host, validate_service_host
 import os,string
+from time import perf_counter
 from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
 
 _items_:List[c_menu_item]=[]
 _update_availability = UpdateAvailability()
+log = getLogger(__name__)
 
 def _global_host_title() -> c_menu_block_items:
     """Return the current machine identity shown in every SysApps submenu."""
@@ -479,9 +481,13 @@ def init() -> bool:
     Initialize menu
     """
     global _items_, _update_availability
+    init_started = perf_counter()
     _items_.clear()
     hub_runtime.clear_providers()
     _configure_global_menu_context()
+
+    discovery_started = perf_counter()
+    log.info("Startup menu discovery/filter: start")
 
     # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři
     root=os.path.dirname(__file__)
@@ -500,15 +506,28 @@ def init() -> bool:
 
     # sort app_dirs alphabetically
     app_dirs.sort()
-    
+    log.info(
+        "Startup menu discovery/filter: done in %.3fs (%d enabled app module(s))",
+        perf_counter() - discovery_started,
+        len(app_dirs),
+    )
+
     choice_counter = 0  # Inicializujeme počítadlo pro volby
-    
-    for app_dir in app_dirs:        
+    registration_started = perf_counter()
+
+    for app_dir in app_dirs:
         name = 'menu'
         fqn = f"libs.app.menus.{app_dir}.menu"
+        import_started = perf_counter()
+        log.info("Startup menu module %s import: start", app_dir)
         try:
             # Naimportuje modul podle názvu souboru
             mod = __import__(fqn, globals(), locals(), [], 0)
+            log.info(
+                "Startup menu module %s import: done in %.3fs",
+                app_dir,
+                perf_counter() - import_started,
+            )
             # Procházíme postupně celou cestu (e.g., libs.app.menus.menu0)
             components = fqn.split(".")
             for comp in components[1:]:
@@ -556,15 +575,65 @@ def init() -> bool:
                 choice_counter += 1  # Zvýšíme počítadlo pro další volbu
                 
         except Exception as e:
+            log.exception(
+                "Startup menu module %s failed after %.3fs",
+                app_dir,
+                perf_counter() - import_started,
+            )
             print(f"Error: {e}")
             # print exception to terminal
             import traceback
             traceback.print_exc()                        
     
+    log.info(
+        "Startup dynamic menu registration: done in %.3fs (%d menu item(s))",
+        perf_counter() - registration_started,
+        choice_counter,
+    )
+
     if choice_counter:
+        phase_started = perf_counter()
+        log.info("Startup update availability check: start")
         _update_availability = check_update_availability(getMainScriptDir())
-        startup_settings_update()
-        hub_runtime.startup()
+        log.info(
+            "Startup update availability check: done in %.3fs (state=%s, cached=%s)",
+            perf_counter() - phase_started,
+            _update_availability.state,
+            _update_availability.cached,
+        )
+
+        phase_started = perf_counter()
+        log.info("Startup central settings phase: start")
+        settings_result = startup_settings_update()
+        settings_state = (
+            "skipped"
+            if settings_result is None
+            else ("changed" if settings_result.changed else "no-change")
+        )
+        log.info(
+            "Startup central settings phase: done in %.3fs (state=%s)",
+            perf_counter() - phase_started,
+            settings_state,
+        )
+
+        phase_started = perf_counter()
+        log.info("Startup SysApps Hub phase: start")
+        hub_result = hub_runtime.startup()
+        hub_state = (
+            "skipped"
+            if hub_result is None
+            else ("error" if hub_result.error else "done")
+        )
+        log.info(
+            "Startup SysApps Hub phase: done in %.3fs (state=%s)",
+            perf_counter() - phase_started,
+            hub_state,
+        )
+        log.info(
+            "Startup main menu handoff: ready in %.3fs (%d menu item(s))",
+            perf_counter() - init_started,
+            choice_counter,
+        )
         x=menuBoss().run()
         if x:
             if isinstance(x,str):

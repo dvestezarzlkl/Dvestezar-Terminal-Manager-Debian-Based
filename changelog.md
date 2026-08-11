@@ -2,6 +2,7 @@
 
 ## v2.2.3
 
+- DIAG startup nyní časuje celý bootstrap: načtení cfg, logger/jazyk/terminal a `menuBoss` import, runtime preflight, explicitní 2s splash delay, discovery a import každého `app_*`, update-check, central settings, Hub a předání do hlavního menu; z jednoho logu je tak vidět přesná fáze případného čekání.
 - UX hlavní menu při startu best-effort porovná lokální core HEAD s `origin/main` přes read-only `git ls-remote` a u `Update me` zobrazí `up to date`, `update available` nebo `check unavailable`; kontrola nespouští pull/fetch, submoduly, pluginy ani setup.
 - SAFE kontrola používá stávající Git credentials, `GIT_TERMINAL_PROMPT=0`, 3s timeout a 5min cache v lokálním `.git`; síťová chyba nebo vadné credentials pouze nastaví stav `check unavailable` a neblokují spuštění aplikace. Změna lokálního HEAD cache automaticky zneplatní.
 - UPD hlavní verze aplikace na 2.2.3.
