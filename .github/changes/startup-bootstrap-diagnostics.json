@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "Add full startup milestone diagnostics",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "from libs.JBLibs.helper import getInterfaces,getMainScriptDir",
+      "new": "from libs.JBLibs.helper import getInterfaces,getMainScriptDir,getLogger",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "import os,string\nfrom libs.JBLibs import __version__ as libsVersion",
+      "new": "import os,string\nfrom time import perf_counter\nfrom libs.JBLibs import __version__ as libsVersion",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "_items_:List[c_menu_item]=[]\n_update_availability = UpdateAvailability()",
+      "new": "_items_:List[c_menu_item]=[]\n_update_availability = UpdateAvailability()\nlog = getLogger(__name__)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    _items_.clear()\n    hub_runtime.clear_providers()\n    _configure_global_menu_context()\n\n    # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři",
+      "new": "    init_started = perf_counter()\n    _items_.clear()\n    hub_runtime.clear_providers()\n    _configure_global_menu_context()\n\n    discovery_started = perf_counter()\n    log.info(\"Startup menu discovery/filter: start\")\n\n    # Najde všechny adresáře odpovídající vzoru 'app_*' v aktuálním adresáři",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    # sort app_dirs alphabetically\n    app_dirs.sort()\n    \n    choice_counter = 0  # Inicializujeme počítadlo pro volby\n    \n    for app_dir in app_dirs:        \n        name = 'menu'\n        fqn = f\"libs.app.menus.{app_dir}.menu\"\n        try:\n            # Naimportuje modul podle názvu souboru\n            mod = __import__(fqn, globals(), locals(), [], 0)",
+      "new": "    # sort app_dirs alphabetically\n    app_dirs.sort()\n    log.info(\n        \"Startup menu discovery/filter: done in %.3fs (%d enabled app module(s))\",\n        perf_counter() - discovery_started,\n        len(app_dirs),\n    )\n    \n    choice_counter = 0  # Inicializujeme počítadlo pro volby\n    registration_started = perf_counter()\n    \n    for app_dir in app_dirs:        \n        name = 'menu'\n        fqn = f\"libs.app.menus.{app_dir}.menu\"\n        import_started = perf_counter()\n        log.info(\"Startup menu module %s import: start\", app_dir)\n        try:\n            # Naimportuje modul podle názvu souboru\n            mod = __import__(fqn, globals(), locals(), [], 0)\n            log.info(\n                \"Startup menu module %s import: done in %.3fs\",\n                app_dir,\n                perf_counter() - import_started,\n            )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        except Exception as e:\n            print(f\"Error: {e}\")\n            # print exception to terminal\n            import traceback\n            traceback.print_exc()                       \n    \n    if choice_counter:\n        _update_availability = check_update_availability(getMainScriptDir())\n        startup_settings_update()\n        hub_runtime.startup()\n        x=menuBoss().run()",
+      "new": "        except Exception as e:\n            log.exception(\n                \"Startup menu module %s failed after %.3fs\",\n                app_dir,\n                perf_counter() - import_started,\n            )\n            print(f\"Error: {e}\")\n            # print exception to terminal\n            import traceback\n            traceback.print_exc()\n\n    log.info(\n        \"Startup dynamic menu registration: done in %.3fs (%d menu item(s))\",\n        perf_counter() - registration_started,\n        choice_counter,\n    )\n    \n    if choice_counter:\n        phase_started = perf_counter()\n        log.info(\"Startup update availability check: start\")\n        _update_availability = check_update_availability(getMainScriptDir())\n        log.info(\n            \"Startup update availability check: done in %.3fs (state=%s, cached=%s)\",\n            perf_counter() - phase_started,\n            _update_availability.state,\n            _update_availability.cached,\n        )\n\n        phase_started = perf_counter()\n        log.info(\"Startup central settings phase: start\")\n        settings_result = startup_settings_update()\n        settings_state = (\n            \"skipped\"\n            if settings_result is None\n            else (\"changed\" if settings_result.changed else \"no-change\")\n        )\n        log.info(\n            \"Startup central settings phase: done in %.3fs (state=%s)\",\n            perf_counter() - phase_started,\n            settings_state,\n        )\n\n        phase_started = perf_counter()\n        log.info(\"Startup SysApps Hub phase: start\")\n        hub_result = hub_runtime.startup()\n        hub_state = (\n            \"skipped\"\n            if hub_result is None\n            else (\"error\" if hub_result.error else \"done\")\n        )\n        log.info(\n            \"Startup SysApps Hub phase: done in %.3fs (state=%s)\",\n            perf_counter() - phase_started,\n            hub_state,\n        )\n        log.info(\n            \"Startup main menu handoff: ready in %.3fs (%d menu item(s))\",\n            perf_counter() - init_started,\n            choice_counter,\n        )\n        x=menuBoss().run()",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.3\n\n- UX hlavní menu",
+      "new": "## v2.2.3\n\n- DIAG startup nyní časuje celý bootstrap: načtení cfg, logger/jazyk/terminal a `menuBoss` import, runtime preflight, explicitní 2s splash delay, discovery a import každého `app_*`, update-check, central settings, Hub a předání do hlavního menu; z jednoho logu je tak vidět přesná fáze případného čekání.\n- UX hlavní menu",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Startup kontrola dostupné aktualizace je pouze best-effort core check: používá read-only `git ls-remote` proti cílové větvi `main`, stávající bezpečné credentials, krátký timeout a krátkou cache. Při startu nikdy nesmí spouštět fetch/pull, submodule update, plugin update ani `setup.sh`; síťová chyba pouze nastaví stav `check unavailable`.",
+      "new": "- Startup kontrola dostupné aktualizace je pouze best-effort core check: používá read-only `git ls-remote` proti cílové větvi `main`, stávající bezpečné credentials, krátký timeout a krátkou cache. Při startu nikdy nesmí spouštět fetch/pull, submodule update, plugin update ani `setup.sh`; síťová chyba pouze nastaví stav `check unavailable`.\n- Startup bootstrap musí mít INFO milestone logy s elapsed časem přes hlavní blokující hranice: cfg/load, logger/jazyk/terminal/import hlavního menu, runtime preflight, explicitní splash delay, discovery/import dynamických `app_*`, update-check, central settings, Hub a handoff do `c_menu`. Logy mají diagnostikovat čekání bez vypisování credentials nebo obsahu konfigurace.",
+      "expected": 1
+    }
+  ]
+}
