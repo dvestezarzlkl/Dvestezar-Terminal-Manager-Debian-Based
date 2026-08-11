@@ -176,7 +176,7 @@ jobs:
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
           swap_version = re.search(r'_VERSION_:str="([^"]+)"', swap_menu).group(1)
-          assert version == "2.2.3"
+          assert version == "2.2.4"
           assert disk_version == "3.6.8"
           assert swap_version == "2.5.1"
           assert f"v{version}" in readme
