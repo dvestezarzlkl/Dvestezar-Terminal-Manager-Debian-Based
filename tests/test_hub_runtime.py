@@ -113,6 +113,34 @@ class HubRuntimeTests(unittest.TestCase):
         self.assertEqual(len(sync_database.providers), 1)
         self.assertEqual(error_database.errors[0][1], "broken")
 
+    def test_sync_all_logs_phase_boundaries(self):
+        runtime = HubRuntime()
+        runtime.register_provider(
+            "disks",
+            lambda context: HubProviderSnapshot("disks", "disks", ()),
+        )
+
+        with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
+            "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value="host.example"
+        ), patch("libs.app.hub.runtime.log.info") as info_log:
+            report = runtime.sync_all()
+
+        self.assertTrue(report.core_synced)
+        messages = [call.args[0] for call in info_log.call_args_list]
+        self.assertIn("SysApps Hub database readiness check: start", messages)
+        self.assertIn("SysApps Hub core inventory collection: start", messages)
+        self.assertIn("SysApps Hub core database sync: start", messages)
+        self.assertIn("SysApps Hub provider %s collection: start", messages)
+        self.assertIn("SysApps Hub provider %s database sync: start", messages)
+        self.assertIn("SysApps Hub final status refresh: start", messages)
+        provider_calls = [
+            call for call in info_log.call_args_list
+            if call.args and call.args[0] == "SysApps Hub provider %s collection: start"
+        ]
+        self.assertEqual(provider_calls[0].args[1], "disks")
+
     def test_remote_updates_are_applied_after_database_commit(self):
         runtime = HubRuntime()
         applied = []
