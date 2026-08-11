@@ -2,6 +2,8 @@
 
 ## v2.2.2
 
+- FIX SFTP Manager 1.2.12 + JBLibs 1.2.24 fyzicky obnovují RO/RW změnu aktivního Samba-backed mountpointu cíleným uzavřením pouze dotčeného managed share po reloadu konfigurace; při selhání je fallback plný restart `smbd`.
+- SAFE SFTP Manager 1.2.12 odmítne remount přes neprázdný underlying CIFS target a opravuje potvrzený uninstall-all cleanup neprázdného jailu po kontrole zbylých mountů.
 - FIX SFTP Manager 1.2.11 integruje JBLibs 1.2.23 s opravenou Samba/CIFS batch transakcí; změny RO/RW a reálné cesty stejného mountpointu se dokončují v jednom Apply bez předčasného unmount/cleanup mezistavu.
 - TEST JBLibs 1.2.23 ověřuje pořadí finalizace, zachování cíle odstraněného a znovu vytvořeného v jedné dávce a správnou identitu Samba share.
 - FIX SFTP Manager 1.2.10 opravuje cancel ve výběru mountpointu, nepersistuje neúspěšný Apply před fyzickou synchronizací a zobrazuje konkrétní příčinu selhání reconcile.
