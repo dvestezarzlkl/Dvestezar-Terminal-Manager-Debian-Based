@@ -10,6 +10,7 @@ from libs.app.hub.models import (
     HubProviderSyncResult,
     HubState,
     HubStatus,
+    HubSyncReport,
 )
 from libs.app.hub.runtime import HubRuntime
 from libs.app.hub.settings import HubSettings
@@ -140,6 +141,67 @@ class HubRuntimeTests(unittest.TestCase):
             if call.args and call.args[0] == "SysApps Hub provider %s collection: start"
         ]
         self.assertEqual(provider_calls[0].args[1], "disks")
+
+    def test_sync_all_reports_dynamic_progress(self):
+        runtime = HubRuntime()
+        runtime.register_provider(
+            "node_red",
+            lambda context: HubProviderSnapshot("node_red", "node_red_instances", ()),
+        )
+        runtime.register_provider(
+            "disks",
+            lambda context: HubProviderSnapshot("disks", "disks", ()),
+        )
+        progress = []
+
+        with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
+            "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value="host.example"
+        ):
+            report = runtime.sync_all(lambda step, total, label: progress.append((step, total, label)))
+
+        self.assertTrue(report.core_synced)
+        self.assertEqual(
+            progress,
+            [
+                (1, 4, "core inventory"),
+                (2, 4, "disks"),
+                (3, 4, "node red"),
+                (4, 4, "finalization"),
+            ],
+        )
+
+    def test_startup_prints_progress_callback(self):
+        runtime = HubRuntime()
+        settings = HubSettings(
+            enabled=True,
+            host="db.example",
+            port=3306,
+            user="sysapps",
+            password="secret",
+            database="sys_apps",
+            prefix="sysapps_",
+            connect_timeout=3,
+            auto_sync=True,
+        )
+        ready = HubStatus(HubState.READY, "ready", datetime.now().astimezone())
+
+        def fake_sync(progress=None):
+            progress(1, 2, "core inventory")
+            progress(2, 2, "finalization")
+            return HubSyncReport(core_synced=True)
+
+        with patch.object(runtime, "refresh_status", return_value=ready), patch(
+            "libs.app.hub.runtime.HubSettings.from_cfg", return_value=settings
+        ), patch.object(runtime, "sync_all", side_effect=fake_sync), patch(
+            "builtins.print"
+        ) as print_mock:
+            runtime.startup()
+
+        printed = [call.args[0] for call in print_mock.call_args_list]
+        self.assertIn("SysApps Hub: synchronization 1/2 - core inventory...", printed)
+        self.assertIn("SysApps Hub: synchronization 2/2 - finalization...", printed)
 
     def test_remote_updates_are_applied_after_database_commit(self):
         runtime = HubRuntime()

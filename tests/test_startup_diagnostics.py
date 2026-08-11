@@ -16,13 +16,13 @@ class StartupDiagnosticsContractTests(unittest.TestCase):
             "Startup bootstrap terminal import: done",
             "Startup bootstrap menuBoss import: done",
             "Startup bootstrap runtime preflight: done",
-            "Startup splash delay: start",
-            "Startup splash delay: done",
             "Startup bootstrap: ready for menu initialization",
             "Startup menuBoss init/run call: start",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, source)
+        self.assertNotIn("sleep(2)", source)
+        self.assertNotIn("Startup splash delay", source)
 
     def test_menu_boss_logs_startup_phases(self) -> None:
         source = (ROOT / "libs/app/menus/menuBoss.py").read_text(encoding="utf-8")
