@@ -81,18 +81,18 @@ try:
     log.info("Startup bootstrap: ready for menu initialization in %.3fs", perf_counter() - _bootstrap_started)
 
     _menu_init_started = perf_counter()
-    log.info("Startup menu initialization: start")
+    log.info("Startup menuBoss init/run call: start")
     try:
         ok = menuBoss.init()
     except Exception:
         log.exception(
-            "Startup menu initialization: failed after %.3fs",
+            "Startup menuBoss init/run call: failed after %.3fs",
             perf_counter() - _menu_init_started,
         )
         raise
     else:
         log.info(
-            "Startup menu initialization: done in %.3fs (result=%s)",
+            "Application menuBoss init/run call: returned after %.3fs (result=%s)",
             perf_counter() - _menu_init_started,
             ok,
         )
