@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "Finalize SFTP Manager 1.2.12 on JBLibs 1.2.25",
+  "replacements": [
+    {
+      "path": "changelog.md",
+      "old": "- FIX SFTP Manager 1.2.12 + JBLibs 1.2.24 fyzicky obnovují RO/RW změnu aktivního Samba-backed mountpointu cíleným uzavřením pouze dotčeného managed share po reloadu konfigurace; při selhání je fallback plný restart `smbd`.",
+      "new": "- FIX SFTP Manager 1.2.12 + JBLibs 1.2.25 fyzicky obnovují RO/RW změnu aktivního Samba-backed mountpointu cíleným uzavřením pouze dotčeného managed share po reloadu konfigurace; při selhání je fallback plný restart `smbd`. JBLibs 1.2.25 navíc ověřuje zbylé bind/CIFS mounty přes `/proc/self/mountinfo` před destruktivním cleanupem jailu.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "- FIX JBLibs 1.2.24 po změně Samba konfigurace reloaduje `smbd` a cíleně ukončí pouze spojení dotčených spravovaných `sftp_mount_*` share; nové CIFS připojení tak převezme změnu RO/RW okamžitě v tomtéž Apply. Pokud cílený `smbcontrol close-share` selže nebo není dostupný, použije se bezpečný fallback na restart `smbd`.",
+      "new": "- FIX JBLibs 1.2.25 po změně Samba konfigurace reloaduje `smbd` a cíleně ukončí pouze spojení dotčených spravovaných `sftp_mount_*` share; nové CIFS připojení tak převezme změnu RO/RW okamžitě v tomtéž Apply. Pokud cílený `smbcontrol close-share` selže nebo není dostupný, použije se bezpečný fallback na restart `smbd`.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "- FIX `Odinstalovat všechny uživatele` po explicitním potvrzení umí odstranit neprázdný jail rekurzivně, ale nejprve ověří, že jail ani žádný jeho podadresář už není mountpoint.",
+      "new": "- FIX `Odinstalovat všechny uživatele` po explicitním potvrzení umí odstranit neprázdný jail rekurzivně, ale nejprve přes `/proc/self/mountinfo` ověří, že jail ani žádný jeho podadresář už není CIFS/bind/jiný mountpoint; při nemožnosti mount stav ověřit se cleanup bezpečně zastaví.",
+      "expected": 1
+    }
+  ]
+}
