@@ -1,17 +1,46 @@
 #!/usr/bin/env python3.10
-import libs.app.cfg as cfg
-cfg.load()
-
-from libs.JBLibs.helper import setLng,check_root_user
-from time import sleep
-setLng(cfg.LANGUAGE)
-from libs.JBLibs.term import reset,cls
 from datetime import datetime
-from libs.JBLibs.helper import getLogger
-log = getLogger(__name__)
-import libs.app.menus.menuBoss as menuBoss
-
 import sys
+from time import perf_counter, sleep
+
+_bootstrap_started = perf_counter()
+
+_cfg_import_started = perf_counter()
+import libs.app.cfg as cfg
+_cfg_import_elapsed = perf_counter() - _cfg_import_started
+
+_cfg_load_started = perf_counter()
+cfg.load()
+_cfg_load_elapsed = perf_counter() - _cfg_load_started
+
+_helper_import_started = perf_counter()
+from libs.JBLibs.helper import setLng, check_root_user, getLogger
+_helper_import_elapsed = perf_counter() - _helper_import_started
+
+_logger_started = perf_counter()
+log = getLogger(__name__)
+_logger_elapsed = perf_counter() - _logger_started
+
+log.info("")
+log.info("")
+log.info("***** Start version: %s at %s *****", cfg.VERSION, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+log.info("Startup bootstrap cfg module import: done in %.3fs", _cfg_import_elapsed)
+log.info("Startup bootstrap cfg load: done in %.3fs", _cfg_load_elapsed)
+log.info("Startup bootstrap helper import: done in %.3fs", _helper_import_elapsed)
+log.info("Startup bootstrap logger initialization: done in %.3fs", _logger_elapsed)
+
+_language_started = perf_counter()
+setLng(cfg.LANGUAGE)
+log.info("Startup bootstrap language setup: done in %.3fs", perf_counter() - _language_started)
+
+_term_import_started = perf_counter()
+from libs.JBLibs.term import reset, cls
+log.info("Startup bootstrap terminal import: done in %.3fs", perf_counter() - _term_import_started)
+
+_menu_import_started = perf_counter()
+import libs.app.menus.menuBoss as menuBoss
+log.info("Startup bootstrap menuBoss import: done in %.3fs", perf_counter() - _menu_import_started)
+
 
 def is_venv():
     return (
@@ -19,6 +48,8 @@ def is_venv():
         (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
     )
 
+
+_preflight_started = perf_counter()
 if not is_venv():
     print("Nejsi ve virtuálním prostředí")
     sys.exit(1)
@@ -35,22 +66,39 @@ try:
 except BlockingIOError:
     print("App running in another instance - exiting")
     sys.exit(1)
+log.info("Startup bootstrap runtime preflight: done in %.3fs", perf_counter() - _preflight_started)
 
-# začínáme
-log.info("")
-log.info("")
-log.info("***** Start version: %s at %s *****",cfg.VERSION,datetime.now().strftime("%Y-%m-%d %H:%M:%S")) 
-ok=False
+ok = False
 try:
     reset()
     cls()
-    print(cfg.MAIN_TITLE+" ... Starting ...")    
+    print(cfg.MAIN_TITLE + " ... Starting ...")
+
+    _splash_started = perf_counter()
+    log.info("Startup splash delay: start (2.000s)")
     sleep(2)
-    ok=menuBoss.init()
+    log.info("Startup splash delay: done in %.3fs", perf_counter() - _splash_started)
+    log.info("Startup bootstrap: ready for menu initialization in %.3fs", perf_counter() - _bootstrap_started)
+
+    _menu_init_started = perf_counter()
+    log.info("Startup menu initialization: start")
+    try:
+        ok = menuBoss.init()
+    except Exception:
+        log.exception(
+            "Startup menu initialization: failed after %.3fs",
+            perf_counter() - _menu_init_started,
+        )
+        raise
+    else:
+        log.info(
+            "Startup menu initialization: done in %.3fs (result=%s)",
+            perf_counter() - _menu_init_started,
+            ok,
+        )
 finally:
     reset()
     log.info("***** End *****\n\n")
     if ok:
         cls()
     print("End")
-    
