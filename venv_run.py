@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.10
 from datetime import datetime
 import sys
-from time import perf_counter, sleep
+from time import perf_counter
 
 _bootstrap_started = perf_counter()
 
@@ -73,11 +73,6 @@ try:
     reset()
     cls()
     print(cfg.MAIN_TITLE + " ... Starting ...")
-
-    _splash_started = perf_counter()
-    log.info("Startup splash delay: start (2.000s)")
-    sleep(2)
-    log.info("Startup splash delay: done in %.3fs", perf_counter() - _splash_started)
     log.info("Startup bootstrap: ready for menu initialization in %.3fs", perf_counter() - _bootstrap_started)
 
     _menu_init_started = perf_counter()
