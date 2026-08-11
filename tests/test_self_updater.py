@@ -139,6 +139,79 @@ class SelfUpdaterTests(unittest.TestCase):
             self.updater.plugins.plugin_path({"adr_name": "../app_50_private"})
         )
 
+    def test_update_availability_uses_only_ls_remote_for_current_main(self) -> None:
+        (self.root / ".git").mkdir()
+        local_head = "a" * 40
+        commands = []
+
+        def capture(cmd, **kwargs):
+            commands.append(list(cmd))
+            return 0, f"{local_head}\trefs/heads/main"
+
+        with patch.object(self.updater, "_head", return_value=local_head), patch.object(
+            self.updater, "_capture", side_effect=capture
+        ):
+            result = self.updater.check_availability(cache_ttl=0)
+
+        self.assertEqual(result.state, "current")
+        self.assertEqual(result.status_text, "up to date")
+        self.assertEqual(
+            commands[0][-4:],
+            ["ls-remote", "--heads", "origin", "refs/heads/main"],
+        )
+        command_text = " ".join(commands[0])
+        self.assertNotIn(" pull ", f" {command_text} ")
+        self.assertNotIn(" fetch ", f" {command_text} ")
+        self.assertNotIn(" submodule ", f" {command_text} ")
+
+    def test_update_availability_reports_remote_difference(self) -> None:
+        (self.root / ".git").mkdir()
+        local_head = "a" * 40
+        remote_head = "b" * 40
+        with patch.object(self.updater, "_head", return_value=local_head), patch.object(
+            self.updater,
+            "_capture",
+            return_value=(0, f"{remote_head}\trefs/heads/main"),
+        ):
+            result = self.updater.check_availability(cache_ttl=0)
+
+        self.assertEqual(result.state, "available")
+        self.assertEqual(result.status_text, "update available")
+        self.assertEqual(result.remote_head, remote_head)
+
+    def test_update_availability_failure_is_nonfatal_unknown(self) -> None:
+        (self.root / ".git").mkdir()
+        with patch.object(self.updater, "_head", return_value="a" * 40), patch.object(
+            self.updater, "_capture", return_value=(124, "Command timed out.")
+        ):
+            result = self.updater.check_availability(cache_ttl=0)
+
+        self.assertEqual(result.state, "unknown")
+        self.assertEqual(result.status_text, "check unavailable")
+        self.assertIn("timed out", result.detail.lower())
+
+    def test_update_availability_cache_avoids_repeated_remote_check(self) -> None:
+        (self.root / ".git").mkdir()
+        local_head = "a" * 40
+        remote_head = "b" * 40
+        with patch.object(self.updater, "_head", return_value=local_head), patch.object(
+            self.updater,
+            "_capture",
+            return_value=(0, f"{remote_head}\trefs/heads/main"),
+        ):
+            first = self.updater.check_availability(cache_ttl=300)
+
+        with patch.object(self.updater, "_head", return_value=local_head), patch.object(
+            self.updater,
+            "_capture",
+            side_effect=AssertionError("remote check must be served from cache"),
+        ):
+            second = self.updater.check_availability(cache_ttl=300)
+
+        self.assertEqual(first.state, "available")
+        self.assertEqual(second.state, "available")
+        self.assertTrue(second.cached)
+
 
 if __name__ == "__main__":
     unittest.main()

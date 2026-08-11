@@ -7,6 +7,7 @@ from libs.JBLibs.input import anyKey,confirm,get_input,get_pwd,select,select_ite
 from libs.JBLibs.helper import getInterfaces,getMainScriptDir
 from libs.app.plugin_manager import PluginRegistry
 from libs.app.plugin_settings import PluginSettingsMenu
+from libs.app.self_updater import UpdateAvailability, check_update_availability
 from libs.app.hub.menu import HubSettingsMenu
 from libs.app.hub.models import HubState
 from libs.app.hub.runtime import hub_runtime
@@ -18,6 +19,7 @@ from libs.JBLibs import __version__ as libsVersion
 from libs.JBLibs.term import cls, text_color,en_color
 
 _items_:List[c_menu_item]=[]
+_update_availability = UpdateAvailability()
 
 def _global_host_title() -> c_menu_block_items:
     """Return the current machine identity shown in every SysApps submenu."""
@@ -79,7 +81,12 @@ class menuBoss(menu):
         other_items = [
             None,
             c_menu_item('System info','i',self.showSystemInfo),
-            c_menu_item('Update me','u',self.updateMe),
+            c_menu_item(
+                'Update me',
+                'u',
+                self.updateMe,
+                atRight=_update_availability.status_text,
+            ),
         ]
         if cfg.HUB_ENABLED:
             other_items.append(
@@ -163,6 +170,7 @@ class menuBoss(menu):
 
     def updateMe(self,selItem:c_menu_item) -> onSelReturn:
         """Update core, mandatory libraries, enabled plugins and runtime."""
+        global _update_availability
         from libs.app.self_updater import update_application
 
         cls()
@@ -173,6 +181,7 @@ class menuBoss(menu):
         if report.changed:
             raise SystemExit(0)
         if report.success:
+            _update_availability = UpdateAvailability(state="current")
             return onSelReturn(ok="Application is already up to date.")
         return onSelReturn().errRet(report.error or "Update failed.")
 
@@ -469,7 +478,7 @@ def init() -> bool:
     """
     Initialize menu
     """
-    global _items_
+    global _items_, _update_availability
     _items_.clear()
     hub_runtime.clear_providers()
     _configure_global_menu_context()
@@ -553,6 +562,7 @@ def init() -> bool:
             traceback.print_exc()                        
     
     if choice_counter:
+        _update_availability = check_update_availability(getMainScriptDir())
         startup_settings_update()
         hub_runtime.startup()
         x=menuBoss().run()
