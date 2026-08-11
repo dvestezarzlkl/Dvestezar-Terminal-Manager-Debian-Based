@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import re
+from time import perf_counter
 from typing import Optional
 
 from libs.JBLibs.helper import getLogger
@@ -124,17 +125,33 @@ class HubRuntime:
         key: str,
         registration: HubProviderRegistration,
     ) -> int:
+        provider_started = perf_counter()
+        collect_started = perf_counter()
+        log.info("SysApps Hub provider %s collection: start", key)
         snapshot = registration.collector(
             HubContext(
                 generated_at=datetime.now().astimezone(),
                 machine_id=machine_id,
             )
         )
+        log.info(
+            "SysApps Hub provider %s collection: done in %.3fs (%d item(s))",
+            key,
+            perf_counter() - collect_started,
+            len(snapshot.items),
+        )
         if snapshot.source_key != key:
             raise ValueError(
                 f"Provider {key} returned source key {snapshot.source_key}."
             )
+        sync_started = perf_counter()
+        log.info("SysApps Hub provider %s database sync: start", key)
         result = database.sync_provider(machine_id, snapshot)
+        log.info(
+            "SysApps Hub provider %s database sync: done in %.3fs",
+            key,
+            perf_counter() - sync_started,
+        )
         if isinstance(result, int):
             result = HubProviderSyncResult(result)
         if not isinstance(result, HubProviderSyncResult):
@@ -144,20 +161,62 @@ class HubRuntime:
                 raise RuntimeError(
                     f"Provider {key} received remote updates but has no local applier."
                 )
+            apply_started = perf_counter()
+            log.info("SysApps Hub provider %s remote apply: start", key)
             registration.applier(result.remote_updates)
+            log.info(
+                "SysApps Hub provider %s remote apply: done in %.3fs",
+                key,
+                perf_counter() - apply_started,
+            )
+        log.info(
+            "SysApps Hub provider %s: done in %.3fs (%d item(s))",
+            key,
+            perf_counter() - provider_started,
+            result.item_count,
+        )
         return result.item_count
 
     def sync_all(self) -> HubSyncReport:
         report = HubSyncReport()
         settings = HubSettings.from_cfg()
+        started = perf_counter()
+        log.info(
+            "SysApps Hub synchronization: start (%d provider(s))",
+            len(self._providers),
+        )
         try:
+            phase_started = perf_counter()
+            log.info("SysApps Hub database readiness check: start")
             _, database = self._ready_database()
+            log.info(
+                "SysApps Hub database readiness check: done in %.3fs",
+                perf_counter() - phase_started,
+            )
+
+            phase_started = perf_counter()
+            log.info("SysApps Hub core inventory collection: start")
             host = collect_host_snapshot()
+            log.info(
+                "SysApps Hub core inventory collection: done in %.3fs",
+                perf_counter() - phase_started,
+            )
+
+            phase_started = perf_counter()
+            log.info("SysApps Hub core database sync: start")
             database.sync_core(host)
+            log.info(
+                "SysApps Hub core database sync: done in %.3fs",
+                perf_counter() - phase_started,
+            )
             report.core_synced = True
         except Exception as exc:
             report.error = settings.redact_error(exc)
-            log.error("SysApps Hub core synchronization failed: %s", report.error)
+            log.error(
+                "SysApps Hub core synchronization failed after %.3fs: %s",
+                perf_counter() - started,
+                report.error,
+            )
             return report
 
         for key, registration in sorted(self._providers.items()):
@@ -175,7 +234,19 @@ class HubRuntime:
                 database.record_source_error(host.machine_id, key, str(exc))
 
         self.last_sync_at = datetime.now().astimezone()
+        phase_started = perf_counter()
+        log.info("SysApps Hub final status refresh: start")
         self.refresh_status()
+        log.info(
+            "SysApps Hub final status refresh: done in %.3fs",
+            perf_counter() - phase_started,
+        )
+        log.info(
+            "SysApps Hub synchronization: done in %.3fs (providers=%d, warnings=%d)",
+            perf_counter() - started,
+            len(report.provider_counts),
+            len(report.warnings),
+        )
         return report
 
     def sync_provider(self, key: str) -> tuple[bool, str]:
