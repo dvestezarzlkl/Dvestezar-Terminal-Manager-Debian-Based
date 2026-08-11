@@ -46,7 +46,7 @@ jobs:
           from pathlib import Path
 
           package_init = Path("libs/JBLibs/__init__.py").read_text(encoding="utf-8")
-          assert '__version__ = "1.2.24"' in package_init
+          assert '__version__ = "1.2.25"' in package_init
           PY
 
       - name: Check shell syntax
