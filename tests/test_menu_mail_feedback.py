@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.13")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.14")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -297,6 +297,39 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertIn("synthetic reconcile failure", error)
         save_mock.assert_not_called()
         restart_mock.assert_not_called()
+
+    def test_sftp_helper_reports_nonempty_managed_target_with_recovery(self):
+        cfg = {
+            "users": [{
+                "sftpuser": "alice",
+                "sambaVault": True,
+                "sftpmounts": {"docs": "/srv/docs"},
+            }]
+        }
+        target = "/home_sftp_users/alice/__sftp__/docs"
+        concrete_error = sftp_hlp.ManagedCIFSTargetNotEmptyError(target)
+
+        with patch.object(
+            sftp_hlp, "check_config_valid", return_value=(True, None)
+        ), patch.object(
+            sftp_hlp, "config_requires_cifs", return_value=False
+        ), patch.object(
+            sftp_hlp.smbHelp, "beginBatch"
+        ), patch.object(
+            sftp_hlp.smbHelp, "endBatch", return_value=False
+        ), patch.object(
+            sftp_hlp.smbHelp, "lastError", concrete_error
+        ), patch.object(
+            sftp_hlp, "createUserFromJson", return_value=[SimpleNamespace()]
+        ):
+            ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)
+
+        self.assertFalse(ok)
+        self.assertEqual(
+            error,
+            sftp_hlp.TXT_SFTP_HLP_SAMBA_TARGET_NOT_EMPTY.format(path=target),
+        )
+        self.assertIn(target, error)
 
     def test_sftp_helper_persists_only_after_successful_apply(self):
         cfg = {

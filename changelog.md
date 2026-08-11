@@ -2,6 +2,7 @@
 
 ## v2.2.2
 
+- UX SFTP Manager 1.2.14 + JBLibs 1.2.28 propagují konkrétní Samba/CIFS batch chybu do menu; neprázdný underlying managed target se zobrazí s přesnou cestou a doporučením bezpečného `u` -> `a` rebuildu místo obecného selhání Apply.
 - SAFE SFTP Manager 1.2.13 + JBLibs 1.2.27 před destruktivním odstraněním SFTP uživatele po odpojení mountpointů archivují celý lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/...`; prázdné odpojené target adresáře se před backupem odstraní a zachovají se pouze neprázdné targety s underlying daty. Hlavní menu zobrazuje počet a celkovou velikost záloh bez další správy/restore UI.
 - FIX SFTP Manager 1.2.12 + JBLibs 1.2.25 fyzicky obnovují RO/RW změnu aktivního Samba-backed mountpointu cíleným uzavřením pouze dotčeného managed share po reloadu konfigurace; při selhání je fallback plný restart `smbd`. JBLibs 1.2.25 navíc ověřuje zbylé bind/CIFS mounty přes `/proc/self/mountinfo` před destruktivním cleanupem jailu.
 - SAFE SFTP Manager 1.2.12 odmítne remount přes neprázdný underlying CIFS target a opravuje potvrzený uninstall-all cleanup neprázdného jailu po kontrole zbylých mountů.

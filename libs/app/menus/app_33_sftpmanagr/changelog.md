@@ -1,5 +1,11 @@
 # SFTP Manager Changelog
 
+## 1.2.14
+
+- UX při selhání Samba/CIFS batch transakce zobrazuje konkrétní důvod z JBLibs místo obecné chyby.
+- SAFE neprázdný underlying managed mountpoint má vlastní hlášku s přesnou cestou a doporučením bezpečného rebuild workflow `u` -> `a`; Apply dál odmítá data znovu skrýt pod mount.
+- UPD vyžaduje JBLibs 1.2.28 s typed `ManagedCIFSTargetNotEmptyError` a zachováním poslední konkrétní batch chyby.
+
 ## 1.2.13
 
 - SAFE před destruktivním odstraněním SFTP uživatele se po fyzickém odpojení všech mountpointů automaticky zazálohuje celý jeho lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/YYYY-MM-DD_HHMMSS_<user>_backup.7z`; připojená zdrojová data se do archivu nedostanou.
