@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Document startup render flush integration",
+  "replacements": [
+    {
+      "path": "changelog.md",
+      "old": "- DIAG Startup diagnostics log timed INFO milestones for SysApps Hub DB/core/provider synchronization and centralized settings download/decode/policy/apply phases so rare startup stalls can be localized without exposing credentials or package contents.",
+      "new": "- DIAG Startup diagnostics log timed INFO milestones for SysApps Hub DB/core/provider synchronization and centralized settings download/decode/policy/apply phases; mandatory JBLibs 1.2.29 additionally flushes each rendered `c_menu` ANSI frame before blocking for keyboard input, so rare startup stalls can be separated from stale terminal redraws without exposing credentials or package contents.",
+      "expected": 1
+    }
+  ]
+}
