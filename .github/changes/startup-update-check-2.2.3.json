@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "commit_message": "Add lightweight startup update availability check",
+  "replacements": [
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "from contextlib import contextmanager\nfrom dataclasses import dataclass, field\nimport os\nfrom pathlib import Path\nimport shlex\nimport subprocess\nimport tempfile\nfrom typing import Iterator, Sequence\n",
+      "new": "from contextlib import contextmanager\nfrom dataclasses import dataclass, field\nimport json\nimport os\nfrom pathlib import Path\nimport shlex\nimport subprocess\nimport tempfile\nimport time\nfrom typing import Iterator, Sequence\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "MANDATORY_SUBMODULES: dict[str, str] = {\n    \"libs/JBLibs\": \"JBLibs-python\",\n}\n\n\n@dataclass\nclass UpdateReport:\n",
+      "new": "MANDATORY_SUBMODULES: dict[str, str] = {\n    \"libs/JBLibs\": \"JBLibs-python\",\n}\nUPDATE_CHECK_BRANCH = \"main\"\nUPDATE_CHECK_TIMEOUT_SECONDS = 3\nUPDATE_CHECK_CACHE_TTL_SECONDS = 300\n_UPDATE_CHECK_STATES = {\"current\", \"available\", \"unknown\"}\n\n\n@dataclass(frozen=True)\nclass UpdateAvailability:\n    \"\"\"Best-effort comparison of the installed core revision with remote main.\"\"\"\n\n    state: str = \"unknown\"\n    local_head: str = \"\"\n    remote_head: str = \"\"\n    detail: str = \"\"\n    cached: bool = False\n\n    @property\n    def status_text(self) -> str:\n        return {\n            \"current\": \"up to date\",\n            \"available\": \"update available\",\n            \"unknown\": \"check unavailable\",\n        }.get(self.state, \"check unavailable\")\n\n\n@dataclass\nclass UpdateReport:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "    def _capture(\n        self,\n        cmd: Sequence[str],\n        *,\n        cwd: Path | None = None,\n        env: dict[str, str] | None = None,\n    ) -> tuple[int, str]:\n        try:\n            proc = subprocess.run(\n                list(cmd),\n                cwd=str(cwd or self.root),\n                env=env or self._base_env,\n                stdout=subprocess.PIPE,\n                stderr=subprocess.STDOUT,\n                text=True,\n                check=False,\n            )\n        except OSError as exc:\n            return 127, str(exc)\n        return proc.returncode, proc.stdout.strip()\n",
+      "new": "    def _capture(\n        self,\n        cmd: Sequence[str],\n        *,\n        cwd: Path | None = None,\n        env: dict[str, str] | None = None,\n        timeout: float | None = None,\n    ) -> tuple[int, str]:\n        try:\n            proc = subprocess.run(\n                list(cmd),\n                cwd=str(cwd or self.root),\n                env=env or self._base_env,\n                stdout=subprocess.PIPE,\n                stderr=subprocess.STDOUT,\n                text=True,\n                check=False,\n                timeout=timeout,\n            )\n        except subprocess.TimeoutExpired:\n            return 124, \"Command timed out.\"\n        except OSError as exc:\n            return 127, str(exc)\n        return proc.returncode, proc.stdout.strip()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "    def _head(self, path: Path | None = None) -> str | None:\n        cwd = path or self.root\n        code, output = self._capture([\"git\", \"rev-parse\", \"HEAD\"], cwd=cwd)\n        return output if code == 0 and output else None\n\n    def _configured_submodule_paths(self) -> set[str]:\n",
+      "new": "    def _head(self, path: Path | None = None) -> str | None:\n        cwd = path or self.root\n        code, output = self._capture([\"git\", \"rev-parse\", \"HEAD\"], cwd=cwd)\n        return output if code == 0 and output else None\n\n    def _update_check_cache_path(self) -> Path | None:\n        git_dir = self.root / \".git\"\n        if not git_dir.is_dir():\n            return None\n        return git_dir / \"sys_apps_update_check.json\"\n\n    def _load_update_check_cache(\n        self,\n        local_head: str,\n        cache_ttl: int,\n    ) -> UpdateAvailability | None:\n        if cache_ttl <= 0:\n            return None\n        cache_path = self._update_check_cache_path()\n        if cache_path is None:\n            return None\n        try:\n            age = time.time() - cache_path.stat().st_mtime\n            if age < 0 or age > cache_ttl:\n                return None\n            data = json.loads(cache_path.read_text(encoding=\"utf-8\"))\n        except (OSError, TypeError, ValueError):\n            return None\n        state = str(data.get(\"state\", \"\"))\n        if state not in _UPDATE_CHECK_STATES:\n            return None\n        if str(data.get(\"local_head\", \"\")) != local_head:\n            return None\n        return UpdateAvailability(\n            state=state,\n            local_head=local_head,\n            remote_head=str(data.get(\"remote_head\", \"\")),\n            detail=str(data.get(\"detail\", \"\")),\n            cached=True,\n        )\n\n    def _save_update_check_cache(self, result: UpdateAvailability) -> None:\n        cache_path = self._update_check_cache_path()\n        if cache_path is None:\n            return\n        payload = {\n            \"state\": result.state,\n            \"local_head\": result.local_head,\n            \"remote_head\": result.remote_head,\n            \"detail\": result.detail,\n        }\n        try:\n            cache_path.write_text(\n                json.dumps(payload, ensure_ascii=True, separators=(\",\", \":\")),\n                encoding=\"utf-8\",\n            )\n        except OSError:\n            pass\n\n    def check_availability(\n        self,\n        *,\n        timeout: int = UPDATE_CHECK_TIMEOUT_SECONDS,\n        cache_ttl: int = UPDATE_CHECK_CACHE_TTL_SECONDS,\n    ) -> UpdateAvailability:\n        \"\"\"Compare local HEAD with remote main without fetching or modifying the checkout.\"\"\"\n        if not (self.root / \".git\").exists():\n            return UpdateAvailability(detail=\"Not a Git working tree.\")\n\n        local_head = self._head()\n        if not local_head:\n            return UpdateAvailability(detail=\"Cannot resolve local HEAD.\")\n\n        cached = self._load_update_check_cache(local_head, cache_ttl)\n        if cached is not None:\n            return cached\n\n        try:\n            with self._git_prefix((CORE_TOKEN_ID,)) as git_cmd:\n                code, output = self._capture(\n                    git_cmd + [\n                        \"ls-remote\",\n                        \"--heads\",\n                        \"origin\",\n                        f\"refs/heads/{UPDATE_CHECK_BRANCH}\",\n                    ],\n                    timeout=timeout,\n                )\n        except ValueError:\n            result = UpdateAvailability(\n                local_head=local_head,\n                detail=\"Core Git credential configuration is invalid.\",\n            )\n            self._save_update_check_cache(result)\n            return result\n\n        if code != 0:\n            detail = \"Remote update check timed out.\" if code == 124 else \"Remote update check failed.\"\n            result = UpdateAvailability(local_head=local_head, detail=detail)\n            self._save_update_check_cache(result)\n            return result\n\n        expected_ref = f\"refs/heads/{UPDATE_CHECK_BRANCH}\"\n        remote_head = \"\"\n        for line in output.splitlines():\n            parts = line.split()\n            if len(parts) >= 2 and parts[1] == expected_ref:\n                remote_head = parts[0].strip()\n                break\n        if not remote_head:\n            result = UpdateAvailability(\n                local_head=local_head,\n                detail=\"Remote main revision was not returned.\",\n            )\n            self._save_update_check_cache(result)\n            return result\n\n        result = UpdateAvailability(\n            state=\"current\" if remote_head == local_head else \"available\",\n            local_head=local_head,\n            remote_head=remote_head,\n        )\n        self._save_update_check_cache(result)\n        return result\n\n    def _configured_submodule_paths(self) -> set[str]:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/self_updater.py",
+      "old": "def update_application(root: str | Path) -> UpdateReport:\n    \"\"\"Run the complete sys_apps update and return its structured result.\"\"\"\n\n    return ApplicationUpdater(root).run()\n",
+      "new": "def check_update_availability(\n    root: str | Path,\n    *,\n    timeout: int = UPDATE_CHECK_TIMEOUT_SECONDS,\n    cache_ttl: int = UPDATE_CHECK_CACHE_TTL_SECONDS,\n) -> UpdateAvailability:\n    \"\"\"Return the cached/best-effort remote-main availability state.\"\"\"\n\n    return ApplicationUpdater(root).check_availability(\n        timeout=timeout,\n        cache_ttl=cache_ttl,\n    )\n\n\ndef update_application(root: str | Path) -> UpdateReport:\n    \"\"\"Run the complete sys_apps update and return its structured result.\"\"\"\n\n    return ApplicationUpdater(root).run()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "from libs.app.plugin_manager import PluginRegistry\nfrom libs.app.plugin_settings import PluginSettingsMenu\n",
+      "new": "from libs.app.plugin_manager import PluginRegistry\nfrom libs.app.plugin_settings import PluginSettingsMenu\nfrom libs.app.self_updater import UpdateAvailability, check_update_availability\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "_items_:List[c_menu_item]=[]\n\ndef _global_host_title() -> c_menu_block_items:\n",
+      "new": "_items_:List[c_menu_item]=[]\n_update_availability = UpdateAvailability()\n\ndef _global_host_title() -> c_menu_block_items:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "            c_menu_item('System info','i',self.showSystemInfo),\n            c_menu_item('Update me','u',self.updateMe),\n",
+      "new": "            c_menu_item('System info','i',self.showSystemInfo),\n            c_menu_item(\n                'Update me',\n                'u',\n                self.updateMe,\n                atRight=_update_availability.status_text,\n            ),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    def updateMe(self,selItem:c_menu_item) -> onSelReturn:\n        \"\"\"Update core, mandatory libraries, enabled plugins and runtime.\"\"\"\n        from libs.app.self_updater import update_application\n\n        cls()\n",
+      "new": "    def updateMe(self,selItem:c_menu_item) -> onSelReturn:\n        \"\"\"Update core, mandatory libraries, enabled plugins and runtime.\"\"\"\n        global _update_availability\n        from libs.app.self_updater import update_application\n\n        cls()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        if report.changed:\n            raise SystemExit(0)\n        if report.success:\n            return onSelReturn(ok=\"Application is already up to date.\")\n",
+      "new": "        if report.changed:\n            raise SystemExit(0)\n        if report.success:\n            _update_availability = UpdateAvailability(state=\"current\")\n            return onSelReturn(ok=\"Application is already up to date.\")\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    global _items_\n    _items_.clear()\n",
+      "new": "    global _items_, _update_availability\n    _items_.clear()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    if choice_counter:\n        startup_settings_update()\n        hub_runtime.startup()\n",
+      "new": "    if choice_counter:\n        _update_availability = check_update_availability(getMainScriptDir())\n        startup_settings_update()\n        hub_runtime.startup()\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_self_updater.py",
+      "old": "from libs.app.self_updater import ApplicationUpdater, UpdateReport\n",
+      "new": "from libs.app.self_updater import ApplicationUpdater, UpdateReport\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_self_updater.py",
+      "old": "    def test_plugin_path_rejects_parent_directory(self) -> None:\n        self.assertIsNone(\n            self.updater.plugins.plugin_path({\"adr_name\": \"../app_50_private\"})\n        )\n\n\nif __name__ == \"__main__\":\n",
+      "new": "    def test_plugin_path_rejects_parent_directory(self) -> None:\n        self.assertIsNone(\n            self.updater.plugins.plugin_path({\"adr_name\": \"../app_50_private\"})\n        )\n\n    def test_update_availability_uses_only_ls_remote_for_current_main(self) -> None:\n        (self.root / \".git\").mkdir()\n        local_head = \"a\" * 40\n        commands = []\n\n        def capture(cmd, **kwargs):\n            commands.append(list(cmd))\n            return 0, f\"{local_head}\\trefs/heads/main\"\n\n        with patch.object(self.updater, \"_head\", return_value=local_head), patch.object(\n            self.updater, \"_capture\", side_effect=capture\n        ):\n            result = self.updater.check_availability(cache_ttl=0)\n\n        self.assertEqual(result.state, \"current\")\n        self.assertEqual(result.status_text, \"up to date\")\n        self.assertEqual(\n            commands[0][-4:],\n            [\"ls-remote\", \"--heads\", \"origin\", \"refs/heads/main\"],\n        )\n        command_text = \" \".join(commands[0])\n        self.assertNotIn(\" pull \", f\" {command_text} \")\n        self.assertNotIn(\" fetch \", f\" {command_text} \")\n        self.assertNotIn(\" submodule \", f\" {command_text} \")\n\n    def test_update_availability_reports_remote_difference(self) -> None:\n        (self.root / \".git\").mkdir()\n        local_head = \"a\" * 40\n        remote_head = \"b\" * 40\n        with patch.object(self.updater, \"_head\", return_value=local_head), patch.object(\n            self.updater,\n            \"_capture\",\n            return_value=(0, f\"{remote_head}\\trefs/heads/main\"),\n        ):\n            result = self.updater.check_availability(cache_ttl=0)\n\n        self.assertEqual(result.state, \"available\")\n        self.assertEqual(result.status_text, \"update available\")\n        self.assertEqual(result.remote_head, remote_head)\n\n    def test_update_availability_failure_is_nonfatal_unknown(self) -> None:\n        (self.root / \".git\").mkdir()\n        with patch.object(self.updater, \"_head\", return_value=\"a\" * 40), patch.object(\n            self.updater, \"_capture\", return_value=(124, \"Command timed out.\")\n        ):\n            result = self.updater.check_availability(cache_ttl=0)\n\n        self.assertEqual(result.state, \"unknown\")\n        self.assertEqual(result.status_text, \"check unavailable\")\n        self.assertIn(\"timed out\", result.detail.lower())\n\n    def test_update_availability_cache_avoids_repeated_remote_check(self) -> None:\n        (self.root / \".git\").mkdir()\n        local_head = \"a\" * 40\n        remote_head = \"b\" * 40\n        with patch.object(self.updater, \"_head\", return_value=local_head), patch.object(\n            self.updater,\n            \"_capture\",\n            return_value=(0, f\"{remote_head}\\trefs/heads/main\"),\n        ):\n            first = self.updater.check_availability(cache_ttl=300)\n\n        with patch.object(self.updater, \"_head\", return_value=local_head), patch.object(\n            self.updater,\n            \"_capture\",\n            side_effect=AssertionError(\"remote check must be served from cache\"),\n        ):\n            second = self.updater.check_availability(cache_ttl=300)\n\n        self.assertEqual(first.state, \"available\")\n        self.assertEqual(second.state, \"available\")\n        self.assertTrue(second.cached)\n\n\nif __name__ == \"__main__\":\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.2.2\"\n",
+      "new": "VERSION = \"2.2.3\"\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.2.2\n",
+      "new": "v2.2.3\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.2.2\n",
+      "new": "# Changelog\n\n## v2.2.3\n\n- UX hlavní menu při startu best-effort porovná lokální core HEAD s `origin/main` přes read-only `git ls-remote` a u `Update me` zobrazí `up to date`, `update available` nebo `check unavailable`; kontrola nespouští pull/fetch, submoduly, pluginy ani setup.\n- SAFE kontrola používá stávající Git credentials, `GIT_TERMINAL_PROMPT=0`, 3s timeout a 5min cache v lokálním `.git`; síťová chyba nebo vadné credentials pouze nastaví stav `check unavailable` a neblokují spuštění aplikace. Změna lokálního HEAD cache automaticky zneplatní.\n- UPD hlavní verze aplikace na 2.2.3.\n\n## v2.2.2\n",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Plugin systém má čtyři oddělené zdroje stavu: `.gitmodules` pro Git cestu/URL, `pluginy.jsonc` pro katalog a výchozí politiku, `/etc/jb_sys_apps/plugins.jsonc` pro lokální enable/disable a `assets/tokens/<id>.cd` pro přístup. Formát a postupy udržuj v `docs/plugin-system.md`; token nikdy nesmí implicitně přebít lokální `enabled: false`.\n",
+      "new": "- Plugin systém má čtyři oddělené zdroje stavu: `.gitmodules` pro Git cestu/URL, `pluginy.jsonc` pro katalog a výchozí politiku, `/etc/jb_sys_apps/plugins.jsonc` pro lokální enable/disable a `assets/tokens/<id>.cd` pro přístup. Formát a postupy udržuj v `docs/plugin-system.md`; token nikdy nesmí implicitně přebít lokální `enabled: false`.\n- Startup kontrola dostupné aktualizace je pouze best-effort core check: používá read-only `git ls-remote` proti cílové větvi `main`, stávající bezpečné credentials, krátký timeout a krátkou cache. Při startu nikdy nesmí spouštět fetch/pull, submodule update, plugin update ani `setup.sh`; síťová chyba pouze nastaví stav `check unavailable`.\n",
+      "expected": 1
+    }
+  ]
+}
