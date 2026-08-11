@@ -1,5 +1,12 @@
 # SFTP Manager Changelog
 
+## 1.2.13
+
+- SAFE před destruktivním odstraněním SFTP uživatele se po fyzickém odpojení všech mountpointů automaticky zazálohuje celý jeho lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/YYYY-MM-DD_HHMMSS_<user>_backup.7z`; připojená zdrojová data se do archivu nedostanou.
+- SAFE pokud pod home po odpojení zůstane živý mount nebo vytvoření archivu selže, odstranění uživatele se zastaví. Neočekávaný obsah pod historickým mountpointem tak zůstane zachovaný v backupu před rebuildem.
+- ADD hlavní SFTP menu zobrazuje pouze souhrn počtu a celkové velikosti existujících SFTP backupů; správu/restore archivů záměrně nepřidává.
+- UPD JBLibs 1.2.26 přidává obecný timestampovaný 7z directory-backup helper použitelný i pro další aplikace.
+
 ## 1.2.12
 
 - FIX JBLibs 1.2.25 po změně Samba konfigurace reloaduje `smbd` a cíleně ukončí pouze spojení dotčených spravovaných `sftp_mount_*` share; nové CIFS připojení tak převezme změnu RO/RW okamžitě v tomtéž Apply. Pokud cílený `smbcontrol close-share` selže nebo není dostupný, použije se bezpečný fallback na restart `smbd`.
