@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "commit_message": "Add central settings startup diagnostics",
+  "replacements": [
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "from libs.app import cfg\nfrom libs.app.hub.config_package import import_encrypted_settings as import_legacy_hub_settings",
+      "new": "from libs.app import cfg\nfrom libs.JBLibs.helper import getLogger\nfrom libs.app.hub.config_package import import_encrypted_settings as import_legacy_hub_settings",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": ")\n\n\nPACKAGE_PREFIX = \"SYSAPP1E:\"",
+      "new": ")\n\n\nlog = getLogger(__name__)\n\nPACKAGE_PREFIX = \"SYSAPP1E:\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    timeout = int(timeout)\n    if not 1 <= timeout <= 30:\n        raise ValueError(\"Central settings timeout must be between 1 and 30 seconds.\")\n    request = Request(",
+      "new": "    timeout = int(timeout)\n    if not 1 <= timeout <= 30:\n        raise ValueError(\"Central settings timeout must be between 1 and 30 seconds.\")\n    started = time.perf_counter()\n    scheme, host, port = _url_origin(url)\n    log.info(\n        \"Central settings download: start (%s://%s:%d, timeout=%ds, auth=%s)\",\n        scheme,\n        host,\n        port,\n        timeout,\n        \"yes\" if authorization else \"no\",\n    )\n    request = Request(",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if len(raw) > _MAX_DOWNLOAD_BYTES:\n        raise ValueError(\"Remote settings package is too large.\")\n    try:\n        package = raw.decode(\"utf-8\").strip()",
+      "new": "    log.info(\n        \"Central settings download: received %d byte(s) in %.3fs\",\n        len(raw),\n        time.perf_counter() - started,\n    )\n    if len(raw) > _MAX_DOWNLOAD_BYTES:\n        raise ValueError(\"Remote settings package is too large.\")\n    try:\n        package = raw.decode(\"utf-8\").strip()",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if not package:\n        raise ValueError(\"Remote settings package is empty.\")\n    return package",
+      "new": "    if not package:\n        raise ValueError(\"Remote settings package is empty.\")\n    log.info(\n        \"Central settings download: validated text package in %.3fs\",\n        time.perf_counter() - started,\n    )\n    return package",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    if not url:\n        raise ValueError(\"Central settings URL is not configured.\")\n    if not password:\n        raise ValueError(\"Central settings password is not configured.\")\n\n    package = download_settings_package(\n        url, timeout, allow_http, auth_user, auth_password\n    )\n    decoded = decode_encrypted_settings(package, password)",
+      "new": "    if not url:\n        raise ValueError(\"Central settings URL is not configured.\")\n    if not password:\n        raise ValueError(\"Central settings password is not configured.\")\n\n    started = time.perf_counter()\n    log.info(\"Central settings update: start (force=%s)\", force)\n    package = download_settings_package(\n        url, timeout, allow_http, auth_user, auth_password\n    )\n    decode_started = time.perf_counter()\n    log.info(\"Central settings decode: start\")\n    decoded = decode_encrypted_settings(package, password)\n    log.info(\n        \"Central settings decode: done in %.3fs (revision=%d, sections=%s)\",\n        time.perf_counter() - decode_started,\n        decoded.revision,\n        \",\".join(sorted(decoded.sections)),\n    )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    import_policy = load_settings_import_policy()\n    conflicts = detect_import_conflicts(decoded, import_policy)\n    skip_sections = tuple(sorted({item.section_key for item in conflicts}))",
+      "new": "    policy_started = time.perf_counter()\n    log.info(\"Central settings policy/conflict evaluation: start\")\n    import_policy = load_settings_import_policy()\n    conflicts = detect_import_conflicts(decoded, import_policy)\n    skip_sections = tuple(sorted({item.section_key for item in conflicts}))\n    log.info(\n        \"Central settings policy/conflict evaluation: done in %.3fs (conflicts=%d, skip_sections=%s)\",\n        time.perf_counter() - policy_started,\n        len(conflicts),\n        \",\".join(skip_sections) or \"none\",\n    )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    report = apply_decoded_settings(\n        decoded,\n        allow_downgrade=force,\n        force=force,\n        skip_sections=skip_sections,\n        extra_warnings=conflict_warnings,\n        import_policy=import_policy,\n    )",
+      "new": "    apply_started = time.perf_counter()\n    log.info(\"Central settings apply: start\")\n    report = apply_decoded_settings(\n        decoded,\n        allow_downgrade=force,\n        force=force,\n        skip_sections=skip_sections,\n        extra_warnings=conflict_warnings,\n        import_policy=import_policy,\n    )\n    log.info(\n        \"Central settings apply: done in %.3fs (changed=%s, applied=%s, skipped=%s)\",\n        time.perf_counter() - apply_started,\n        report.changed,\n        \",\".join(report.applied_sections) or \"none\",\n        \",\".join(report.skipped_sections) or \"none\",\n    )",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    return SettingsUpdateResult(\n        True,\n        decoded.revision,\n        message,\n        report.warnings,\n    )",
+      "new": "    result = SettingsUpdateResult(\n        True,\n        decoded.revision,\n        message,\n        report.warnings,\n    )\n    log.info(\n        \"Central settings update: done in %.3fs (changed=%s, revision=%d, warnings=%d)\",\n        time.perf_counter() - started,\n        result.changed,\n        result.revision,\n        len(result.warnings),\n    )\n    return result",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "    try:\n        result = update_from_central_url()\n    except Exception as exc:\n        message = str(exc)",
+      "new": "    startup_started = time.perf_counter()\n    log.info(\"Central settings startup update: start\")\n    try:\n        result = update_from_central_url()\n    except Exception as exc:\n        message = str(exc)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/settings_package.py",
+      "old": "        print(f\"Central settings update warning: {message}\")\n        return SettingsUpdateResult(False, 0, message)\n    if result.changed:",
+      "new": "        log.warning(\n            \"Central settings startup update: failed after %.3fs: %s\",\n            time.perf_counter() - startup_started,\n            message,\n        )\n        print(f\"Central settings update warning: {message}\")\n        return SettingsUpdateResult(False, 0, message)\n    log.info(\n        \"Central settings startup update: done in %.3fs (changed=%s, revision=%d, warnings=%d)\",\n        time.perf_counter() - startup_started,\n        result.changed,\n        result.revision,\n        len(result.warnings),\n    )\n    if result.changed:",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def test_automatic_import_skips_conflicting_smtp_then_retries_same_revision(self):",
+      "new": "    def test_central_update_logs_operational_phase_boundaries(self):\n        package = export_encrypted_settings(\"pw\", revision=77)\n        cfg.SETTINGS_URL = \"https://config.example/private/settings\"\n        cfg.SETTINGS_PASSWORD = \"pw\"\n\n        with patch(\n            \"libs.app.settings_package.download_settings_package\",\n            return_value=package,\n        ), patch(\"libs.app.settings_package.cfg.save\"), patch(\n            \"libs.app.settings_package.log.info\"\n        ) as info_log:\n            result = update_from_central_url()\n\n        self.assertTrue(result.changed)\n        messages = [call.args[0] for call in info_log.call_args_list]\n        self.assertIn(\"Central settings update: start (force=%s)\", messages)\n        self.assertIn(\"Central settings decode: start\", messages)\n        self.assertIn(\"Central settings policy/conflict evaluation: start\", messages)\n        self.assertIn(\"Central settings apply: start\", messages)\n        self.assertIn(\"Central settings update: done in %.3fs (changed=%s, revision=%d, warnings=%d)\", messages)\n\n    def test_automatic_import_skips_conflicting_smtp_then_retries_same_revision(self):",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "- DIAG SysApps Hub full synchronization logs timed INFO milestones for DB readiness, core inventory, every provider phase and final status refresh so startup stalls can be localized without exposing credentials.",
+      "new": "- DIAG Startup diagnostics log timed INFO milestones for SysApps Hub DB/core/provider synchronization and centralized settings download/decode/policy/apply phases so rare startup stalls can be localized without exposing credentials or package contents.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- Full Hub synchronization must log INFO-level start/done milestones with elapsed time around database readiness, core collection, core DB sync, each provider collection/DB sync/remote apply, and final status refresh. These logs are operational diagnostics for startup stalls and must never include credentials or unredacted secrets.",
+      "new": "- Full Hub synchronization must log INFO-level start/done milestones with elapsed time around database readiness, core collection, core DB sync, each provider collection/DB sync/remote apply, and final status refresh. Startup centralized-settings download/decode/policy/apply uses the same milestone principle. These logs are operational diagnostics for rare startup stalls and must never include credentials, URL paths containing possible tokens, package contents, or unredacted secrets.",
+      "expected": 1
+    }
+  ]
+}
