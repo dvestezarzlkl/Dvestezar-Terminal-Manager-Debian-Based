@@ -15,7 +15,7 @@ import time
 
 from libs.JBLibs.helper import getLogger
 from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
-from libs.JBLibs.sftp.sambaPoint import smbHelp
+from libs.JBLibs.sftp.sambaPoint import smbHelp, ManagedCIFSTargetNotEmptyError
 from libs.JBLibs.sftp.ssh import restart_sshd
 from libs.JBLibs.term import text_color, en_color
 from libs.JBLibs.archive_backup import get_backup_stats
@@ -956,6 +956,15 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
         transaction_ok = smbHelp.endBatch()
 
     if not transaction_ok:
+        transaction_error = smbHelp.lastError
+        if isinstance(transaction_error, ManagedCIFSTargetNotEmptyError):
+            return False, TXT_SFTP_HLP_SAMBA_TARGET_NOT_EMPTY.format(
+                path=transaction_error.target
+            )
+        if transaction_error is not None:
+            return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED_DETAIL.format(
+                error=transaction_error
+            )
         return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED
     if apply_error is not None:
         return False, apply_error
