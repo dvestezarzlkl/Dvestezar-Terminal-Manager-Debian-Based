@@ -5,7 +5,7 @@
 - SAFE před destruktivním odstraněním SFTP uživatele se po fyzickém odpojení všech mountpointů automaticky zazálohuje celý jeho lokální home do `BACKUP_DIRECTORY/sftpusers/<user>/YYYY-MM-DD_HHMMSS_<user>_backup.7z`; připojená zdrojová data se do archivu nedostanou.
 - SAFE pokud pod home po odpojení zůstane živý mount nebo vytvoření archivu selže, odstranění uživatele se zastaví. Neočekávaný obsah pod historickým mountpointem tak zůstane zachovaný v backupu před rebuildem.
 - ADD hlavní SFTP menu zobrazuje pouze souhrn počtu a celkové velikosti existujících SFTP backupů; správu/restore archivů záměrně nepřidává.
-- UPD JBLibs 1.2.26 přidává obecný timestampovaný 7z directory-backup helper použitelný i pro další aplikace.
+- UPD JBLibs 1.2.27 používá obecný timestampovaný 7z directory-backup helper a po fyzickém odmountování odstraní prázdné mountpoint adresáře přes `rmdir`; do backupu zachová pouze neprázdné targety s neočekávanými underlying daty.
 
 ## 1.2.12
 
