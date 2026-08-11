@@ -2,9 +2,9 @@
 
 ## 1.2.12
 
-- FIX JBLibs 1.2.24 po změně Samba konfigurace reloaduje `smbd` a cíleně ukončí pouze spojení dotčených spravovaných `sftp_mount_*` share; nové CIFS připojení tak převezme změnu RO/RW okamžitě v tomtéž Apply. Pokud cílený `smbcontrol close-share` selže nebo není dostupný, použije se bezpečný fallback na restart `smbd`.
+- FIX JBLibs 1.2.25 po změně Samba konfigurace reloaduje `smbd` a cíleně ukončí pouze spojení dotčených spravovaných `sftp_mount_*` share; nové CIFS připojení tak převezme změnu RO/RW okamžitě v tomtéž Apply. Pokud cílený `smbcontrol close-share` selže nebo není dostupný, použije se bezpečný fallback na restart `smbd`.
 - SAFE spravovaný CIFS target musí být po odmountování prázdný; neprázdný target se už nesmí překrýt mountem a skrýt tak pod ním data. Prázdné underlying targety jsou před remountem root-owned a bez zápisu pro SFTP uživatele.
-- FIX `Odinstalovat všechny uživatele` po explicitním potvrzení umí odstranit neprázdný jail rekurzivně, ale nejprve ověří, že jail ani žádný jeho podadresář už není mountpoint.
+- FIX `Odinstalovat všechny uživatele` po explicitním potvrzení umí odstranit neprázdný jail rekurzivně, ale nejprve přes `/proc/self/mountinfo` ověří, že jail ani žádný jeho podadresář už není CIFS/bind/jiný mountpoint; při nemožnosti mount stav ověřit se cleanup bezpečně zastaví.
 - UX nekritická hláška `loginctl terminate-user` pro uživatele bez aktivní session už neprosakuje přímo do terminálového UI.
 - TEST JBLibs regrese pokrývají live close-share, fallback restart, zákaz mountu přes skrytá data, transakční pořadí a bezpečný cleanup neprázdného jailu.
 
