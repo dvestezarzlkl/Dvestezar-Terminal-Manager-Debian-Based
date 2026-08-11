@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+import json
 import os
 from pathlib import Path
 import shlex
 import subprocess
 import tempfile
+import time
 from typing import Iterator, Sequence
 from urllib.parse import quote
 
@@ -17,6 +19,29 @@ CORE_TOKEN_ID = "sys_apps"
 MANDATORY_SUBMODULES: dict[str, str] = {
     "libs/JBLibs": "JBLibs-python",
 }
+UPDATE_CHECK_BRANCH = "main"
+UPDATE_CHECK_TIMEOUT_SECONDS = 3
+UPDATE_CHECK_CACHE_TTL_SECONDS = 300
+_UPDATE_CHECK_STATES = {"current", "available", "unknown"}
+
+
+@dataclass(frozen=True)
+class UpdateAvailability:
+    """Best-effort comparison of the installed core revision with remote main."""
+
+    state: str = "unknown"
+    local_head: str = ""
+    remote_head: str = ""
+    detail: str = ""
+    cached: bool = False
+
+    @property
+    def status_text(self) -> str:
+        return {
+            "current": "up to date",
+            "available": "update available",
+            "unknown": "check unavailable",
+        }.get(self.state, "check unavailable")
 
 
 @dataclass
@@ -68,6 +93,7 @@ class ApplicationUpdater:
         *,
         cwd: Path | None = None,
         env: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> tuple[int, str]:
         try:
             proc = subprocess.run(
@@ -78,7 +104,10 @@ class ApplicationUpdater:
                 stderr=subprocess.STDOUT,
                 text=True,
                 check=False,
+                timeout=timeout,
             )
+        except subprocess.TimeoutExpired:
+            return 124, "Command timed out."
         except OSError as exc:
             return 127, str(exc)
         return proc.returncode, proc.stdout.strip()
@@ -117,6 +146,126 @@ class ApplicationUpdater:
         cwd = path or self.root
         code, output = self._capture(["git", "rev-parse", "HEAD"], cwd=cwd)
         return output if code == 0 and output else None
+
+    def _update_check_cache_path(self) -> Path | None:
+        git_dir = self.root / ".git"
+        if not git_dir.is_dir():
+            return None
+        return git_dir / "sys_apps_update_check.json"
+
+    def _load_update_check_cache(
+        self,
+        local_head: str,
+        cache_ttl: int,
+    ) -> UpdateAvailability | None:
+        if cache_ttl <= 0:
+            return None
+        cache_path = self._update_check_cache_path()
+        if cache_path is None:
+            return None
+        try:
+            age = time.time() - cache_path.stat().st_mtime
+            if age < 0 or age > cache_ttl:
+                return None
+            data = json.loads(cache_path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            return None
+        state = str(data.get("state", ""))
+        if state not in _UPDATE_CHECK_STATES:
+            return None
+        if str(data.get("local_head", "")) != local_head:
+            return None
+        return UpdateAvailability(
+            state=state,
+            local_head=local_head,
+            remote_head=str(data.get("remote_head", "")),
+            detail=str(data.get("detail", "")),
+            cached=True,
+        )
+
+    def _save_update_check_cache(self, result: UpdateAvailability) -> None:
+        cache_path = self._update_check_cache_path()
+        if cache_path is None:
+            return
+        payload = {
+            "state": result.state,
+            "local_head": result.local_head,
+            "remote_head": result.remote_head,
+            "detail": result.detail,
+        }
+        try:
+            cache_path.write_text(
+                json.dumps(payload, ensure_ascii=True, separators=(",", ":")),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    def check_availability(
+        self,
+        *,
+        timeout: int = UPDATE_CHECK_TIMEOUT_SECONDS,
+        cache_ttl: int = UPDATE_CHECK_CACHE_TTL_SECONDS,
+    ) -> UpdateAvailability:
+        """Compare local HEAD with remote main without fetching or modifying the checkout."""
+        if not (self.root / ".git").exists():
+            return UpdateAvailability(detail="Not a Git working tree.")
+
+        local_head = self._head()
+        if not local_head:
+            return UpdateAvailability(detail="Cannot resolve local HEAD.")
+
+        cached = self._load_update_check_cache(local_head, cache_ttl)
+        if cached is not None:
+            return cached
+
+        try:
+            with self._git_prefix((CORE_TOKEN_ID,)) as git_cmd:
+                code, output = self._capture(
+                    git_cmd + [
+                        "ls-remote",
+                        "--heads",
+                        "origin",
+                        f"refs/heads/{UPDATE_CHECK_BRANCH}",
+                    ],
+                    timeout=timeout,
+                )
+        except ValueError:
+            result = UpdateAvailability(
+                local_head=local_head,
+                detail="Core Git credential configuration is invalid.",
+            )
+            self._save_update_check_cache(result)
+            return result
+
+        if code != 0:
+            detail = "Remote update check timed out." if code == 124 else "Remote update check failed."
+            result = UpdateAvailability(local_head=local_head, detail=detail)
+            self._save_update_check_cache(result)
+            return result
+
+        expected_ref = f"refs/heads/{UPDATE_CHECK_BRANCH}"
+        remote_head = ""
+        for line in output.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == expected_ref:
+                remote_head = parts[0].strip()
+                break
+        if not remote_head:
+            result = UpdateAvailability(
+                local_head=local_head,
+                detail="Remote main revision was not returned.",
+            )
+            self._save_update_check_cache(result)
+            return result
+
+        result = UpdateAvailability(
+            state="current" if remote_head == local_head else "available",
+            local_head=local_head,
+            remote_head=remote_head,
+        )
+        self._save_update_check_cache(result)
+        return result
 
     def _configured_submodule_paths(self) -> set[str]:
         code, output = self._capture(
@@ -497,6 +646,20 @@ class ApplicationUpdater:
 
         self.report.success = True
         return self.report
+
+
+def check_update_availability(
+    root: str | Path,
+    *,
+    timeout: int = UPDATE_CHECK_TIMEOUT_SECONDS,
+    cache_ttl: int = UPDATE_CHECK_CACHE_TTL_SECONDS,
+) -> UpdateAvailability:
+    """Return the cached/best-effort remote-main availability state."""
+
+    return ApplicationUpdater(root).check_availability(
+        timeout=timeout,
+        cache_ttl=cache_ttl,
+    )
 
 
 def update_application(root: str | Path) -> UpdateReport:

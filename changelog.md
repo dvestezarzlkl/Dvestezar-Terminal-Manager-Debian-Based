@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.2.3
+
+- UX hlavní menu při startu best-effort porovná lokální core HEAD s `origin/main` přes read-only `git ls-remote` a u `Update me` zobrazí `up to date`, `update available` nebo `check unavailable`; kontrola nespouští pull/fetch, submoduly, pluginy ani setup.
+- SAFE kontrola používá stávající Git credentials, `GIT_TERMINAL_PROMPT=0`, 3s timeout a 5min cache v lokálním `.git`; síťová chyba nebo vadné credentials pouze nastaví stav `check unavailable` a neblokují spuštění aplikace. Změna lokálního HEAD cache automaticky zneplatní.
+- UPD hlavní verze aplikace na 2.2.3.
+
 ## v2.2.2
 
 - DIAG Startup diagnostics log timed INFO milestones for SysApps Hub DB/core/provider synchronization and centralized settings download/decode/policy/apply phases; mandatory JBLibs 1.2.29 additionally flushes each rendered `c_menu` ANSI frame before blocking for keyboard input, so rare startup stalls can be separated from stale terminal redraws without exposing credentials or package contents.
