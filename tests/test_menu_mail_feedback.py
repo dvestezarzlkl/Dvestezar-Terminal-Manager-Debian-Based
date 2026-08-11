@@ -46,7 +46,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.12")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.13")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -318,8 +318,10 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         ), patch.object(
             sftp_hlp, "createUserFromJson", return_value=[SimpleNamespace()]
         ), patch.object(
-            sftp_hlp, "uninstallUnwantedUsers", return_value=True
+            sftp_hlp, "_get_sftp_backup_root", return_value="/var/backups/sftpusers"
         ), patch.object(
+            sftp_hlp, "uninstallUnwantedUsers", return_value=True
+        ) as uninstall_mock, patch.object(
             sftp_hlp, "restart_sshd", return_value=True
         ) as restart_mock, patch.object(
             sftp_hlp, "save_config"
@@ -327,8 +329,23 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             ok, error = sftp_hlp.apply_changes(cfg=cfg, save=True)
 
         self.assertTrue(ok, error)
+        uninstall_mock.assert_called_once_with(
+            cfg=cfg, backup_root="/var/backups/sftpusers"
+        )
         restart_mock.assert_called_once_with()
         save_mock.assert_called_once_with(cfg, sftp_hlp.getDefaultEtcConfigPath())
+
+    def test_sftp_uninstall_all_uses_secure_backup_root(self):
+        with patch.object(
+            sftp_hlp, "_get_sftp_backup_root", return_value="/var/backups/sftpusers"
+        ) as backup_root, patch.object(
+            sftp_hlp, "unInstAll", return_value=True
+        ) as uninstall:
+            ok, error = sftp_hlp.uninstall_all_users()
+
+        self.assertTrue(ok, error)
+        backup_root.assert_called_once_with(create=True)
+        uninstall.assert_called_once_with(backup_root="/var/backups/sftpusers")
 
     def test_shared_mail_transport_prints_delivery_progress(self):
         output = io.StringIO()

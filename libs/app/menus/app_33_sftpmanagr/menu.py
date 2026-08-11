@@ -18,6 +18,7 @@ from libs.JBLibs.c_menu import (
 )
 from libs.JBLibs.input import anyKey,selectDir,text_color,en_color,get_input,confirm,select,select_item
 from libs.JBLibs.term import cls
+from libs.JBLibs.format import bytesTx
 from libs.app import mail_hlp
 log = getLogger("sftpmng")
 
@@ -44,6 +45,7 @@ from .sftp_manager_hlp import (
     get_user_mail,
     set_user_mail,
     send_key_by_mail,
+    get_sftp_backup_stats,
 )
 
 _MENU_NAME_: str = TXT_SFTP_MENU_NAME
@@ -63,7 +65,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.12"
+    _VERSION_: str = "1.2.13"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -120,6 +122,19 @@ class menu(c_menu):
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
         ]
+        backup_count, backup_size = get_sftp_backup_stats()
+        if backup_count > 0:
+            self.menu.append(
+                c_menu_title_label(
+                    text_color(
+                        TXT_SFTP_MENU_BACKUP_SUMMARY.format(
+                            count=backup_count,
+                            size=bytesTx.encode(backup_size),
+                        ),
+                        en_color.YELLOW,
+                    )
+                )
+            )
         if not cifs_exists():
             self.menu.append(
                 c_menu_title_label(

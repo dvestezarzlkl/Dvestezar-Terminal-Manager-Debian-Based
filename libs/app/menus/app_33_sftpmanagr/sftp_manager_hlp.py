@@ -18,10 +18,34 @@ from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uni
 from libs.JBLibs.sftp.sambaPoint import smbHelp
 from libs.JBLibs.sftp.ssh import restart_sshd
 from libs.JBLibs.term import text_color, en_color
+from libs.JBLibs.archive_backup import get_backup_stats
 from libs.app import cfg as app_cfg
 from libs.app import mail_hlp
 
 log = getLogger("sftpprs")
+
+_SFTP_BACKUP_DIRNAME = "sftpusers"
+
+def _get_sftp_backup_root(create: bool = False) -> str:
+    """Return the secure root used for automatic SFTP user backups."""
+    base = app_cfg.BACKUP_DIRECTORY
+    if not isinstance(base, str) or not os.path.isabs(base):
+        raise RuntimeError(f"Invalid BACKUP_DIRECTORY for SFTP backups: {base!r}")
+    root = os.path.join(base, _SFTP_BACKUP_DIRNAME)
+    if create:
+        os.makedirs(root, mode=0o700, exist_ok=True)
+        os.chown(root, 0, 0)
+        os.chmod(root, 0o700)
+    return root
+
+def get_sftp_backup_stats() -> Tuple[int, int]:
+    """Return count and total archive bytes for SFTP user backups."""
+    try:
+        stats = get_backup_stats(_get_sftp_backup_root(create=False))
+        return stats.count, stats.size_bytes
+    except Exception as e:
+        log.warning(f"Cannot read SFTP backup statistics: {e}")
+        return 0, 0
 
 def cifs_exists() -> bool:
     """Return True when the mount.cifs helper is available."""
@@ -926,10 +950,6 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
                 error=detail,
             )
 
-        if apply_error is None:
-            log.info("Uninstalling unwanted users who are not in the in-memory configuration...")
-            if not uninstallUnwantedUsers(cfg=cfg):
-                apply_error = TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED
     except Exception as e:
         apply_error = TXT_SFTP_HLP_APPLY_FAILED.format(error=e)
     finally:
@@ -939,6 +959,17 @@ def apply_changes(cfg: Optional[Dict] = None, save: bool = False) -> Tuple[bool,
         return False, TXT_SFTP_HLP_SAMBA_TRANSACTION_FAILED
     if apply_error is not None:
         return False, apply_error
+
+    # Destructive user cleanup runs after the Samba/CIFS batch is physically
+    # finalized. The complete local home is then mount-free and can be archived
+    # without pulling data from the real mounted source directories into backup.
+    try:
+        backup_root = _get_sftp_backup_root(create=True)
+        log.info("Uninstalling unwanted users with pre-delete home backups...")
+        if not uninstallUnwantedUsers(cfg=cfg, backup_root=backup_root):
+            return False, TXT_SFTP_HLP_UNINSTALL_UNWANTED_FAILED
+    except Exception as e:
+        return False, TXT_SFTP_HLP_APPLY_FAILED.format(error=e)
 
     log.info("Restarting sshd after SFTP configuration changes...")
     if not restart_sshd():
@@ -967,7 +998,8 @@ def uninstall_all_users(user:str=None) -> Tuple[bool, Optional[str]]:
     # paths if you have installed the script elsewhere.
     
     try:
-        if unInstAll():
+        backup_root = _get_sftp_backup_root(create=True)
+        if unInstAll(backup_root=backup_root):
             return True, None
         else:
             return False, TXT_SFTP_HLP_UNINSTALL_USERS_FAILED
