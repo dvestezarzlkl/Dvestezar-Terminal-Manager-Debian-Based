@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from libs.app import cfg
+from libs.JBLibs.helper import getLogger
 from libs.app.hub.config_package import import_encrypted_settings as import_legacy_hub_settings
 from libs.app.hub.settings import (
     HubSettings,
@@ -26,6 +27,8 @@ from libs.app.hub.settings import (
     settings_from_dict as hub_settings_from_dict,
 )
 
+
+log = getLogger(__name__)
 
 PACKAGE_PREFIX = "SYSAPP1E:"
 LEGACY_HUB_PREFIX = "SYSHUB1E:"
@@ -883,6 +886,16 @@ def download_settings_package(
     timeout = int(timeout)
     if not 1 <= timeout <= 30:
         raise ValueError("Central settings timeout must be between 1 and 30 seconds.")
+    started = time.perf_counter()
+    scheme, host, port = _url_origin(url)
+    log.info(
+        "Central settings download: start (%s://%s:%d, timeout=%ds, auth=%s)",
+        scheme,
+        host,
+        port,
+        timeout,
+        "yes" if authorization else "no",
+    )
     request = Request(
         url,
         headers={
@@ -920,6 +933,11 @@ def download_settings_package(
     except URLError as exc:
         reason = str(exc.reason or "connection failed")
         raise ValueError(f"Central settings download failed: {reason}") from exc
+    log.info(
+        "Central settings download: received %d byte(s) in %.3fs",
+        len(raw),
+        time.perf_counter() - started,
+    )
     if len(raw) > _MAX_DOWNLOAD_BYTES:
         raise ValueError("Remote settings package is too large.")
     try:
@@ -928,6 +946,10 @@ def download_settings_package(
         raise ValueError("Remote settings package is not UTF-8 text.") from exc
     if not package:
         raise ValueError("Remote settings package is empty.")
+    log.info(
+        "Central settings download: validated text package in %.3fs",
+        time.perf_counter() - started,
+    )
     return package
 
 
@@ -943,10 +965,20 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
     if not password:
         raise ValueError("Central settings password is not configured.")
 
+    started = time.perf_counter()
+    log.info("Central settings update: start (force=%s)", force)
     package = download_settings_package(
         url, timeout, allow_http, auth_user, auth_password
     )
+    decode_started = time.perf_counter()
+    log.info("Central settings decode: start")
     decoded = decode_encrypted_settings(package, password)
+    log.info(
+        "Central settings decode: done in %.3fs (revision=%d, sections=%s)",
+        time.perf_counter() - decode_started,
+        decoded.revision,
+        ",".join(sorted(decoded.sections)),
+    )
     if decoded.legacy:
         raise ValueError("Legacy Hub packages cannot be applied automatically from URL.")
 
@@ -964,12 +996,22 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
                 "The remote package reuses the current revision with different content."
             )
 
+    policy_started = time.perf_counter()
+    log.info("Central settings policy/conflict evaluation: start")
     import_policy = load_settings_import_policy()
     conflicts = detect_import_conflicts(decoded, import_policy)
     skip_sections = tuple(sorted({item.section_key for item in conflicts}))
+    log.info(
+        "Central settings policy/conflict evaluation: done in %.3fs (conflicts=%d, skip_sections=%s)",
+        time.perf_counter() - policy_started,
+        len(conflicts),
+        ",".join(skip_sections) or "none",
+    )
     conflict_warnings = (
         (_automatic_conflict_warning(conflicts),) if conflicts else ()
     )
+    apply_started = time.perf_counter()
+    log.info("Central settings apply: start")
     report = apply_decoded_settings(
         decoded,
         allow_downgrade=force,
@@ -977,6 +1019,13 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         skip_sections=skip_sections,
         extra_warnings=conflict_warnings,
         import_policy=import_policy,
+    )
+    log.info(
+        "Central settings apply: done in %.3fs (changed=%s, applied=%s, skipped=%s)",
+        time.perf_counter() - apply_started,
+        report.changed,
+        ",".join(report.applied_sections) or "none",
+        ",".join(report.skipped_sections) or "none",
     )
     if not report.changed:
         if report.skipped_sections:
@@ -994,12 +1043,20 @@ def update_from_central_url(force: bool = False) -> SettingsUpdateResult:
         if report.applied_sections
         else f"Recorded central settings revision {decoded.revision}; all supported sections are skipped by local policy."
     )
-    return SettingsUpdateResult(
+    result = SettingsUpdateResult(
         True,
         decoded.revision,
         message,
         report.warnings,
     )
+    log.info(
+        "Central settings update: done in %.3fs (changed=%s, revision=%d, warnings=%d)",
+        time.perf_counter() - started,
+        result.changed,
+        result.revision,
+        len(result.warnings),
+    )
+    return result
 
 
 def startup_settings_update() -> SettingsUpdateResult | None:
@@ -1009,6 +1066,8 @@ def startup_settings_update() -> SettingsUpdateResult | None:
         return None
     if not str(getattr(cfg, "SETTINGS_PASSWORD", "") or ""):
         return None
+    startup_started = time.perf_counter()
+    log.info("Central settings startup update: start")
     try:
         result = update_from_central_url()
     except Exception as exc:
@@ -1020,8 +1079,20 @@ def startup_settings_update() -> SettingsUpdateResult | None:
         for secret in secrets:
             if secret:
                 message = message.replace(secret, "***")
+        log.warning(
+            "Central settings startup update: failed after %.3fs: %s",
+            time.perf_counter() - startup_started,
+            message,
+        )
         print(f"Central settings update warning: {message}")
         return SettingsUpdateResult(False, 0, message)
+    log.info(
+        "Central settings startup update: done in %.3fs (changed=%s, revision=%d, warnings=%d)",
+        time.perf_counter() - startup_started,
+        result.changed,
+        result.revision,
+        len(result.warnings),
+    )
     if result.changed:
         print(result.message)
     for warning in result.warnings:

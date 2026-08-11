@@ -421,6 +421,27 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.MAIL_FROM = ""
         self.assertEqual(detect_import_conflicts(decoded), ())
 
+    def test_central_update_logs_operational_phase_boundaries(self):
+        package = export_encrypted_settings("pw", revision=77)
+        cfg.SETTINGS_URL = "https://config.example/private/settings"
+        cfg.SETTINGS_PASSWORD = "pw"
+
+        with patch(
+            "libs.app.settings_package.download_settings_package",
+            return_value=package,
+        ), patch("libs.app.settings_package.cfg.save"), patch(
+            "libs.app.settings_package.log.info"
+        ) as info_log:
+            result = update_from_central_url()
+
+        self.assertTrue(result.changed)
+        messages = [call.args[0] for call in info_log.call_args_list]
+        self.assertIn("Central settings update: start (force=%s)", messages)
+        self.assertIn("Central settings decode: start", messages)
+        self.assertIn("Central settings policy/conflict evaluation: start", messages)
+        self.assertIn("Central settings apply: start", messages)
+        self.assertIn("Central settings update: done in %.3fs (changed=%s, revision=%d, warnings=%d)", messages)
+
     def test_automatic_import_skips_conflicting_smtp_then_retries_same_revision(self):
         cfg.HUB_AUTO_SYNC = False
         cfg.MAIL_SMTP_HOST = "central.example.test"
