@@ -8,9 +8,11 @@ on:
       - "libs/app/plugin_manager.py"
       - "libs/app/plugin_settings.py"
       - "libs/app/menus/menuBoss.py"
+      - "venv_run.py"
       - "pluginy.jsonc"
       - "setup.sh"
       - "tests/test_self_updater.py"
+      - "tests/test_startup_diagnostics.py"
       - ".github/workflows/test-self-updater.yml"
 
 permissions:
@@ -57,12 +59,14 @@ jobs:
         shell: bash
         run: |
           python -m py_compile \
+            venv_run.py \
             libs/app/self_updater.py \
             libs/app/plugin_manager.py \
             libs/app/plugin_settings.py \
             libs/app/menus/menuBoss.py \
-            tests/test_self_updater.py
+            tests/test_self_updater.py \
+            tests/test_startup_diagnostics.py
 
-      - name: Run updater unit tests
+      - name: Run updater and startup diagnostic tests
         shell: bash
-        run: python -m unittest -v tests.test_self_updater
+        run: python -m unittest -v tests.test_self_updater tests.test_startup_diagnostics
