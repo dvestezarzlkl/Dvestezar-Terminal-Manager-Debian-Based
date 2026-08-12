@@ -1,6 +1,6 @@
 # Centralizovaná nastavení SysApps
 
-SysApps 2.2.0 používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
+SysApps používá obecný šifrovaný balík `SYSAPP1E:` pro přenos nastavení, která mají být společná na více serverech. První podporované sekce jsou `hub` a `smtp`. Formát je záměrně dynamický, aby později mohl přibýt například profil `sftp_backup` bez změny kryptografické obálky.
 
 ## Rozdělení konfigurace
 
@@ -27,6 +27,14 @@ SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
 ```
 
 Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, HTTP Basic Auth údaje, lokální importní politiku ani ochranu proti návratu na starší verzi.
+
+## Lokální editace centrálně řízených hodnot
+
+`SETTINGS_LAST_APPLIED` není jen anti-repeat podpis; zároveň určuje, které config klíče byly naposledy úspěšně převzaté z centrálního balíku. V běžném App settings se editory těchto hodnot skryjí. Sekce přeskočená lokální politikou zůstává lokálně editovatelná a pole uvedené v `keep=...` se také neskrývá. Service host (`SERVER_URL`) a celý bootstrap Centralized settings zůstávají vždy lokální a dostupné.
+
+Pro servisní zásah lze aplikaci spustit přes `sys_apps --local-settings`. Flag se spotřebuje v Python bootstrapu ještě před central settings download/decode/apply a existuje pouze v paměti procesu; nezapisuje se do `config.ini` ani do `SYSAPP1E`. Proto zpřístupní lokální editory i tehdy, když je centrální endpoint nedostupný, heslo chybné nebo balík poškozený. Běžný startup update se přesto zkusí standardním fail-safe způsobem a při chybě pouze vypíše varování.
+
+Pokud se v override režimu změní hodnota, kterou vlastní centrální balík, SysApps vymaže pouze `SETTINGS_LAST_APPLIED`. Lokální oprava tak zůstane funkční při nedostupné centrále, ale při příštím úspěšném startu se stejná revision znovu aplikuje a centrální konfigurace znovu převezme správu. Trvalá lokální výjimka se nedělá přes override; použije se `SETTINGS_IMPORT_POLICY` (`Skip` sekce nebo podporovaného pole).
 
 ## Formát po dešifrování
 

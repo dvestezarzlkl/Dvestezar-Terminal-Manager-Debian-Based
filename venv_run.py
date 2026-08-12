@@ -3,7 +3,15 @@ from datetime import datetime
 import sys
 from time import perf_counter
 
+from libs.app.runtime_flags import (
+    configure_runtime_args,
+    local_settings_override_enabled,
+)
+
 _bootstrap_started = perf_counter()
+_runtime_args_started = perf_counter()
+sys.argv[1:] = list(configure_runtime_args(sys.argv[1:]))
+_runtime_args_elapsed = perf_counter() - _runtime_args_started
 
 _cfg_import_started = perf_counter()
 import libs.app.cfg as cfg
@@ -24,6 +32,11 @@ _logger_elapsed = perf_counter() - _logger_started
 log.info("")
 log.info("")
 log.info("***** Start version: %s at %s *****", cfg.VERSION, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+log.info(
+    "Startup bootstrap runtime arguments: done in %.3fs (local_settings_override=%s)",
+    _runtime_args_elapsed,
+    local_settings_override_enabled(),
+)
 log.info("Startup bootstrap cfg module import: done in %.3fs", _cfg_import_elapsed)
 log.info("Startup bootstrap cfg load: done in %.3fs", _cfg_load_elapsed)
 log.info("Startup bootstrap helper import: done in %.3fs", _helper_import_elapsed)

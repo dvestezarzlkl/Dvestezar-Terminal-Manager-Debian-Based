@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock, patch
 from urllib.request import Request
 
 from libs.app import cfg
+from libs.app import runtime_flags
 from libs.app import settings_package as settings_package_module
 from libs.app.hub.config_package import export_encrypted_settings as export_legacy_hub_settings
 from libs.app.hub.settings import HubSettings
@@ -11,10 +12,14 @@ from libs.app.settings_package import (
     SettingsImportPolicy,
     SettingsSectionHandler,
     apply_decoded_settings,
+    centrally_managed_config_keys,
     decode_encrypted_settings,
     detect_import_conflicts,
     download_settings_package,
     export_encrypted_settings,
+    invalidate_central_settings_after_local_override,
+    is_centrally_managed_config,
+    is_centrally_managed_section,
     load_settings_import_policy,
     preview_decoded_settings,
     serialize_settings_import_policy,
@@ -82,10 +87,49 @@ class SettingsPackageTests(unittest.TestCase):
         cfg.SETTINGS_LAST_REVISION = 0
         cfg.SETTINGS_LAST_SHA256 = ""
         cfg.SETTINGS_LAST_APPLIED = ""
+        runtime_flags._set_local_settings_override_for_tests(False)
 
     def tearDown(self):
+        runtime_flags._set_local_settings_override_for_tests(False)
         for key, value in self.previous.items():
             setattr(cfg, key, value)
+
+    def test_runtime_flag_is_process_local_and_consumed_from_argv(self):
+        remaining = runtime_flags.configure_runtime_args(
+            ("--local-settings", "--future-flag")
+        )
+        self.assertTrue(runtime_flags.local_settings_override_enabled())
+        self.assertEqual(remaining, ("--future-flag",))
+
+    def test_applied_signature_exposes_centrally_managed_config_keys(self):
+        cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:1[keep=from_address]"
+        managed = centrally_managed_config_keys()
+        self.assertIn("HUB_DB_HOST", managed)
+        self.assertIn("MAIL_SMTP_HOST", managed)
+        self.assertNotIn("MAIL_FROM", managed)
+        self.assertTrue(is_centrally_managed_section("hub"))
+        self.assertTrue(is_centrally_managed_section("smtp"))
+        self.assertTrue(is_centrally_managed_config("MAIL_SMTP_PASSWORD"))
+        self.assertFalse(is_centrally_managed_config("MAIL_FROM"))
+
+    def test_skipped_central_section_is_not_locally_locked(self):
+        cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:skip"
+        self.assertTrue(is_centrally_managed_section("hub"))
+        self.assertFalse(is_centrally_managed_section("smtp"))
+        self.assertFalse(is_centrally_managed_config("MAIL_SMTP_HOST"))
+
+    def test_local_override_edit_forces_same_revision_reapply(self):
+        cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
+        self.assertFalse(
+            invalidate_central_settings_after_local_override("MAIL_SMTP_HOST")
+        )
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "hub:1,smtp:1")
+
+        runtime_flags._set_local_settings_override_for_tests(True)
+        self.assertTrue(
+            invalidate_central_settings_after_local_override("MAIL_SMTP_HOST")
+        )
+        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, "")
 
     def test_registered_section_labels_are_human_readable(self):
         self.assertEqual(settings_section_label("hub"), "SysApps Hub")
