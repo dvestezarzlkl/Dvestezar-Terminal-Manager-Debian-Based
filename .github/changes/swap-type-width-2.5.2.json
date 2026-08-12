@@ -37,12 +37,6 @@
       "old": "        self.assertIn(\"getListOfActiveSwaps(False)\", source)\n        self.assertIn('if s.type == \"file\"', source)\n        self.assertIn('itm.atRight=\"informativní\"', source)",
       "new": "        self.assertIn(\"getListOfActiveSwaps(False)\", source)\n        self.assertIn('if s.type == \"file\"', source)\n        self.assertIn('itm.atRight=\"informativní\"', source)\n        self.assertIn(\"{'Type':>10}\", source)\n        self.assertIn(\"{s.type:>10}\", source)",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert swap_version == \"2.5.1\"",
-      "new": "          assert swap_version == \"2.5.2\"",
-      "expected": 1
     }
   ]
 }
