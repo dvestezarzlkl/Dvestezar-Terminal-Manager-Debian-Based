@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commit_message": "Test managed settings visibility and override lifecycle",
+  "replacements": [
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "from libs.app import cfg\nfrom libs.app import settings_package as settings_package_module\n",
+      "new": "from libs.app import cfg\nfrom libs.app import runtime_flags\nfrom libs.app import settings_package as settings_package_module\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    apply_decoded_settings,\n    decode_encrypted_settings,\n",
+      "new": "    apply_decoded_settings,\n    centrally_managed_config_keys,\n    decode_encrypted_settings,\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    load_settings_import_policy,\n    preview_decoded_settings,\n",
+      "new": "    invalidate_central_settings_after_local_override,\n    is_centrally_managed_config,\n    is_centrally_managed_section,\n    load_settings_import_policy,\n    preview_decoded_settings,\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "        cfg.SETTINGS_LAST_SHA256 = \"\"\n        cfg.SETTINGS_LAST_APPLIED = \"\"\n\n    def tearDown(self):\n",
+      "new": "        cfg.SETTINGS_LAST_SHA256 = \"\"\n        cfg.SETTINGS_LAST_APPLIED = \"\"\n        runtime_flags._set_local_settings_override_for_tests(False)\n\n    def tearDown(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_settings_package.py",
+      "old": "    def tearDown(self):\n        for key, value in self.previous.items():\n            setattr(cfg, key, value)\n\n    def test_registered_section_labels_are_human_readable(self):\n",
+      "new": "    def tearDown(self):\n        runtime_flags._set_local_settings_override_for_tests(False)\n        for key, value in self.previous.items():\n            setattr(cfg, key, value)\n\n    def test_runtime_flag_is_process_local_and_consumed_from_argv(self):\n        remaining = runtime_flags.configure_runtime_args(\n            (\"--local-settings\", \"--future-flag\")\n        )\n        self.assertTrue(runtime_flags.local_settings_override_enabled())\n        self.assertEqual(remaining, (\"--future-flag\",))\n\n    def test_applied_signature_exposes_centrally_managed_config_keys(self):\n        cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1[keep=from_address]\"\n        managed = centrally_managed_config_keys()\n        self.assertIn(\"HUB_DB_HOST\", managed)\n        self.assertIn(\"MAIL_SMTP_HOST\", managed)\n        self.assertNotIn(\"MAIL_FROM\", managed)\n        self.assertTrue(is_centrally_managed_section(\"hub\"))\n        self.assertTrue(is_centrally_managed_section(\"smtp\"))\n        self.assertTrue(is_centrally_managed_config(\"MAIL_SMTP_PASSWORD\"))\n        self.assertFalse(is_centrally_managed_config(\"MAIL_FROM\"))\n\n    def test_skipped_central_section_is_not_locally_locked(self):\n        cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:skip\"\n        self.assertTrue(is_centrally_managed_section(\"hub\"))\n        self.assertFalse(is_centrally_managed_section(\"smtp\"))\n        self.assertFalse(is_centrally_managed_config(\"MAIL_SMTP_HOST\"))\n\n    def test_local_override_edit_forces_same_revision_reapply(self):\n        cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1\"\n        self.assertFalse(\n            invalidate_central_settings_after_local_override(\"MAIL_SMTP_HOST\")\n        )\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"hub:1,smtp:1\")\n\n        runtime_flags._set_local_settings_override_for_tests(True)\n        self.assertTrue(\n            invalidate_central_settings_after_local_override(\"MAIL_SMTP_HOST\")\n        )\n        self.assertEqual(cfg.SETTINGS_LAST_APPLIED, \"\")\n\n    def test_registered_section_labels_are_human_readable(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "from libs.app import mail_hlp\nfrom libs.app.menus import menuBoss\n",
+      "new": "from libs.app import mail_hlp, runtime_flags\nfrom libs.app.hub.menu import HubSettingsMenu\nfrom libs.app.menus import menuBoss\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "    def test_component_version_resolver_and_current_menus(self):\n",
+      "new": "    @staticmethod\n    def _menu_item(menu, choice: str):\n        return next(\n            item for item in menu\n            if item is not None and getattr(item, \"choice\", None) == choice\n        )\n\n    def test_centrally_managed_app_settings_are_hidden_without_override(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(False)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            for choice in (\"b\", \"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertTrue(self._menu_item(settings.menu, choice).hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"s\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"g\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"t\").hidden)\n            self.assertIsInstance(HubSettingsMenu().onEnterMenu(), str)\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n\n    def test_local_settings_override_reveals_managed_editors(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(True)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1[keep=from_address]\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            for choice in (\"b\", \"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertFalse(self._menu_item(settings.menu, choice).hidden)\n            self.assertIsNone(HubSettingsMenu().onEnterMenu())\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n\n    def test_preserved_central_field_stays_locally_visible(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(False)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"smtp:1[keep=from_address]\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            self.assertTrue(self._menu_item(settings.menu, \"h\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"f\").hidden)\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n\n    def test_component_version_resolver_and_current_menus(self):\n",
+      "expected": 1
+    }
+  ]
+}
