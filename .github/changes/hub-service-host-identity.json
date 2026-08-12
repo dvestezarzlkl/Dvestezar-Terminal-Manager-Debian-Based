@@ -127,12 +127,6 @@
       "old": "# Changelog\n\n## v2.2.4\n",
       "new": "# Changelog\n\n## v2.2.5\n\n- ADD SysApps Hub ukládá lokální Service host/FQDN/IP jako samostatné `hosts.service_host`; systémové `hostname` a `fqdn` zůstávají nezávislou identitou stroje. Schéma rozšiřuje migrace `003_service_host_identity.sql`.\n- UX hlavní HOME zobrazuje Service host odděleně od systémového FQDN, takže je přímo vidět adresa používaná pro služby/VPN.\n- UPD hlavní verze aplikace na 2.2.5.\n\n## v2.2.4\n",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert version == \"2.2.4\"\n",
-      "new": "          assert version == \"2.2.5\"\n",
-      "expected": 1
     }
   ]
 }
