@@ -142,6 +142,7 @@ class menuBoss(menu):
                 "Distro: "+cfg.machineInfo.operating_system,
                 "Kernel: "+cfg.machineInfo.kernel,
                 "FQDN: "+cfg.machineInfo.hostname_full,
+                "Service host: "+(configured_service_host() or "not set"),
                 "JBLibs: "+libsVersion,
                 "SysApps Hub: "+text_color(hub_runtime.status_text(), hub_color),
             ]

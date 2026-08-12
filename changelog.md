@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.2.5
+
+- ADD SysApps Hub ukládá lokální Service host/FQDN/IP jako samostatné `hosts.service_host`; systémové `hostname` a `fqdn` zůstávají nezávislou identitou stroje. Schéma rozšiřuje migrace `003_service_host_identity.sql`.
+- UX hlavní HOME zobrazuje Service host odděleně od systémového FQDN, takže je přímo vidět adresa používaná pro služby/VPN.
+- UPD hlavní verze aplikace na 2.2.5.
+
 ## v2.2.4
 
 - PERF startup už neobsahuje historický pevný 2s splash delay; po základním bootstrapu pokračuje rovnou inicializací menu.

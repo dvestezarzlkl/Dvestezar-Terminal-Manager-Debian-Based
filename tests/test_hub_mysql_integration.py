@@ -38,8 +38,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 2:
-            raise AssertionError(f"Expected schema version 2, got {version}")
+        if version != 3:
+            raise AssertionError(f"Expected schema version 3, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -61,6 +61,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             hardware_model="MariaDB",
             sys_apps_version="2.1.0",
             jblibs_version="1.2.17",
+            service_host=f"service.{hostname}.example.test",
         )
 
     @staticmethod
@@ -163,8 +164,16 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     f"JOIN {hosts} h ON h.id=hd.host_id"
                 )
                 self.assertEqual(cursor.fetchone()[0], "machine-a")
+                cursor.execute(
+                    f"SELECT fqdn, service_host FROM {hosts} WHERE machine_id=%s",
+                    ("machine-a",),
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    ("host-a.example.test", "service.host-a.example.test"),
+                )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 2)
+                self.assertEqual(cursor.fetchone()[0], 3)
 
     def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:
         first_time = datetime.now(timezone.utc).replace(microsecond=200000)

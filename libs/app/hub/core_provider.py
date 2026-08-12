@@ -257,6 +257,7 @@ def collect_host_snapshot() -> HubHostSnapshot:
         hardware_model=_text(getattr(machine, "hardware_model", "")),
         sys_apps_version=_text(getattr(cfg, "VERSION", "")),
         jblibs_version=_text(jblibs_version),
+        service_host=configured_service_host(),
         addresses=collect_addresses(),
         services=collect_services(),
     )
