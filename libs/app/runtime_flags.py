@@ -11,6 +11,7 @@ def configure_runtime_args(args: Iterable[str]) -> tuple[str, ...]:
 
     Runtime flags are intentionally process-local. They are not configuration,
     are never persisted by cfg.save(), and cannot be imported from SYSAPP1E.
+    Unhandled arguments are preserved for current or future downstream consumers.
     """
     global _LOCAL_SETTINGS_OVERRIDE
 
