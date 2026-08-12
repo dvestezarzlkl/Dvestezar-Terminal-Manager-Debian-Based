@@ -4,6 +4,7 @@
 
 - PERF startup už neobsahuje historický pevný 2s splash delay; po základním bootstrapu pokračuje rovnou inicializací menu.
 - UX automatická SysApps Hub synchronizace při startu zobrazuje dynamický postup `x/y` přes základní inventář, každý registrovaný provider a finalizaci; detailní DB/collector časování zůstává v logu.
+- UX Swap Manager 2.5.2 rozšiřuje sloupec `Type` na 10 znaků, aby se hodnota `partition` zobrazila bez rozhození tabulky.
 - UPD hlavní verze aplikace na 2.2.4.
 
 ## v2.2.3

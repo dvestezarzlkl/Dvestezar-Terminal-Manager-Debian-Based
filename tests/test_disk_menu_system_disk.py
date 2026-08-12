@@ -140,6 +140,8 @@ class DiskMenuSystemDiskTests(unittest.TestCase):
         self.assertIn("getListOfActiveSwaps(False)", source)
         self.assertIn('if s.type == "file"', source)
         self.assertIn('itm.atRight="informativní"', source)
+        self.assertIn("{'Type':>10}", source)
+        self.assertIn("{s.type:>10}", source)
 
 
 if __name__ == "__main__":

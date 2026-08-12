@@ -32,7 +32,7 @@ class menu(c_menu):
     """Menu pro správu SWAP souborů
     """
     
-    _VERSION_:str="2.5.1"
+    _VERSION_:str="2.5.2"
     
     minMenuWidth=80
     
@@ -63,7 +63,7 @@ class menu(c_menu):
         if not lst:
             self.menu.append( c_menu_item( text_color("Žádný aktivní SWAP.",color=en_color.BRIGHT_RED) ) )
         else:
-            tit=f"{'Device':<26} | {'Type':>8} | {'Size':>8} | {'Used':>8} | {'Priority':>8}"
+            tit=f"{'Device':<26} | {'Type':>10} | {'Size':>8} | {'Used':>8} | {'Priority':>8}"
             self.menu.append( c_menu_item( text_color(tit, color=en_color.BRIGHT_BLACK) ) )
             self.menu.append( c_menu_item( text_color("-" * len(tit), color=en_color.BRIGHT_BLACK) ) )
             choice:int=0
@@ -79,7 +79,7 @@ class menu(c_menu):
                     used=text_color(used, color=en_color.BRIGHT_GREEN)
                 
                 itm= c_menu_item(
-                    f"{str(s.file):<26} | {s.type:>8} | {s.size:>8} | {used} | {s.priority:>8}"
+                    f"{str(s.file):<26} | {s.type:>10} | {s.size:>8} | {used} | {s.priority:>8}"
                 )
                 if s.type == "file":
                     itm.choice=f"{choice:02}"
