@@ -63,6 +63,7 @@ class HubHostSnapshot:
     hardware_model: str
     sys_apps_version: str
     jblibs_version: str
+    service_host: str = ""
     addresses: tuple[HubAddress, ...] = field(default_factory=tuple)
     services: tuple[HubService, ...] = field(default_factory=tuple)
 

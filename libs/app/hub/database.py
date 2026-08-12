@@ -220,12 +220,13 @@ class HubDatabase:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"INSERT INTO {hosts} "
-                        "(machine_id, hostname, fqdn, operating_system, kernel, "
+                        "(machine_id, hostname, fqdn, service_host, operating_system, kernel, "
                         "architecture, hardware_vendor, hardware_model, "
                         "sys_apps_version, jblibs_version, first_seen_at, last_seen_at) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                         "ON DUPLICATE KEY UPDATE "
                         "hostname=VALUES(hostname), fqdn=VALUES(fqdn), "
+                        "service_host=VALUES(service_host), "
                         "operating_system=VALUES(operating_system), kernel=VALUES(kernel), "
                         "architecture=VALUES(architecture), "
                         "hardware_vendor=VALUES(hardware_vendor), "
@@ -237,6 +238,7 @@ class HubDatabase:
                             snapshot.machine_id,
                             snapshot.hostname,
                             snapshot.fqdn,
+                            snapshot.service_host,
                             snapshot.operating_system,
                             snapshot.kernel,
                             snapshot.architecture,

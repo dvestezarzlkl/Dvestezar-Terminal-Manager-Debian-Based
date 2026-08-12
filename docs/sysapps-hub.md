@@ -1,4 +1,4 @@
-# SysApps Hub 2.1.0
+# SysApps Hub
 
 SysApps Hub je centrální inventář instalací Terminal Manageru. MySQL/MariaDB slouží jako přenosová a úložná vrstva; lokální funkce aplikace musí zůstat použitelné i při výpadku Hubu.
 
@@ -20,6 +20,8 @@ HUB_AUTO_SYNC = true
 
 Prefix musí začínat malým písmenem a smí obsahovat pouze malá písmena, číslice a podtržítko. Název databáze smí obsahovat pouze písmena, číslice a podtržítko.
 
+Lokální `SERVER_URL` je historický kompatibilní klíč pro **Service host / FQDN / IP**. Není součástí centrálního settings balíku. Hub jej ukládá do `hosts.service_host` odděleně od systémových `hostname` a `fqdn`, protože systémový název stroje a adresa používaná pro přístup ke službám přes VPN nemusí být stejné.
+
 Původní balíky `SYSHUB1E:` lze dál ručně importovat. Nový obecný export/import používá dynamický balík `SYSAPP1E:` popsaný v [central-settings.md](central-settings.md) a společně přenáší Hub a SMTP.
 
 ## Schéma a migrace
@@ -38,11 +40,12 @@ Akce **Inicializovat/aktualizovat schéma Hubu** může vytvořit nakonfigurovan
 Aktuální migrace:
 
 - `001_initial_schema.sql`: host, adresy, služby, zdroje synchronizace a Node-RED,
-- `002_disk_inventory.sql`: globální registr disků a vazby disk-host-device.
+- `002_disk_inventory.sql`: globální registr disků a vazby disk-host-device,
+- `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.
 
 ## Datové sady
 
-- `hosts`: machine-id, hostname/FQDN, OS, kernel, architektura, hardware a verze sys_apps/JBLibs,
+- `hosts`: machine-id, systémový hostname/FQDN, samostatný `service_host`, OS, kernel, architektura, hardware a verze sys_apps/JBLibs,
 - `host_addresses`: samostatný řádek pro každou IPv4/IPv6 adresu a rozhraní,
 - `host_services`: SSH, Webmin a ISPConfig včetně zjištěného portu/stavu,
 - `sync_sources`: poslední stav každého zdroje,

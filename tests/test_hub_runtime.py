@@ -1,7 +1,9 @@
 import unittest
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from libs.app.hub import core_provider
 from libs.app.hub.models import (
     HubDiskNameUpdate,
     HubHostSnapshot,
@@ -58,6 +60,31 @@ class HubRuntimeTests(unittest.TestCase):
             sys_apps_version="2.1.0",
             jblibs_version="1.2.17",
         )
+
+    def test_core_snapshot_keeps_service_host_separate_from_system_fqdn(self):
+        machine = SimpleNamespace(
+            machine_id="machine-1",
+            static_hostname="system-host",
+            hostname_full="system-host.internal",
+            operating_system="Ubuntu",
+            kernel="Linux",
+            architecture="x86_64",
+            hardware_vendor="CI",
+            hardware_model="Test",
+        )
+        with patch.object(core_provider.cfg, "machineInfo", machine), patch(
+            "libs.app.hub.core_provider.configured_service_host",
+            return_value="vpn-host.example.test",
+        ), patch(
+            "libs.app.hub.core_provider.collect_addresses", return_value=()
+        ), patch(
+            "libs.app.hub.core_provider.collect_services", return_value=()
+        ):
+            snapshot = core_provider.collect_host_snapshot()
+
+        self.assertEqual(snapshot.hostname, "system-host")
+        self.assertEqual(snapshot.fqdn, "system-host.internal")
+        self.assertEqual(snapshot.service_host, "vpn-host.example.test")
 
     def test_provider_key_must_be_a_stable_lowercase_identifier(self):
         runtime = HubRuntime()
