@@ -8,6 +8,11 @@ from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_t
 from libs.JBLibs.input import anyKey, confirm, get_input, get_pwd
 from libs.JBLibs.term import en_color, text_color
 from libs.app import cfg
+from libs.app.runtime_flags import local_settings_override_enabled
+from libs.app.settings_package import (
+    invalidate_central_settings_after_local_override,
+    is_centrally_managed_section,
+)
 
 from .config_package import export_encrypted_settings, import_encrypted_settings
 from .models import HubState
@@ -19,7 +24,16 @@ class HubSettingsMenu(c_menu):
     choiceBack = None
     ESC_is_quit = True
 
-    def _save(self) -> None:
+    def onEnterMenu(self):
+        if is_centrally_managed_section("hub") and not local_settings_override_enabled():
+            return (
+                "SysApps Hub settings are centrally managed. "
+                "Restart sys_apps with --local-settings for a one-run local override."
+            )
+        return None
+
+    def _save(self, *changed_keys: str) -> None:
+        invalidate_central_settings_after_local_override(*changed_keys)
         cfg.save()
         hub_runtime.refresh_status()
 
@@ -64,12 +78,12 @@ class HubSettingsMenu(c_menu):
 
     def toggle_enabled(self, selItem: c_menu_item) -> onSelReturn:
         cfg.HUB_ENABLED = not bool(cfg.HUB_ENABLED)
-        self._save()
+        self._save("HUB_ENABLED")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def toggle_auto_sync(self, selItem: c_menu_item) -> onSelReturn:
         cfg.HUB_AUTO_SYNC = not bool(cfg.HUB_AUTO_SYNC)
-        self._save()
+        self._save("HUB_AUTO_SYNC")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def _edit_text(self, prompt: str, attr_name: str, max_len: int = 255) -> onSelReturn:
@@ -78,7 +92,7 @@ class HubSettingsMenu(c_menu):
         if value is None:
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
         setattr(cfg, attr_name, value.strip())
-        self._save()
+        self._save(attr_name)
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def edit_host(self, selItem: c_menu_item) -> onSelReturn:
@@ -98,7 +112,7 @@ class HubSettingsMenu(c_menu):
         if value is None:
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
         cfg.HUB_DB_NAME = value.strip()
-        self._save()
+        self._save("HUB_DB_NAME")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def edit_prefix(self, selItem: c_menu_item) -> onSelReturn:
@@ -112,7 +126,7 @@ class HubSettingsMenu(c_menu):
         if value is None:
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
         cfg.HUB_DB_PREFIX = value.strip()
-        self._save()
+        self._save("HUB_DB_PREFIX")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def edit_password(self, selItem: c_menu_item) -> onSelReturn:
@@ -120,7 +134,7 @@ class HubSettingsMenu(c_menu):
         if value is None:
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
         cfg.HUB_DB_PASSWORD = value
-        self._save()
+        self._save("HUB_DB_PASSWORD")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def _edit_number(self, prompt: str, attr_name: str, minimum: int, maximum: int) -> onSelReturn:
@@ -138,7 +152,7 @@ class HubSettingsMenu(c_menu):
         if not minimum <= number <= maximum:
             return onSelReturn().errRet(f"Value must be between {minimum} and {maximum}.")
         setattr(cfg, attr_name, number)
-        self._save()
+        self._save(attr_name)
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def edit_port(self, selItem: c_menu_item) -> onSelReturn:

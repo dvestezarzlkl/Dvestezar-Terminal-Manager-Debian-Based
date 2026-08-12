@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.2.6
+
+- ADD centrálně aplikované Hub/SMTP hodnoty se v běžném App settings považují za managed a jejich lokální editory se skryjí; sekce/pole zachované lokální importní politikou zůstávají viditelné.
+- ADD `sys_apps --local-settings` jako process-only servisní escape hatch. Funguje nezávisle na úspěchu central download/decode a na jeden běh zpřístupní managed editory bez persistování flagu.
+- SAFETY lokální změna managed hodnoty v override režimu zneplatní pouze `SETTINGS_LAST_APPLIED`, takže při příštím úspěšném startu centrála znovu aplikuje i stejnou revision; při výpadku centrály lokální servisní oprava zůstává použitelná.
+- UPD hlavní verze aplikace na 2.2.6.
+
 ## v2.2.5
 
 - ADD SysApps Hub ukládá lokální Service host/FQDN/IP jako samostatné `hosts.service_host`; systémové `hostname` a `fqdn` zůstávají nezávislou identitou stroje. Schéma rozšiřuje migrace `003_service_host_identity.sql`.

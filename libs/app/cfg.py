@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.2.5"
+VERSION = "2.2.6"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****

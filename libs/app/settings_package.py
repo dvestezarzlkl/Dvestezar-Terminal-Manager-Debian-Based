@@ -19,6 +19,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from libs.app import cfg
+from libs.app.runtime_flags import local_settings_override_enabled
 from libs.JBLibs.helper import getLogger
 from libs.app.hub.config_package import import_encrypted_settings as import_legacy_hub_settings
 from libs.app.hub.settings import (
@@ -41,6 +42,10 @@ _SECTION_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
 _EMAIL_RE = re.compile(
     r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
     r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$"
+)
+_APPLIED_SECTION_RE = re.compile(
+    r"^(?P<key>[a-z][a-z0-9_]{0,31}):(?P<version>\d+)"
+    r"(?:\[keep=(?P<keep>[a-z][a-z0-9_]*(?:\+[a-z][a-z0-9_]*)*)\])?$"
 )
 
 
@@ -162,6 +167,67 @@ def settings_section_policy_fields(
 ) -> tuple[SettingsPolicyField, ...]:
     handler = _SECTIONS.get(str(section_key or ""))
     return handler.policy_fields if handler is not None else ()
+
+
+def centrally_managed_config_keys() -> frozenset[str]:
+    """Return config keys owned by the last successfully applied central package."""
+    signature = str(getattr(cfg, "SETTINGS_LAST_APPLIED", "") or "").strip()
+    if not signature:
+        return frozenset()
+
+    managed: set[str] = set()
+    for raw_entry in signature.split(","):
+        entry = raw_entry.strip()
+        match = _APPLIED_SECTION_RE.fullmatch(entry)
+        if match is None:
+            continue
+        handler = _SECTIONS.get(match.group("key"))
+        if handler is None:
+            continue
+        managed.update(handler.config_keys)
+        preserved = set((match.group("keep") or "").split("+"))
+        preserved.discard("")
+        if preserved:
+            for field in handler.policy_fields:
+                if field.key in preserved:
+                    managed.discard(field.config_key)
+    return frozenset(managed)
+
+
+def is_centrally_managed_config(config_key: str) -> bool:
+    return str(config_key or "") in centrally_managed_config_keys()
+
+
+def is_centrally_managed_section(section_key: str) -> bool:
+    handler = _SECTIONS.get(str(section_key or ""))
+    if handler is None:
+        return False
+    managed = centrally_managed_config_keys()
+    return any(key in managed for key in handler.config_keys)
+
+
+def invalidate_central_settings_after_local_override(*config_keys: str) -> bool:
+    """Force a same-revision central reapply after an explicit local override.
+
+    The override is intentionally one process only. If a centrally managed value
+    is edited while `--local-settings` is active, clearing only the applied
+    signature makes the next successful startup reapply the current central
+    package. When the endpoint is broken or unavailable the local repair remains
+    usable until central settings become available again.
+    """
+    if not local_settings_override_enabled():
+        return False
+    changed = {str(key or "") for key in config_keys if str(key or "")}
+    managed = centrally_managed_config_keys()
+    touched = sorted(changed.intersection(managed))
+    if not touched:
+        return False
+    cfg.SETTINGS_LAST_APPLIED = ""
+    log.info(
+        "Central settings applied signature invalidated by --local-settings edit (%s)",
+        ",".join(touched),
+    )
+    return True
 
 
 def load_settings_import_policy() -> SettingsImportPolicy:

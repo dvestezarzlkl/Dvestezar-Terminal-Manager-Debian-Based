@@ -12,7 +12,13 @@ from libs.app.hub.menu import HubSettingsMenu
 from libs.app.hub.models import HubState
 from libs.app.hub.runtime import hub_runtime
 from libs.app.settings_menu import SettingsPackageMenu
-from libs.app.settings_package import startup_settings_update
+from libs.app.settings_package import (
+    centrally_managed_config_keys,
+    invalidate_central_settings_after_local_override,
+    is_centrally_managed_section,
+    startup_settings_update,
+)
+from libs.app.runtime_flags import local_settings_override_enabled
 from libs.app.service_host import configured_service_host, validate_service_host
 import os,string
 from time import perf_counter
@@ -198,10 +204,15 @@ class m_mail_settings(c_menu):
     def onEnterMenu(self) -> None:
         self.cfg = cfg
 
-    def _save(self) -> None:
+    def _save(self, *changed_keys: str) -> None:
+        invalidate_central_settings_after_local_override(*changed_keys)
         cfg.save()
 
     def onShowMenu(self) -> None:
+        local_override = local_settings_override_enabled()
+        managed_keys = centrally_managed_config_keys()
+        hub_managed = is_centrally_managed_section("hub")
+        hide_managed = not local_override
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(("App settings", "c"))
         self.subTitle = c_menu_block_items()
@@ -209,6 +220,10 @@ class m_mail_settings(c_menu):
         self.subTitle.append(("SMTP", mail_hlp.get_status_text()))
         self.subTitle.append(("Fallback admin", mail_hlp.get_fallback_admin_mail() or "not set"))
         self.subTitle.append(("SysApps Hub", hub_runtime.status_text()))
+        if local_override:
+            self.subTitle.append(("Local settings override", "ACTIVE (--local-settings)"))
+        elif managed_keys:
+            self.subTitle.append(("Central management", "managed local editors hidden"))
         self.menu = [
             c_menu_title_label(text_color("App settings", color=en_color.CYAN)),
             c_menu_item(
@@ -224,6 +239,7 @@ class m_mail_settings(c_menu):
                 "b",
                 HubSettingsMenu(),
                 atRight=hub_runtime.status_text(),
+                hidden=hub_managed and hide_managed,
             ),
             c_menu_item(
                 text_color("Centralized settings", en_color.BRIGHT_GREEN),
@@ -242,42 +258,49 @@ class m_mail_settings(c_menu):
                 "h",
                 self.edit_smtp_host,
                 atRight=cfg.MAIL_SMTP_HOST or "not set",
+                hidden="MAIL_SMTP_HOST" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("SMTP port", en_color.BRIGHT_CYAN),
                 "p",
                 self.edit_smtp_port,
                 atRight=str(cfg.MAIL_SMTP_PORT),
+                hidden="MAIL_SMTP_PORT" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("SMTP user", en_color.BRIGHT_CYAN),
                 "u",
                 self.edit_smtp_user,
                 atRight=cfg.MAIL_SMTP_USER or "not set",
+                hidden="MAIL_SMTP_USER" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("SMTP password", en_color.BRIGHT_CYAN),
                 "w",
                 self.edit_smtp_password,
                 atRight="set" if cfg.MAIL_SMTP_PASSWORD else "not set",
+                hidden="MAIL_SMTP_PASSWORD" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("SMTP mode", en_color.BRIGHT_CYAN),
                 "o",
                 self.edit_smtp_mode,
                 atRight=cfg.MAIL_SMTP_MODE or "starttls",
+                hidden="MAIL_SMTP_MODE" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("From address", en_color.BRIGHT_CYAN),
                 "f",
                 self.edit_mail_from,
                 atRight=cfg.MAIL_FROM or cfg.MAIL_SMTP_USER or "not set",
+                hidden="MAIL_FROM" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("Fallback admin mail", en_color.BRIGHT_YELLOW),
                 "a",
                 self.edit_fallback_admin_mail,
                 atRight=mail_hlp.get_fallback_admin_mail() or "not set",
+                hidden="MAIL_FALLBACK_ADMIN" in managed_keys and hide_managed,
             ),
             c_menu_item(
                 text_color("Send test mail", en_color.BRIGHT_GREEN),
@@ -297,7 +320,7 @@ class m_mail_settings(c_menu):
         if value is None:
             return onSelReturn().errRet("Cancelled.")
         cfg.MAIL_SMTP_HOST = value.strip()
-        self._save()
+        self._save("MAIL_SMTP_HOST")
         return onSelReturn(ok="SMTP host updated.")
 
     def edit_smtp_port(self, selItem:c_menu_item) -> onSelReturn:
@@ -321,7 +344,7 @@ class m_mail_settings(c_menu):
         if port < 1 or port > 65535:
             return onSelReturn().errRet("SMTP port must be between 1 and 65535.")
         cfg.MAIL_SMTP_PORT = port
-        self._save()
+        self._save("MAIL_SMTP_PORT")
         return onSelReturn(ok="SMTP port updated.")
 
     def edit_smtp_user(self, selItem:c_menu_item) -> onSelReturn:
@@ -333,7 +356,7 @@ class m_mail_settings(c_menu):
         if value is None:
             return onSelReturn().errRet("Cancelled.")
         cfg.MAIL_SMTP_USER = value.strip()
-        self._save()
+        self._save("MAIL_SMTP_USER")
         return onSelReturn(ok="SMTP user updated.")
 
     def edit_smtp_password(self, selItem:c_menu_item) -> onSelReturn:
@@ -341,7 +364,7 @@ class m_mail_settings(c_menu):
         if value is None:
             return onSelReturn().errRet("Cancelled.")
         cfg.MAIL_SMTP_PASSWORD = value
-        self._save()
+        self._save("MAIL_SMTP_PASSWORD")
         return onSelReturn(ok="SMTP password updated.")
 
     def edit_smtp_mode(self, selItem:c_menu_item) -> onSelReturn:
@@ -367,7 +390,7 @@ class m_mail_settings(c_menu):
             if confirm(msg, minMessageWidth=self.minMenuWidth):
                 cfg.MAIL_SMTP_PORT = new_port
         cfg.MAIL_SMTP_MODE = new_mode
-        self._save()
+        self._save("MAIL_SMTP_MODE", "MAIL_SMTP_PORT")
         return onSelReturn(ok=f"SMTP mode set to {new_mode}.")
 
     def edit_mail_from(self, selItem:c_menu_item) -> onSelReturn:
@@ -385,7 +408,7 @@ class m_mail_settings(c_menu):
         if value is None:
             return onSelReturn().errRet("Cancelled.")
         cfg.MAIL_FROM = value.strip().lower()
-        self._save()
+        self._save("MAIL_FROM")
         return onSelReturn(ok="From address updated.")
 
     def edit_server_url(self, selItem:c_menu_item) -> onSelReturn:
@@ -464,7 +487,7 @@ class m_mail_settings(c_menu):
         ok, msg = mail_hlp.set_fallback_admin_mail(value)
         if not ok:
             return onSelReturn().errRet(msg)
-        self._save()
+        self._save("MAIL_FALLBACK_ADMIN")
         return onSelReturn(ok="Fallback admin mail updated.")
 
     def send_test_mail(self, selItem:c_menu_item) -> onSelReturn:

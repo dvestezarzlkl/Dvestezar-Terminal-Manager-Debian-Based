@@ -6,6 +6,7 @@ on:
       - "libs/app/hub/**"
       - "libs/app/settings_package.py"
       - "libs/app/settings_menu.py"
+      - "libs/app/runtime_flags.py"
       - "libs/app/service_host.py"
       - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
@@ -23,6 +24,7 @@ on:
       - "tests/test_disk_menu_system_disk.py"
       - "tests/test_ptuuid_repair.py"
       - "tests/test_node_red_hub_provider.py"
+      - "venv_run.py"
       - "requirements.txt"
       - "readme.md"
       - "changelog.md"
@@ -36,6 +38,7 @@ on:
       - "libs/app/hub/**"
       - "libs/app/settings_package.py"
       - "libs/app/settings_menu.py"
+      - "libs/app/runtime_flags.py"
       - "libs/app/service_host.py"
       - "libs/app/disk_hlp.py"
       - "libs/app/cfg.py"
@@ -53,6 +56,7 @@ on:
       - "tests/test_disk_menu_system_disk.py"
       - "tests/test_ptuuid_repair.py"
       - "tests/test_node_red_hub_provider.py"
+      - "venv_run.py"
       - "requirements.txt"
       - "readme.md"
       - "changelog.md"
@@ -104,9 +108,11 @@ jobs:
       - name: Compile Hub and integration modules
         run: |
           python -m py_compile \
+            venv_run.py \
             libs/app/hub/*.py \
             libs/app/settings_package.py \
             libs/app/settings_menu.py \
+            libs/app/runtime_flags.py \
             libs/app/service_host.py \
             libs/app/disk_hlp.py \
             libs/app/menus/app_10_disk/device_policy.py \
@@ -163,6 +169,7 @@ jobs:
           changelog = Path("changelog.md").read_text(encoding="utf-8")
           settings_package = Path("libs/app/settings_package.py").read_text(encoding="utf-8")
           settings_menu = Path("libs/app/settings_menu.py").read_text(encoding="utf-8")
+          runtime_flags = Path("libs/app/runtime_flags.py").read_text(encoding="utf-8")
           hub_models = Path("libs/app/hub/models.py").read_text(encoding="utf-8")
           node_menu = Path("libs/app/menus/app_20_node_red/menu.py").read_text(encoding="utf-8")
           disk_menu = Path("libs/app/menus/app_10_disk/menu.py").read_text(encoding="utf-8")
@@ -176,7 +183,7 @@ jobs:
           version = re.search(r'^VERSION = "([^"]+)"', cfg, re.MULTILINE).group(1)
           disk_version = re.search(r'_VERSION_:str="([^"]+)"', disk_menu).group(1)
           swap_version = re.search(r'_VERSION_:str="([^"]+)"', swap_menu).group(1)
-          assert version == "2.2.5"
+          assert version == "2.2.6"
           assert disk_version == "3.6.8"
           assert swap_version == "2.5.2"
           assert f"v{version}" in readme
@@ -189,7 +196,10 @@ jobs:
           assert "SettingsImportPolicy" in settings_package
           assert "policy_fields" in settings_package
           assert "detect_import_conflicts" in settings_package
+          assert "centrally_managed_config_keys" in settings_package
+          assert "invalidate_central_settings_after_local_override" in settings_package
           assert "sections were skipped by local policy" in settings_package
+          assert "--local-settings" in runtime_flags
           assert "HTTP Basic Auth user" in settings_menu
           assert "Centralized import policy" in settings_menu
           assert "Processing centralized settings import" in settings_menu

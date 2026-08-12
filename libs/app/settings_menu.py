@@ -11,6 +11,7 @@ from libs.JBLibs.input import anyKey, confirm, get_input, get_pwd
 from libs.JBLibs.term import en_color, text_color
 from libs.app import cfg
 from libs.app.hub.runtime import hub_runtime
+from libs.app.runtime_flags import local_settings_override_enabled
 from libs.app.settings_package import (
     DecodedSettingsPackage,
     SettingsImportPolicy,
@@ -109,6 +110,8 @@ class SettingsPackageMenu(c_menu):
             "Local import policy",
             policy_error or (f"{policy_count} skip rule(s)" if policy_count else "default"),
         ))
+        if local_settings_override_enabled():
+            self.subTitle.append(("Local settings override", "ACTIVE for this process"))
         self.subTitle.append(("Last revision", str(cfg.SETTINGS_LAST_REVISION or 0)))
         self.subTitle.append(("Last SHA-256", last_hash[:16] if last_hash else "not set"))
         self.menu = [

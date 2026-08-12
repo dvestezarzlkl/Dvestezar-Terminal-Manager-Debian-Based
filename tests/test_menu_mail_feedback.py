@@ -6,7 +6,8 @@ from contextlib import redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from libs.app import mail_hlp
+from libs.app import mail_hlp, runtime_flags
+from libs.app.hub.menu import HubSettingsMenu
 from libs.app.menus import menuBoss
 from libs.app.menus.app_20_node_red import handover_mail
 from libs.app.menus.app_20_node_red import menu as node_red_menu
@@ -32,6 +33,57 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             MAIL_FROM="",
             MAIL_TIMEOUT=12,
         )
+
+    @staticmethod
+    def _menu_item(menu, choice: str):
+        return next(
+            item for item in menu
+            if item is not None and getattr(item, "choice", None) == choice
+        )
+
+    def test_centrally_managed_app_settings_are_hidden_without_override(self):
+        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED
+        runtime_flags._set_local_settings_override_for_tests(False)
+        try:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
+            settings = menuBoss.m_mail_settings()
+            settings.onShowMenu()
+            for choice in ("b", "h", "p", "u", "w", "o", "f", "a"):
+                self.assertTrue(self._menu_item(settings.menu, choice).hidden)
+            self.assertFalse(self._menu_item(settings.menu, "s").hidden)
+            self.assertFalse(self._menu_item(settings.menu, "g").hidden)
+            self.assertFalse(self._menu_item(settings.menu, "t").hidden)
+            self.assertIsInstance(HubSettingsMenu().onEnterMenu(), str)
+        finally:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied
+            runtime_flags._set_local_settings_override_for_tests(False)
+
+    def test_local_settings_override_reveals_managed_editors(self):
+        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED
+        runtime_flags._set_local_settings_override_for_tests(True)
+        try:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:1[keep=from_address]"
+            settings = menuBoss.m_mail_settings()
+            settings.onShowMenu()
+            for choice in ("b", "h", "p", "u", "w", "o", "f", "a"):
+                self.assertFalse(self._menu_item(settings.menu, choice).hidden)
+            self.assertIsNone(HubSettingsMenu().onEnterMenu())
+        finally:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied
+            runtime_flags._set_local_settings_override_for_tests(False)
+
+    def test_preserved_central_field_stays_locally_visible(self):
+        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED
+        runtime_flags._set_local_settings_override_for_tests(False)
+        try:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = "smtp:1[keep=from_address]"
+            settings = menuBoss.m_mail_settings()
+            settings.onShowMenu()
+            self.assertTrue(self._menu_item(settings.menu, "h").hidden)
+            self.assertFalse(self._menu_item(settings.menu, "f").hidden)
+        finally:
+            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied
+            runtime_flags._set_local_settings_override_for_tests(False)
 
     def test_component_version_resolver_and_current_menus(self):
         class LegacyMenu:
