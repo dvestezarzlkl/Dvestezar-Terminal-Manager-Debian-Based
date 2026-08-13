@@ -7,7 +7,9 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from libs.app import mail_hlp, runtime_flags
+from libs.app.hub import menu as hub_menu
 from libs.app.hub.menu import HubSettingsMenu
+from libs.app.hub.models import HubState, HubStatus
 from libs.app.menus import menuBoss
 from libs.app.menus.app_20_node_red import handover_mail
 from libs.app.menus.app_20_node_red import menu as node_red_menu
@@ -48,12 +50,25 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             menuBoss.cfg.SETTINGS_LAST_APPLIED = "hub:1,smtp:1"
             settings = menuBoss.m_mail_settings()
             settings.onShowMenu()
-            for choice in ("b", "h", "p", "u", "w", "o", "f", "a"):
+            self.assertFalse(self._menu_item(settings.menu, "b").hidden)
+            for choice in ("h", "p", "u", "w", "o", "f", "a"):
                 self.assertTrue(self._menu_item(settings.menu, choice).hidden)
             self.assertFalse(self._menu_item(settings.menu, "s").hidden)
             self.assertFalse(self._menu_item(settings.menu, "g").hidden)
             self.assertFalse(self._menu_item(settings.menu, "t").hidden)
-            self.assertIsInstance(HubSettingsMenu().onEnterMenu(), str)
+
+            with patch.object(
+                hub_menu.hub_runtime,
+                "status",
+                HubStatus(HubState.SCHEMA_OUTDATED, "schema 2, expected 3"),
+            ):
+                hub_settings = HubSettingsMenu()
+                hub_settings.onShowMenu()
+            for choice in ("e", "a", "h", "p", "u", "w", "d", "x", "o"):
+                self.assertTrue(self._menu_item(hub_settings.menu, choice).hidden)
+            for choice in ("t", "i", "s"):
+                self.assertFalse(self._menu_item(hub_settings.menu, choice).hidden)
+            self.assertFalse(self._menu_item(hub_settings.menu, "s").enabled)
         finally:
             menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied
             runtime_flags._set_local_settings_override_for_tests(False)
@@ -67,7 +82,10 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             settings.onShowMenu()
             for choice in ("b", "h", "p", "u", "w", "o", "f", "a"):
                 self.assertFalse(self._menu_item(settings.menu, choice).hidden)
-            self.assertIsNone(HubSettingsMenu().onEnterMenu())
+            hub_settings = HubSettingsMenu()
+            hub_settings.onShowMenu()
+            for choice in ("e", "a", "h", "p", "u", "w", "d", "x", "o", "t", "i", "s"):
+                self.assertFalse(self._menu_item(hub_settings.menu, choice).hidden)
         finally:
             menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied
             runtime_flags._set_local_settings_override_for_tests(False)

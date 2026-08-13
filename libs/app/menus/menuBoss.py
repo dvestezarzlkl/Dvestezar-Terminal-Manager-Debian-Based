@@ -15,7 +15,6 @@ from libs.app.settings_menu import SettingsPackageMenu
 from libs.app.settings_package import (
     centrally_managed_config_keys,
     invalidate_central_settings_after_local_override,
-    is_centrally_managed_section,
     startup_settings_update,
 )
 from libs.app.runtime_flags import local_settings_override_enabled
@@ -211,7 +210,6 @@ class m_mail_settings(c_menu):
     def onShowMenu(self) -> None:
         local_override = local_settings_override_enabled()
         managed_keys = centrally_managed_config_keys()
-        hub_managed = is_centrally_managed_section("hub")
         hide_managed = not local_override
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(("App settings", "c"))
@@ -239,7 +237,6 @@ class m_mail_settings(c_menu):
                 "b",
                 HubSettingsMenu(),
                 atRight=hub_runtime.status_text(),
-                hidden=hub_managed and hide_managed,
             ),
             c_menu_item(
                 text_color("Centralized settings", en_color.BRIGHT_GREEN),
