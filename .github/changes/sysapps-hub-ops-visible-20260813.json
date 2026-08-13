@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "commit_message": "SysApps 2.2.7: keep Hub operations visible under central management",
+  "replacements": [
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "from libs.app.settings_package import (\n    centrally_managed_config_keys,\n    invalidate_central_settings_after_local_override,\n    is_centrally_managed_section,\n    startup_settings_update,\n)",
+      "new": "from libs.app.settings_package import (\n    centrally_managed_config_keys,\n    invalidate_central_settings_after_local_override,\n    startup_settings_update,\n)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        hub_managed = is_centrally_managed_section(\"hub\")\n        hide_managed = not local_override",
+      "new": "        hide_managed = not local_override",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                atRight=hub_runtime.status_text(),\n                hidden=hub_managed and hide_managed,",
+      "new": "                atRight=hub_runtime.status_text(),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "from libs.app.settings_package import (\n    invalidate_central_settings_after_local_override,\n    is_centrally_managed_section,\n)",
+      "new": "from libs.app.settings_package import (\n    centrally_managed_config_keys,\n    invalidate_central_settings_after_local_override,\n)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "    def onEnterMenu(self):\n        if is_centrally_managed_section(\"hub\") and not local_settings_override_enabled():\n            return (\n                \"SysApps Hub settings are centrally managed. \"\n                \"Restart sys_apps with --local-settings for a one-run local override.\"\n            )\n        return None\n\n",
+      "new": "",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "    def onShowMenu(self) -> None:\n        settings = HubSettings.from_cfg()\n        self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)",
+      "new": "    def onShowMenu(self) -> None:\n        settings = HubSettings.from_cfg()\n        managed_keys = centrally_managed_config_keys()\n        hide_managed = not local_settings_override_enabled()\n        self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "        self.menu = [\n            c_menu_title_label(text_color(TXT_HUB_TITLE, en_color.CYAN)),\n            c_menu_item(TXT_HUB_ENABLED, \"e\", self.toggle_enabled, atRight=TXT_HUB_ON if settings.enabled else TXT_HUB_OFF),\n            c_menu_item(TXT_HUB_AUTO_SYNC, \"a\", self.toggle_auto_sync, atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF),\n            None,\n            c_menu_item(TXT_HUB_DB_HOST, \"h\", self.edit_host, atRight=settings.host or TXT_HUB_NOT_SET),\n            c_menu_item(TXT_HUB_DB_PORT, \"p\", self.edit_port, atRight=str(settings.port)),\n            c_menu_item(TXT_HUB_DB_USER, \"u\", self.edit_user, atRight=settings.user or TXT_HUB_NOT_SET),\n            c_menu_item(TXT_HUB_DB_PASSWORD, \"w\", self.edit_password, atRight=TXT_HUB_SET if settings.password else TXT_HUB_NOT_SET),\n            c_menu_item(TXT_HUB_DB_NAME, \"d\", self.edit_database, atRight=settings.database),\n            c_menu_item(TXT_HUB_DB_PREFIX, \"x\", self.edit_prefix, atRight=settings.prefix),\n            c_menu_item(TXT_HUB_TIMEOUT, \"o\", self.edit_timeout, atRight=f\"{settings.connect_timeout}s\"),\n            None,\n            c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), \"t\", self.test_connection),\n            c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), \"i\", self.initialize_schema),\n            c_menu_item(\n                text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN),\n                \"s\",\n                self.sync_all,\n                enabled=hub_runtime.status.state is HubState.READY,\n                atRight=hub_runtime.status_text(),\n            ),\n        ]",
+      "new": "        self.menu = [\n            c_menu_title_label(text_color(TXT_HUB_TITLE, en_color.CYAN)),\n            c_menu_item(\n                TXT_HUB_ENABLED,\n                \"e\",\n                self.toggle_enabled,\n                atRight=TXT_HUB_ON if settings.enabled else TXT_HUB_OFF,\n                hidden=hide_managed and \"HUB_ENABLED\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_AUTO_SYNC,\n                \"a\",\n                self.toggle_auto_sync,\n                atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF,\n                hidden=hide_managed and \"HUB_AUTO_SYNC\" in managed_keys,\n            ),\n            None,\n            c_menu_item(\n                TXT_HUB_DB_HOST,\n                \"h\",\n                self.edit_host,\n                atRight=settings.host or TXT_HUB_NOT_SET,\n                hidden=hide_managed and \"HUB_DB_HOST\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_DB_PORT,\n                \"p\",\n                self.edit_port,\n                atRight=str(settings.port),\n                hidden=hide_managed and \"HUB_DB_PORT\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_DB_USER,\n                \"u\",\n                self.edit_user,\n                atRight=settings.user or TXT_HUB_NOT_SET,\n                hidden=hide_managed and \"HUB_DB_USER\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_DB_PASSWORD,\n                \"w\",\n                self.edit_password,\n                atRight=TXT_HUB_SET if settings.password else TXT_HUB_NOT_SET,\n                hidden=hide_managed and \"HUB_DB_PASSWORD\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_DB_NAME,\n                \"d\",\n                self.edit_database,\n                atRight=settings.database,\n                hidden=hide_managed and \"HUB_DB_NAME\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_DB_PREFIX,\n                \"x\",\n                self.edit_prefix,\n                atRight=settings.prefix,\n                hidden=hide_managed and \"HUB_DB_PREFIX\" in managed_keys,\n            ),\n            c_menu_item(\n                TXT_HUB_TIMEOUT,\n                \"o\",\n                self.edit_timeout,\n                atRight=f\"{settings.connect_timeout}s\",\n                hidden=hide_managed and \"HUB_CONNECT_TIMEOUT\" in managed_keys,\n            ),\n            None,\n            c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), \"t\", self.test_connection),\n            c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), \"i\", self.initialize_schema),\n            c_menu_item(\n                text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN),\n                \"s\",\n                self.sync_all,\n                enabled=hub_runtime.status.state is HubState.READY,\n                atRight=hub_runtime.status_text(),\n            ),\n        ]",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "from libs.app import mail_hlp, runtime_flags\nfrom libs.app.hub.menu import HubSettingsMenu",
+      "new": "from libs.app import mail_hlp, runtime_flags\nfrom libs.app.hub import menu as hub_menu\nfrom libs.app.hub.menu import HubSettingsMenu\nfrom libs.app.hub.models import HubState, HubStatus",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "    def test_centrally_managed_app_settings_are_hidden_without_override(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(False)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            for choice in (\"b\", \"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertTrue(self._menu_item(settings.menu, choice).hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"s\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"g\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"t\").hidden)\n            self.assertIsInstance(HubSettingsMenu().onEnterMenu(), str)\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n",
+      "new": "    def test_centrally_managed_app_settings_are_hidden_without_override(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(False)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            self.assertFalse(self._menu_item(settings.menu, \"b\").hidden)\n            for choice in (\"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertTrue(self._menu_item(settings.menu, choice).hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"s\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"g\").hidden)\n            self.assertFalse(self._menu_item(settings.menu, \"t\").hidden)\n\n            with patch.object(\n                hub_menu.hub_runtime,\n                \"status\",\n                HubStatus(HubState.SCHEMA_OUTDATED, \"schema 2, expected 3\"),\n            ):\n                hub_settings = HubSettingsMenu()\n                hub_settings.onShowMenu()\n            for choice in (\"e\", \"a\", \"h\", \"p\", \"u\", \"w\", \"d\", \"x\", \"o\"):\n                self.assertTrue(self._menu_item(hub_settings.menu, choice).hidden)\n            for choice in (\"t\", \"i\", \"s\"):\n                self.assertFalse(self._menu_item(hub_settings.menu, choice).hidden)\n            self.assertFalse(self._menu_item(hub_settings.menu, \"s\").enabled)\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "    def test_local_settings_override_reveals_managed_editors(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(True)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1[keep=from_address]\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            for choice in (\"b\", \"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertFalse(self._menu_item(settings.menu, choice).hidden)\n            self.assertIsNone(HubSettingsMenu().onEnterMenu())\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n",
+      "new": "    def test_local_settings_override_reveals_managed_editors(self):\n        previous_applied = menuBoss.cfg.SETTINGS_LAST_APPLIED\n        runtime_flags._set_local_settings_override_for_tests(True)\n        try:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = \"hub:1,smtp:1[keep=from_address]\"\n            settings = menuBoss.m_mail_settings()\n            settings.onShowMenu()\n            for choice in (\"b\", \"h\", \"p\", \"u\", \"w\", \"o\", \"f\", \"a\"):\n                self.assertFalse(self._menu_item(settings.menu, choice).hidden)\n            hub_settings = HubSettingsMenu()\n            hub_settings.onShowMenu()\n            for choice in (\"e\", \"a\", \"h\", \"p\", \"u\", \"w\", \"d\", \"x\", \"o\", \"t\", \"i\", \"s\"):\n                self.assertFalse(self._menu_item(hub_settings.menu, choice).hidden)\n        finally:\n            menuBoss.cfg.SETTINGS_LAST_APPLIED = previous_applied\n            runtime_flags._set_local_settings_override_for_tests(False)\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/central-settings.md",
+      "old": "`SETTINGS_LAST_APPLIED` není jen anti-repeat podpis; zároveň určuje, které config klíče byly naposledy úspěšně převzaté z centrálního balíku. V běžném App settings se editory těchto hodnot skryjí. Sekce přeskočená lokální politikou zůstává lokálně editovatelná a pole uvedené v `keep=...` se také neskrývá. Service host (`SERVER_URL`) a celý bootstrap Centralized settings zůstávají vždy lokální a dostupné.",
+      "new": "`SETTINGS_LAST_APPLIED` není jen anti-repeat podpis; zároveň určuje, které config klíče byly naposledy úspěšně převzaté z centrálního balíku. V běžném App settings se editory těchto hodnot skryjí. Sekce přeskočená lokální politikou zůstává lokálně editovatelná a pole uvedené v `keep=...` se také neskrývá. Service host (`SERVER_URL`) a celý bootstrap Centralized settings zůstávají vždy lokální a dostupné. U Hubu se central management vztahuje jen na editory konfigurace; provozní akce Test connection, Initialize/upgrade schema a ruční synchronizace zůstávají dostupné i bez `--local-settings`.",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.2.6",
+      "new": "# Changelog\n\n## v2.2.7\n\n- FIX centrálně managed Hub už neskrývá celé `SysApps Hub settings`; skryjí se pouze lokální konfigurační editory, zatímco Test connection, Initialize/upgrade schema a ruční synchronizace zůstávají dostupné.\n- UPD hlavní verze aplikace na 2.2.7.\n\n## v2.2.6",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.2.6\"",
+      "new": "VERSION = \"2.2.7\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.2.6",
+      "new": "v2.2.7",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "          assert version == \"2.2.6\"",
+      "new": "          assert version == \"2.2.7\"",
+      "expected": 1
+    }
+  ]
+}
