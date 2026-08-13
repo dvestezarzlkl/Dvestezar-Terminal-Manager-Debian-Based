@@ -85,12 +85,6 @@
       "old": "v2.2.6",
       "new": "v2.2.7",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "          assert version == \"2.2.6\"",
-      "new": "          assert version == \"2.2.7\"",
-      "expected": 1
     }
   ]
 }
