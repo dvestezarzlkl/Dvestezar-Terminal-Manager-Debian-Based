@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.7
+
+- FIX centrálně managed Hub už neskrývá celé `SysApps Hub settings`; skryjí se pouze lokální konfigurační editory, zatímco Test connection, Initialize/upgrade schema a ruční synchronizace zůstávají dostupné.
+- UPD hlavní verze aplikace na 2.2.7.
+
 ## v2.2.6
 
 - ADD centrálně aplikované Hub/SMTP hodnoty se v běžném App settings považují za managed a jejich lokální editory se skryjí; sekce/pole zachované lokální importní politikou zůstávají viditelné.

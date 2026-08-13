@@ -30,7 +30,7 @@ Tím si vzdálený balík nemůže změnit vlastní zdroj, dešifrovací heslo, 
 
 ## Lokální editace centrálně řízených hodnot
 
-`SETTINGS_LAST_APPLIED` není jen anti-repeat podpis; zároveň určuje, které config klíče byly naposledy úspěšně převzaté z centrálního balíku. V běžném App settings se editory těchto hodnot skryjí. Sekce přeskočená lokální politikou zůstává lokálně editovatelná a pole uvedené v `keep=...` se také neskrývá. Service host (`SERVER_URL`) a celý bootstrap Centralized settings zůstávají vždy lokální a dostupné.
+`SETTINGS_LAST_APPLIED` není jen anti-repeat podpis; zároveň určuje, které config klíče byly naposledy úspěšně převzaté z centrálního balíku. V běžném App settings se editory těchto hodnot skryjí. Sekce přeskočená lokální politikou zůstává lokálně editovatelná a pole uvedené v `keep=...` se také neskrývá. Service host (`SERVER_URL`) a celý bootstrap Centralized settings zůstávají vždy lokální a dostupné. U Hubu se central management vztahuje jen na editory konfigurace; provozní akce Test connection, Initialize/upgrade schema a ruční synchronizace zůstávají dostupné i bez `--local-settings`.
 
 Pro servisní zásah lze aplikaci spustit přes `sys_apps --local-settings`. Flag se spotřebuje v Python bootstrapu ještě před central settings download/decode/apply a existuje pouze v paměti procesu; nezapisuje se do `config.ini` ani do `SYSAPP1E`. Proto zpřístupní lokální editory i tehdy, když je centrální endpoint nedostupný, heslo chybné nebo balík poškozený. Běžný startup update se přesto zkusí standardním fail-safe způsobem a při chybě pouze vypíše varování.
 

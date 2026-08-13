@@ -10,8 +10,8 @@ from libs.JBLibs.term import en_color, text_color
 from libs.app import cfg
 from libs.app.runtime_flags import local_settings_override_enabled
 from libs.app.settings_package import (
+    centrally_managed_config_keys,
     invalidate_central_settings_after_local_override,
-    is_centrally_managed_section,
 )
 
 from .config_package import export_encrypted_settings, import_encrypted_settings
@@ -23,14 +23,6 @@ from .settings import HubSettings, apply_settings
 class HubSettingsMenu(c_menu):
     choiceBack = None
     ESC_is_quit = True
-
-    def onEnterMenu(self):
-        if is_centrally_managed_section("hub") and not local_settings_override_enabled():
-            return (
-                "SysApps Hub settings are centrally managed. "
-                "Restart sys_apps with --local-settings for a one-run local override."
-            )
-        return None
 
     def _save(self, *changed_keys: str) -> None:
         invalidate_central_settings_after_local_override(*changed_keys)
@@ -46,6 +38,8 @@ class HubSettingsMenu(c_menu):
 
     def onShowMenu(self) -> None:
         settings = HubSettings.from_cfg()
+        managed_keys = centrally_managed_config_keys()
+        hide_managed = not local_settings_override_enabled()
         self.title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
         self.title.append(TXT_HUB_TITLE)
         self.subTitle = c_menu_block_items()
@@ -54,16 +48,70 @@ class HubSettingsMenu(c_menu):
         self.subTitle.append((TXT_HUB_PREFIX, settings.prefix))
         self.menu = [
             c_menu_title_label(text_color(TXT_HUB_TITLE, en_color.CYAN)),
-            c_menu_item(TXT_HUB_ENABLED, "e", self.toggle_enabled, atRight=TXT_HUB_ON if settings.enabled else TXT_HUB_OFF),
-            c_menu_item(TXT_HUB_AUTO_SYNC, "a", self.toggle_auto_sync, atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF),
+            c_menu_item(
+                TXT_HUB_ENABLED,
+                "e",
+                self.toggle_enabled,
+                atRight=TXT_HUB_ON if settings.enabled else TXT_HUB_OFF,
+                hidden=hide_managed and "HUB_ENABLED" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_AUTO_SYNC,
+                "a",
+                self.toggle_auto_sync,
+                atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF,
+                hidden=hide_managed and "HUB_AUTO_SYNC" in managed_keys,
+            ),
             None,
-            c_menu_item(TXT_HUB_DB_HOST, "h", self.edit_host, atRight=settings.host or TXT_HUB_NOT_SET),
-            c_menu_item(TXT_HUB_DB_PORT, "p", self.edit_port, atRight=str(settings.port)),
-            c_menu_item(TXT_HUB_DB_USER, "u", self.edit_user, atRight=settings.user or TXT_HUB_NOT_SET),
-            c_menu_item(TXT_HUB_DB_PASSWORD, "w", self.edit_password, atRight=TXT_HUB_SET if settings.password else TXT_HUB_NOT_SET),
-            c_menu_item(TXT_HUB_DB_NAME, "d", self.edit_database, atRight=settings.database),
-            c_menu_item(TXT_HUB_DB_PREFIX, "x", self.edit_prefix, atRight=settings.prefix),
-            c_menu_item(TXT_HUB_TIMEOUT, "o", self.edit_timeout, atRight=f"{settings.connect_timeout}s"),
+            c_menu_item(
+                TXT_HUB_DB_HOST,
+                "h",
+                self.edit_host,
+                atRight=settings.host or TXT_HUB_NOT_SET,
+                hidden=hide_managed and "HUB_DB_HOST" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_DB_PORT,
+                "p",
+                self.edit_port,
+                atRight=str(settings.port),
+                hidden=hide_managed and "HUB_DB_PORT" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_DB_USER,
+                "u",
+                self.edit_user,
+                atRight=settings.user or TXT_HUB_NOT_SET,
+                hidden=hide_managed and "HUB_DB_USER" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_DB_PASSWORD,
+                "w",
+                self.edit_password,
+                atRight=TXT_HUB_SET if settings.password else TXT_HUB_NOT_SET,
+                hidden=hide_managed and "HUB_DB_PASSWORD" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_DB_NAME,
+                "d",
+                self.edit_database,
+                atRight=settings.database,
+                hidden=hide_managed and "HUB_DB_NAME" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_DB_PREFIX,
+                "x",
+                self.edit_prefix,
+                atRight=settings.prefix,
+                hidden=hide_managed and "HUB_DB_PREFIX" in managed_keys,
+            ),
+            c_menu_item(
+                TXT_HUB_TIMEOUT,
+                "o",
+                self.edit_timeout,
+                atRight=f"{settings.connect_timeout}s",
+                hidden=hide_managed and "HUB_CONNECT_TIMEOUT" in managed_keys,
+            ),
             None,
             c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), "t", self.test_connection),
             c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), "i", self.initialize_schema),
