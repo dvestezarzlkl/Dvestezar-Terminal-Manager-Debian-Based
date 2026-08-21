@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "SFTP 1.3.0: test per-user physical point identity",
+  "replacements": [
+    {
+      "path": "tests/test_sftp_mountpoint_templates.py",
+      "old": "        self.assertTrue(all(not record.my for record in records))\n\n    def test_per_user_override_survives_template_label_and_path_change(self):",
+      "new": "        self.assertTrue(all(not record.my for record in records))\n\n    def test_same_template_point_keeps_per_user_access_and_physical_share_identity(self):\n        cfg = self._cfg()\n        cfg[\"users\"].append({\"sftpuser\": \"reviewer\", \"sftpmounts\": {}, \"sftpcerts\": []})\n        self.assertTrue(hlp.create_template_from_user(cfg, \"webdev\", \"source\")[0])\n        self.assertTrue(hlp.assign_template(cfg, \"developer\", \"webdev\"))\n        self.assertTrue(hlp.assign_template(cfg, \"reviewer\", \"webdev\"))\n        mount_id, row = hlp.list_template_mounts(cfg, \"webdev\")[0]\n\n        self.assertTrue(hlp.set_template_mountpoint_enabled(cfg, \"developer\", mount_id, True))\n        self.assertTrue(hlp.set_template_mountpoint_readonly(cfg, \"developer\", mount_id, True))\n        self.assertTrue(hlp.set_template_mountpoint_enabled(cfg, \"reviewer\", mount_id, True))\n        self.assertTrue(hlp.set_template_mountpoint_readonly(cfg, \"reviewer\", mount_id, False))\n\n        developer_records, developer_errors = hlp.list_user_mountpoint_records(cfg, \"developer\")\n        reviewer_records, reviewer_errors = hlp.list_user_mountpoint_records(cfg, \"reviewer\")\n        developer = next(record for record in developer_records if record.record_id == mount_id)\n        reviewer = next(record for record in reviewer_records if record.record_id == mount_id)\n\n        self.assertEqual(developer_errors, [])\n        self.assertEqual(reviewer_errors, [])\n        self.assertFalse(developer.rw)\n        self.assertTrue(reviewer.rw)\n\n        from libs.JBLibs.sftp import sambaPoint\n\n        developer_share = sambaPoint.makeShareNameSafe(row[\"label\"], \"developer\", True)\n        reviewer_share = sambaPoint.makeShareNameSafe(row[\"label\"], \"reviewer\", True)\n        self.assertEqual(developer_share, f\"sftp_mount_developer_{row['label']}\")\n        self.assertEqual(reviewer_share, f\"sftp_mount_reviewer_{row['label']}\")\n        self.assertNotEqual(developer_share, reviewer_share)\n\n    def test_per_user_override_survives_template_label_and_path_change(self):",
+      "expected": 1
+    }
+  ]
+}
