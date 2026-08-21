@@ -101,6 +101,31 @@ Doporučené je pole `users`.
 }
 ```
 
+### Mountpoint šablony
+
+Root může obsahovat `mountpointTemplates`. Každá šablona drží mountpointy pod stabilním interním ID a je source-of-truth pro jejich label a cestu. Uživatel drží pouze přiřazení šablony a své `enabled`/`rw` overrides. Kolize výsledného labelu mezi lokálními nebo template mountpointy je chyba a Apply se bezpečně zastaví.
+
+```jsonc
+{
+  "mountpointTemplates": {
+    "web-developers": {
+      "mounts": {
+        "mp_123": { "label": "web1", "path": "/var/www/web1" }
+      }
+    }
+  },
+  "users": [
+    {
+      "sftpuser": "developer",
+      "mountTemplates": ["web-developers"],
+      "templatePoints": {
+        "mp_123": { "enabled": true, "rw": false }
+      }
+    }
+  ]
+}
+```
+
 ### Struktura uživatele
 
 Povinné:
@@ -124,13 +149,26 @@ Volitelné:
 
 * `pointsSet` (object)
 
-  * mapování: `mountpointName` → `{ my: bool, rw: bool }`
+  * mapování: `mountpointName` → `{ enabled: bool, my: bool, rw: bool }`
+  * `enabled` default `true` pro lokální mountpoint
+
+    * `false` = položka zůstane v konfiguraci, ale Apply ji odstraní z aktivního jailu a znovu nepřipojí
   * `my` default `true`
 
     * “vlastnictví mountu” (v Samba vault režimu se to překlápí do způsobu jak se share/mount připraví)
   * `rw` default `true`
 
     * `false` = readonly režim
+
+* `mountTemplates` (array of strings)
+
+  * názvy root-level šablon `mountpointTemplates`, které jsou přiřazené uživateli
+  * nový mountpoint v přiřazené šabloně je bezpečně default `enabled=false`, `rw=false` a nepřebírá ownership zdroje
+
+* `templatePoints` (object)
+
+  * per-user overrides mapované stabilním interním ID template mountpointu → `{ enabled: bool, rw: bool }`
+  * změna labelu nebo cesty při zachování ID zachová explicitní přístup; smazání a nové vytvoření dostane nové ID a staré oprávnění se neobnoví
 
 * `sftpcerts` (array of strings)
 

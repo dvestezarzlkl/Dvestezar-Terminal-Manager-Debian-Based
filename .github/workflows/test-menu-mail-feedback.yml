@@ -15,6 +15,7 @@ on:
       - "tests/test_node_red_handover_mail.py"
       - "tests/test_ssh_manager_mail.py"
       - "tests/test_sftp_key_mail.py"
+      - "tests/test_sftp_mountpoint_templates.py"
       - ".github/workflows/test-menu-mail-feedback.yml"
   workflow_dispatch:
 
@@ -61,7 +62,10 @@ jobs:
             libs/app/menus/app_30_ssh/menu_user_key_edit.py \
             libs/app/menus/app_30_ssh/ssh_mail_hlp.py \
             libs/app/menus/app_33_sftpmanagr/menu.py \
+            libs/app/menus/app_33_sftpmanagr/menu_templates.py \
             libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py \
+            libs/app/menus/app_33_sftpmanagr/sftp_template_hlp.py \
+            tests/test_sftp_mountpoint_templates.py \
             tests/test_menu_mail_feedback.py
 
       - name: Verify dynamic menu version contract
@@ -88,4 +92,5 @@ jobs:
             tests.test_mail_hlp \
             tests.test_node_red_handover_mail \
             tests.test_ssh_manager_mail \
-            tests.test_sftp_key_mail
+            tests.test_sftp_key_mail \
+            tests.test_sftp_mountpoint_templates
