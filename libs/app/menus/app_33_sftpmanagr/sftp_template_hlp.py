@@ -202,8 +202,15 @@ def assign_template(cfg: Dict, username: str, template_name: str) -> bool:
     assigned = user.setdefault("mountTemplates", [])
     if not isinstance(assigned, list):
         return False
-    if template_name not in assigned:
-        assigned.append(template_name)
+    if template_name in assigned:
+        return True
+    assigned.append(template_name)
+    _, errors = resolve_mountpoint_records(cfg, user)
+    if errors:
+        assigned.remove(template_name)
+        if not assigned:
+            user.pop("mountTemplates", None)
+        return False
     return True
 
 
