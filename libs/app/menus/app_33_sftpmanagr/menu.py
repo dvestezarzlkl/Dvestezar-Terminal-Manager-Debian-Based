@@ -47,6 +47,15 @@ from .sftp_manager_hlp import (
     send_key_by_mail,
     get_sftp_backup_stats,
 )
+from .sftp_template_hlp import (
+    find_user_mountpoint_label,
+    find_user_mountpoint_path,
+    list_user_mountpoint_records,
+    set_local_mountpoint_enabled,
+    set_template_mountpoint_enabled,
+    set_template_mountpoint_readonly,
+)
+from .menu_templates import m_mountpoint_templates, m_user_templates
 
 _MENU_NAME_: str = TXT_SFTP_MENU_NAME
 
@@ -65,7 +74,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.2.14"
+    _VERSION_: str = "1.3.0"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -143,6 +152,12 @@ class menu(c_menu):
             )
         self.menu.extend([
             c_menu_item(text_color(TXT_SFTP_MENU_CREATE_USER, en_color.BRIGHT_GREEN), "n", self.create_user),
+            c_menu_item(
+                text_color(TXT_SFTP_MENU_MANAGE_TEMPLATES, en_color.BRIGHT_CYAN),
+                "t",
+                m_mountpoint_templates(self),
+                atRight=TXT_SFTP_MENU_QTY.format(count=len(self.cfg.get("mountpointTemplates", {})) if isinstance(self.cfg.get("mountpointTemplates", {}), dict) else 0),
+            ),
             c_menu_item(
                 text_color(TXT_SFTP_MENU_ADMIN_MAIL, en_color.BRIGHT_YELLOW),
                 "e",
@@ -289,6 +304,9 @@ class m_user(c_menu):
         title = TXT_SFTP_MENU_USER_TITLE.format(username=self.username)
         usr = self.user or {}
         current_mail = get_user_mail(self.mainMenu.cfg, self.username) or TXT_SFTP_MENU_NOT_SET
+        mount_records, _ = list_user_mountpoint_records(self.mainMenu.cfg, self.username)
+        assigned = usr.get("mountTemplates", []) if isinstance(usr, dict) else []
+        assigned_count = len(assigned) if isinstance(assigned, list) else 0
         self.menu = [
             c_menu_title_label(text_color(title,en_color.CYAN)),
             c_menu_item(
@@ -299,7 +317,8 @@ class m_user(c_menu):
             ),
             c_menu_item(text_color(TXT_SFTP_MENU_DELETE_USER, en_color.BRIGHT_RED), "d", self.delete_user),
             None,
-            c_menu_item(TXT_SFTP_MENU_MANAGE_MOUNTPOINTS, "m", m_user_mountpoints(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get("sftpmounts", {})))),
+            c_menu_item(TXT_SFTP_MENU_MANAGE_USER_TEMPLATES, "t", m_user_templates(self.username, self.mainMenu), atRight=TXT_SFTP_MENU_QTY.format(count=assigned_count)),
+            c_menu_item(TXT_SFTP_MENU_MANAGE_MOUNTPOINTS, "m", m_user_mountpoints(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(mount_records))),
             c_menu_item(TXT_SFTP_MENU_MANAGE_KEYS, "k", m_user_keys(self.username, self.mainMenu, self.user), atRight=TXT_SFTP_MENU_QTY.format(count=len(usr.get("sftpcerts", [])))),
         ]
 
@@ -373,20 +392,21 @@ class m_user_mountpoints(c_menu):
     def onShowMenu(self) -> None:
         self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_MOUNTPOINTS, username=self.username)
         
-        self.mounts: List[Tuple[str, str]] = hlp_list_mountpoints(self.cfg, self.username)
-        
+        self.mounts, errors = list_user_mountpoint_records(self.cfg, self.username)
+
         self.menu = [
             c_menu_title_label(text_color(TXT_SFTP_MENU_MOUNTPOINTS_FOR.format(username=self.username), en_color.CYAN)),
             c_menu_item(text_color(TXT_SFTP_MENU_ADD_MOUNTPOINT, en_color.BRIGHT_GREEN), "a", self.add_mountpoint),
             None
         ]
-        # List existing mountpoints; each item can be selected for deletion.
-        for idx, (label, target) in enumerate(self.mounts, start=1):
-            rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, label)
-            atR = "RO" if rTx else "RW"
-            itm = c_menu_item(text_color(label,en_color.YELLOW) + " → " + text_color(target,en_color.MAGENTA), str(idx), self.modify_mountpoint, atRight=atR)
-            # Store the label of the mountpoint to delete on selection.
-            itm.data = label
+        for error in errors:
+            self.menu.append(c_menu_title_label(text_color(TXT_SFTP_MENU_MOUNTPOINT_CONFIG_ERROR.format(error=error), en_color.BRIGHT_RED)))
+        for idx, record in enumerate(self.mounts, start=1):
+            status = TXT_SFTP_MENU_MOUNTPOINT_DISABLED if not record.enabled else (TXT_SFTP_MENU_MOUNTPOINT_RW if record.rw else TXT_SFTP_MENU_MOUNTPOINT_RO)
+            source = TXT_SFTP_MENU_MOUNTPOINT_LOCAL if record.source == "local" else record.template
+            atR = TXT_SFTP_MENU_MOUNTPOINT_STATUS_SOURCE.format(status=status, source=source)
+            itm = c_menu_item(text_color(record.label,en_color.YELLOW) + " → " + text_color(record.path,en_color.MAGENTA), str(idx), self.modify_mountpoint, atRight=atR)
+            itm.data = record
             self.menu.append(itm)
 
     def add_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:
@@ -414,7 +434,7 @@ class m_user_mountpoints(c_menu):
             )        
             if not label:
                 return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_NAME)
-            if checkMountpointExists(self.cfg, self.username, label):
+            if find_user_mountpoint_label(self.cfg, self.username, label):
                 print(text_color(TXT_SFTP_MENU_MOUNTPOINT_EXISTS.format(label=label, username=self.username), en_color.BRIGHT_RED))
                 anyKey()
                 continue
@@ -425,9 +445,9 @@ class m_user_mountpoints(c_menu):
             target = selectDir("/", TXT_SFTP_MENU_SELECT_MOUNTPOINT_PATH)
             if not target:
                 return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
-            existing_label = checkMountPointPathExists(self.cfg, self.username, target)
-            if existing_label:
-                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))
+            existing_record = find_user_mountpoint_path(self.cfg, self.username, target)
+            if existing_record:
+                print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_record.label), en_color.BRIGHT_RED))
                 anyKey()
                 continue
             break
@@ -450,33 +470,51 @@ class m_user_mountpoints(c_menu):
         return ret.okRet(TXT_SFTP_MENU_MOUNTPOINT_ADDED)
 
     def modify_mountpoint(self, selItem: c_menu_item) -> Optional[onSelReturn]:
-        from .sftp_manager_hlp import checkMountPointPathExists
+        record = selItem.data
+        if record is None or not hasattr(record, "label"):
+            return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
 
+        label = record.label
         opt=[]
-        rTx=get_mountpointReadOnlyStatus(self.cfg, self.username, selItem.data)
-        if rTx:
-            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, "W", "W"))
+        if record.enabled:
+            opt.append(select_item(TXT_SFTP_MENU_DISABLE_MOUNTPOINT, "X", "X"))
         else:
+            opt.append(select_item(TXT_SFTP_MENU_ENABLE_MOUNTPOINT, "E", "E"))
+        if record.rw:
             opt.append(select_item(TXT_SFTP_MENU_SET_READ_ONLY, "R", "R"))
-        opt.append(select_item(TXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH, "P", "P"))
-        opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), "D", "D"))
-        x = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=selItem.data), opt)
-        if not x or x.item is None:
+        else:
+            opt.append(select_item(TXT_SFTP_MENU_SET_READ_WRITE, "W", "W"))
+        if record.source == "local":
+            opt.append(select_item(TXT_SFTP_MENU_CHANGE_MOUNTPOINT_PATH, "P", "P"))
+            opt.append(select_item(text_color(TXT_SFTP_MENU_DELETE_MOUNTPOINT, en_color.BRIGHT_RED), "D", "D"))
+        selected = select(TXT_SFTP_MENU_SELECT_MOUNTPOINT_ACTION.format(label=label), opt)
+        if not selected or selected.item is None:
             return onSelReturn().errRet(TXT_SFTP_MENU_NO_ACTION)
-        x=x.item.data
+        action=selected.item.data
 
-        if x == "D":
-            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=selItem.data)):
+        if action in ("E", "X"):
+            enabled = action == "E"
+            if record.source == "local":
+                ok = set_local_mountpoint_enabled(self.cfg, self.username, label, enabled)
+            else:
+                ok = set_template_mountpoint_enabled(self.cfg, self.username, record.record_id, enabled)
+            if not ok:
+                return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
+            self.mainMenu.changed=True
+            return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)
+
+        if action == "D":
+            if not confirm(TXT_SFTP_MENU_REMOVE_MOUNTPOINT_CONFIRM.format(label=label)):
                 return onSelReturn().errRet(TXT_SFTP_MENU_CANCELLED)
-            if not hlp_delete_mountpoint(self.cfg, self.username, selItem.data):
+            if not hlp_delete_mountpoint(self.cfg, self.username, label):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
             self.mainMenu.changed=True
             return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_REMOVED)
 
-        if x == "P":
+        if action == "P":
             usr = find_user(self.cfg, self.username)
             mounts = usr.get("sftpmounts", {}) if usr else {}
-            current_target = mounts.get(selItem.data)
+            current_target = mounts.get(label)
             if not isinstance(current_target, str):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_NOT_FOUND)
 
@@ -490,19 +528,24 @@ class m_user_mountpoints(c_menu):
                     return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
                 if target == current_target:
                     return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED)
-                existing_label = checkMountPointPathExists(self.cfg, self.username, target)
-                if existing_label and existing_label != selItem.data:
-                    print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_label), en_color.BRIGHT_RED))
+                existing_record = find_user_mountpoint_path(self.cfg, self.username, target)
+                if existing_record and existing_record.record_id != record.record_id:
+                    print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_record.label), en_color.BRIGHT_RED))
                     anyKey()
                     continue
                 break
 
-            if not set_mountpoint_path(self.cfg, self.username, selItem.data, target):
+            if not set_mountpoint_path(self.cfg, self.username, label, target):
                 return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
             self.mainMenu.changed=True
             return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UPDATED.format(path=target))
 
-        if not set_mountpoint_readonly(self.cfg, self.username, selItem.data, readOnly=(x=="R")):
+        read_only = action == "R"
+        if record.source == "local":
+            ok = set_mountpoint_readonly(self.cfg, self.username, label, readOnly=read_only)
+        else:
+            ok = set_template_mountpoint_readonly(self.cfg, self.username, record.record_id, read_only)
+        if not ok:
             return onSelReturn().errRet(TXT_SFTP_MENU_MOUNTPOINT_UPDATE_FAILED)
         self.mainMenu.changed=True
         return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_UPDATED)

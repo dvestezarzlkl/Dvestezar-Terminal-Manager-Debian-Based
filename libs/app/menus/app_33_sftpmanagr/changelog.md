@@ -1,5 +1,13 @@
 # SFTP Manager Changelog
 
+## 1.3.0
+
+- ADD spravované mountpoint šablony/profily s více přiřazenými uživateli a stabilními interními ID nezávislými na labelu/cestě.
+- SAFE nový template mount se uživateli objeví jako Disabled + RO; Enabled a RW jsou explicitní per-user volby. Lokální mounty zůstávají zpětně kompatibilně Enabled, pokud `enabled` chybí.
+- ADD vytvoření šablony z lokálních mountpointů existujícího uživatele pro rychlou migraci/onboarding dalších web vývojářů; zdrojový účet se při tom nemění.
+- ADD uživatel může přiřazovat/odebírat šablony a v jednom Mountpoints přehledu vidí lokální i template položky se zdrojem a stavem Disabled/RO/RW.
+- SAFE disabled položky zůstávají v konfiguraci, ale JBLibs 1.2.30 je vyřadí z effective desired mounts; Apply odstraní případný aktivní mount a znovu jej nevytvoří. Konfliktní výsledné labely failují před změnou systému.
+
 ## 1.2.14
 
 - UX při selhání Samba/CIFS batch transakce zobrazuje konkrétní důvod z JBLibs místo obecné chyby.
