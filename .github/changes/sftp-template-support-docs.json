@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "SFTP 1.3.0: document template configuration",
+  "replacements": [
+    {
+      "path": "assets/sftpManagerExampleConfig.jsonc",
+      "old": "{\n    \"users\": [",
+      "new": "{\n    \"mountpointTemplates\": { // optional: centrálně spravované sady mountpointů\n        \"web-developers\": {\n            \"mounts\": {\n                \"mp_example_web\": {\"label\": \"web\", \"path\": \"/var/www/example\"}\n            }\n        }\n    },\n    \"users\": [",
+      "expected": 1
+    },
+    {
+      "path": "assets/sftpManagerExampleConfig.jsonc",
+      "old": "            \"pointsSet\":{ // optional, pokud uvedeme na property je název mountpointu jako v sftpmounts",
+      "new": "            \"mountTemplates\": [\"web-developers\"], // optional: přiřazené šablony; jejich nové mounty jsou default disabled + RO\n            \"templatePoints\": { // optional per-user nastavení template mountů podle stabilního ID\n                \"mp_example_web\": {\"enabled\": false, \"rw\": false}\n            },\n            \"pointsSet\":{ // optional, pokud uvedeme na property je název mountpointu jako v sftpmounts",
+      "expected": 1
+    },
+    {
+      "path": "assets/sftpManagerExampleConfig.jsonc",
+      "old": "//          rw: (bool) není povinný, default je true\n//              pokud je false, tak je mount readonly",
+      "new": "//          enabled: (bool) není povinný, default je true pro lokální mountpoint\n//              pokud je false, mountpoint zůstane v konfiguraci, ale Apply jej nepřipojí\n//          rw: (bool) není povinný, default je true\n//              pokud je false, tak je mount readonly\n// mountpointTemplates: (object) optional, šablony mountpointů se stabilními ID; nový template mount je per-user default disabled + RO\n// mountTemplates: (array) optional, názvy šablon přiřazené uživateli\n// templatePoints: (object) optional, per-user `enabled`/`rw` podle stabilního ID template mountpointu",
+      "expected": 1
+    },
+    {
+      "path": "sftp_manager_readme.md",
+      "old": "### Struktura uživatele\n",
+      "new": "### Mountpoint šablony\n\nRoot může obsahovat `mountpointTemplates`. Každá šablona drží mountpointy pod stabilním interním ID a je source-of-truth pro jejich label a cestu. Uživatel drží pouze přiřazení šablony a své `enabled`/`rw` overrides. Kolize výsledného labelu mezi lokálními nebo template mountpointy je chyba a Apply se bezpečně zastaví.\n\n```jsonc\n{\n  \"mountpointTemplates\": {\n    \"web-developers\": {\n      \"mounts\": {\n        \"mp_123\": { \"label\": \"web1\", \"path\": \"/var/www/web1\" }\n      }\n    }\n  },\n  \"users\": [\n    {\n      \"sftpuser\": \"developer\",\n      \"mountTemplates\": [\"web-developers\"],\n      \"templatePoints\": {\n        \"mp_123\": { \"enabled\": true, \"rw\": false }\n      }\n    }\n  ]\n}\n```\n\n### Struktura uživatele\n",
+      "expected": 1
+    },
+    {
+      "path": "sftp_manager_readme.md",
+      "old": "* `pointsSet` (object)\n\n  * mapování: `mountpointName` → `{ my: bool, rw: bool }`\n  * `my` default `true`",
+      "new": "* `pointsSet` (object)\n\n  * mapování: `mountpointName` → `{ enabled: bool, my: bool, rw: bool }`\n  * `enabled` default `true` pro lokální mountpoint\n\n    * `false` = položka zůstane v konfiguraci, ale Apply ji odstraní z aktivního jailu a znovu nepřipojí\n  * `my` default `true`",
+      "expected": 1
+    },
+    {
+      "path": "sftp_manager_readme.md",
+      "old": "* `sftpcerts` (array of strings)\n\n  * veřejné SSH klíče",
+      "new": "* `mountTemplates` (array of strings)\n\n  * názvy root-level šablon `mountpointTemplates`, které jsou přiřazené uživateli\n  * nový mountpoint v přiřazené šabloně je bezpečně default `enabled=false`, `rw=false` a nepřebírá ownership zdroje\n\n* `templatePoints` (object)\n\n  * per-user overrides mapované stabilním interním ID template mountpointu → `{ enabled: bool, rw: bool }`\n  * změna labelu nebo cesty při zachování ID zachová explicitní přístup; smazání a nové vytvoření dostane nové ID a staré oprávnění se neobnoví\n\n* `sftpcerts` (array of strings)\n\n  * veřejné SSH klíče",
+      "expected": 1
+    }
+  ]
+}
