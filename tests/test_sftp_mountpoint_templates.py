@@ -61,6 +61,37 @@ class SftpMountpointTemplateHelperTests(unittest.TestCase):
         self.assertTrue(all(not record.rw for record in records))
         self.assertTrue(all(not record.my for record in records))
 
+    def test_same_template_point_keeps_per_user_access_and_physical_share_identity(self):
+        cfg = self._cfg()
+        cfg["users"].append({"sftpuser": "reviewer", "sftpmounts": {}, "sftpcerts": []})
+        self.assertTrue(hlp.create_template_from_user(cfg, "webdev", "source")[0])
+        self.assertTrue(hlp.assign_template(cfg, "developer", "webdev"))
+        self.assertTrue(hlp.assign_template(cfg, "reviewer", "webdev"))
+        mount_id, row = hlp.list_template_mounts(cfg, "webdev")[0]
+
+        self.assertTrue(hlp.set_template_mountpoint_enabled(cfg, "developer", mount_id, True))
+        self.assertTrue(hlp.set_template_mountpoint_readonly(cfg, "developer", mount_id, True))
+        self.assertTrue(hlp.set_template_mountpoint_enabled(cfg, "reviewer", mount_id, True))
+        self.assertTrue(hlp.set_template_mountpoint_readonly(cfg, "reviewer", mount_id, False))
+
+        developer_records, developer_errors = hlp.list_user_mountpoint_records(cfg, "developer")
+        reviewer_records, reviewer_errors = hlp.list_user_mountpoint_records(cfg, "reviewer")
+        developer = next(record for record in developer_records if record.record_id == mount_id)
+        reviewer = next(record for record in reviewer_records if record.record_id == mount_id)
+
+        self.assertEqual(developer_errors, [])
+        self.assertEqual(reviewer_errors, [])
+        self.assertFalse(developer.rw)
+        self.assertTrue(reviewer.rw)
+
+        from libs.JBLibs.sftp import sambaPoint
+
+        developer_share = sambaPoint.makeShareNameSafe(row["label"], "developer", True)
+        reviewer_share = sambaPoint.makeShareNameSafe(row["label"], "reviewer", True)
+        self.assertEqual(developer_share, f"sftp_mount_developer_{row['label']}")
+        self.assertEqual(reviewer_share, f"sftp_mount_reviewer_{row['label']}")
+        self.assertNotEqual(developer_share, reviewer_share)
+
     def test_per_user_override_survives_template_label_and_path_change(self):
         cfg = self._cfg()
         hlp.create_template_from_user(cfg, "webdev", "source")
