@@ -116,7 +116,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.2.14")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.0")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -224,6 +224,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
         submenu.cfg = cfg
         selected = SimpleNamespace(item=SimpleNamespace(data="P"))
+        record = sftp_menu.list_user_mountpoint_records(cfg, "alice")[0][0]
 
         with patch.object(
             sftp_menu, "select", return_value=selected
@@ -232,7 +233,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         ), patch.object(
             sftp_menu, "selectDir", return_value="/srv/new"
         ) as select_dir:
-            submenu.modify_mountpoint(SimpleNamespace(data="docs"))
+            submenu.modify_mountpoint(SimpleNamespace(data=record))
 
         self.assertEqual(select_dir.call_args.args[0], "/srv/old")
         self.assertEqual(cfg["users"][0]["sftpmounts"]["docs"], "/srv/new")
@@ -252,6 +253,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         submenu = sftp_menu.m_user_mountpoints("alice", main_menu, cfg["users"][0])
         submenu.cfg = cfg
         selected = SimpleNamespace(item=SimpleNamespace(data="P"))
+        record = sftp_menu.list_user_mountpoint_records(cfg, "alice")[0][0]
 
         with patch.object(
             sftp_menu, "select", return_value=selected
@@ -260,7 +262,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         ) as is_dir, patch.object(
             sftp_menu, "selectDir", return_value=None
         ) as select_dir:
-            submenu.modify_mountpoint(SimpleNamespace(data="docs"))
+            submenu.modify_mountpoint(SimpleNamespace(data=record))
 
         is_dir.assert_called_once_with("/srv/missing")
         self.assertEqual(select_dir.call_args.args[0], "/")

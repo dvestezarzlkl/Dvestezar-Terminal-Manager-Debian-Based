@@ -2,6 +2,8 @@
 
 ## v2.2.7
 
+- ADD SFTP Manager 1.3.0 přidává spravované mountpoint šablony se stabilními ID, per-user Enabled/Disabled a RO/RW override, vytvoření šablony z existujícího uživatele a společný přehled lokálních i template mountů.
+- SAFE template mount je při novém přiřazení Disabled + RO; fyzická Samba/CIFS identita zůstává per-user `username + point`, takže stejný template/path může mít u různých uživatelů nezávislá práva.
 - FIX centrálně managed Hub už neskrývá celé `SysApps Hub settings`; skryjí se pouze lokální konfigurační editory, zatímco Test connection, Initialize/upgrade schema a ruční synchronizace zůstávají dostupné.
 - UPD hlavní verze aplikace na 2.2.7.
 

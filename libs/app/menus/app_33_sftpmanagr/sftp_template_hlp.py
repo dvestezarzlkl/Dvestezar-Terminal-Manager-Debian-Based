@@ -99,6 +99,19 @@ def _new_mount_id(cfg: Dict) -> str:
             return mount_id
 
 
+def _assigned_users_resolve(cfg: Dict, template_name: str) -> bool:
+    for user in cfg.get("users", []):
+        if not isinstance(user, dict):
+            continue
+        assigned = user.get("mountTemplates", [])
+        if not isinstance(assigned, list) or template_name not in assigned:
+            continue
+        _, errors = resolve_mountpoint_records(cfg, user)
+        if errors:
+            return False
+    return True
+
+
 def list_template_mounts(cfg: Dict, template_name: str) -> List[Tuple[str, Dict]]:
     template = find_template(cfg, template_name)
     if not template:
@@ -126,6 +139,9 @@ def add_template_mountpoint(cfg: Dict, template_name: str, label: str, path: str
             return None
     mount_id = _new_mount_id(cfg)
     mounts[mount_id] = {"label": label, "path": path}
+    if not _assigned_users_resolve(cfg, template_name):
+        del mounts[mount_id]
+        return None
     return mount_id
 
 
@@ -139,7 +155,11 @@ def set_template_mountpoint_label(cfg: Dict, template_name: str, mount_id: str, 
     for other_id, row in mounts.items():
         if other_id != mount_id and isinstance(row, dict) and row.get("label") == label:
             return False
+    old_label = mounts[mount_id].get("label")
     mounts[mount_id]["label"] = label
+    if not _assigned_users_resolve(cfg, template_name):
+        mounts[mount_id]["label"] = old_label
+        return False
     return True
 
 

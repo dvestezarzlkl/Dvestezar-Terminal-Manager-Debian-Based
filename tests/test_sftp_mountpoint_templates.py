@@ -92,6 +92,29 @@ class SftpMountpointTemplateHelperTests(unittest.TestCase):
         self.assertEqual(reviewer_share, f"sftp_mount_reviewer_{row['label']}")
         self.assertNotEqual(developer_share, reviewer_share)
 
+    def test_add_to_assigned_template_rolls_back_user_label_conflict(self):
+        cfg = self._cfg()
+        cfg["users"][1]["sftpmounts"] = {"special": "/srv/special"}
+        self.assertTrue(hlp.create_template_from_user(cfg, "webdev", "source")[0])
+        self.assertTrue(hlp.assign_template(cfg, "developer", "webdev"))
+
+        mount_id = hlp.add_template_mountpoint(cfg, "webdev", "special", "/srv/template-special")
+
+        self.assertIsNone(mount_id)
+        self.assertNotIn("special", {row["label"] for _, row in hlp.list_template_mounts(cfg, "webdev")})
+
+    def test_rename_in_assigned_template_rolls_back_user_label_conflict(self):
+        cfg = self._cfg()
+        cfg["users"][1]["sftpmounts"] = {"special": "/srv/special"}
+        self.assertTrue(hlp.create_template_from_user(cfg, "webdev", "source")[0])
+        self.assertTrue(hlp.assign_template(cfg, "developer", "webdev"))
+        mount_id, row = hlp.list_template_mounts(cfg, "webdev")[0]
+        old_label = row["label"]
+
+        self.assertFalse(hlp.set_template_mountpoint_label(cfg, "webdev", mount_id, "special"))
+        current = dict(hlp.list_template_mounts(cfg, "webdev"))[mount_id]
+        self.assertEqual(current["label"], old_label)
+
     def test_per_user_override_survives_template_label_and_path_change(self):
         cfg = self._cfg()
         hlp.create_template_from_user(cfg, "webdev", "source")
