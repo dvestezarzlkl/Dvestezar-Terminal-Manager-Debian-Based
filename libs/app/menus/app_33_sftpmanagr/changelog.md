@@ -7,6 +7,7 @@
 - ADD vytvoření šablony z lokálních mountpointů existujícího uživatele pro rychlou migraci/onboarding dalších web vývojářů; zdrojový účet se při tom nemění.
 - ADD uživatel může přiřazovat/odebírat šablony a v jednom Mountpoints přehledu vidí lokální i template položky se zdrojem a stavem Disabled/RO/RW.
 - SAFE disabled položky zůstávají v konfiguraci, ale JBLibs 1.2.30 je vyřadí z effective desired mounts; Apply odstraní případný aktivní mount a znovu jej nevytvoří. Konfliktní výsledné labely failují před změnou systému.
+- SAFE šablona sdílí pouze definici pointu; fyzická Samba/CIFS identita zůstává vždy `username + point` (`sftp_mount_<username>_<point>`), takže stejný template/path může mít u různých uživatelů nezávisle Disabled, RO nebo RW.
 
 ## 1.2.14
 
