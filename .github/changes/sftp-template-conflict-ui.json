@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "commit_message": "SFTP 1.3.1: surface template assignment conflicts",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_template_hlp.py",
+      "old": "def _assigned_users_resolve(cfg: Dict, template_name: str) -> bool:\n    for user in cfg.get(\"users\", []):\n        if not isinstance(user, dict):\n            continue\n        assigned = user.get(\"mountTemplates\", [])\n        if not isinstance(assigned, list) or template_name not in assigned:\n            continue\n        _, errors = resolve_mountpoint_records(cfg, user)\n        if errors:\n            return False\n    return True",
+      "new": "def _assigned_user_errors(cfg: Dict, template_name: str) -> List[str]:\n    result: List[str] = []\n    for user in cfg.get(\"users\", []):\n        if not isinstance(user, dict):\n            continue\n        assigned = user.get(\"mountTemplates\", [])\n        if not isinstance(assigned, list) or template_name not in assigned:\n            continue\n        _, errors = resolve_mountpoint_records(cfg, user)\n        username = user.get(\"sftpuser\") if isinstance(user.get(\"sftpuser\"), str) else \"<unknown>\"\n        result.extend(f\"{username}: {error}\" for error in errors)\n    return result",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_template_hlp.py",
+      "old": "def add_template_mountpoint(cfg: Dict, template_name: str, label: str, path: str) -> Optional[str]:\n    template = find_template(cfg, template_name)\n    if not template or not _safe_name(label) or not isinstance(path, str) or not os.path.isabs(path):\n        return None\n    mounts = template.setdefault(\"mounts\", {})\n    if not isinstance(mounts, dict):\n        return None\n    for row in mounts.values():\n        if isinstance(row, dict) and row.get(\"label\") == label:\n            return None\n    mount_id = _new_mount_id(cfg)\n    mounts[mount_id] = {\"label\": label, \"path\": path}\n    if not _assigned_users_resolve(cfg, template_name):\n        del mounts[mount_id]\n        return None\n    return mount_id",
+      "new": "def add_template_mountpoint(\n    cfg: Dict,\n    template_name: str,\n    label: str,\n    path: str,\n    validation_errors: Optional[List[str]] = None,\n) -> Optional[str]:\n    template = find_template(cfg, template_name)\n    if not template or not _safe_name(label) or not isinstance(path, str) or not os.path.isabs(path):\n        return None\n    mounts = template.setdefault(\"mounts\", {})\n    if not isinstance(mounts, dict):\n        return None\n    for row in mounts.values():\n        if isinstance(row, dict) and row.get(\"label\") == label:\n            return None\n    mount_id = _new_mount_id(cfg)\n    mounts[mount_id] = {\"label\": label, \"path\": path}\n    errors = _assigned_user_errors(cfg, template_name)\n    if errors:\n        del mounts[mount_id]\n        if validation_errors is not None:\n            validation_errors.extend(errors)\n        return None\n    return mount_id",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_template_hlp.py",
+      "old": "def set_template_mountpoint_label(cfg: Dict, template_name: str, mount_id: str, label: str) -> bool:\n    if not _safe_name(label):\n        return False\n    template = find_template(cfg, template_name)\n    mounts = template.get(\"mounts\", {}) if template else {}\n    if not isinstance(mounts, dict) or mount_id not in mounts or not isinstance(mounts[mount_id], dict):\n        return False\n    for other_id, row in mounts.items():\n        if other_id != mount_id and isinstance(row, dict) and row.get(\"label\") == label:\n            return False\n    old_label = mounts[mount_id].get(\"label\")\n    mounts[mount_id][\"label\"] = label\n    if not _assigned_users_resolve(cfg, template_name):\n        mounts[mount_id][\"label\"] = old_label\n        return False\n    return True",
+      "new": "def set_template_mountpoint_label(\n    cfg: Dict,\n    template_name: str,\n    mount_id: str,\n    label: str,\n    validation_errors: Optional[List[str]] = None,\n) -> bool:\n    if not _safe_name(label):\n        return False\n    template = find_template(cfg, template_name)\n    mounts = template.get(\"mounts\", {}) if template else {}\n    if not isinstance(mounts, dict) or mount_id not in mounts or not isinstance(mounts[mount_id], dict):\n        return False\n    for other_id, row in mounts.items():\n        if other_id != mount_id and isinstance(row, dict) and row.get(\"label\") == label:\n            return False\n    old_label = mounts[mount_id].get(\"label\")\n    mounts[mount_id][\"label\"] = label\n    errors = _assigned_user_errors(cfg, template_name)\n    if errors:\n        mounts[mount_id][\"label\"] = old_label\n        if validation_errors is not None:\n            validation_errors.extend(errors)\n        return False\n    return True",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu_templates.py",
+      "old": "        mount_id = add_template_mountpoint(self.cfg, self.template_name, label, target)\n        if mount_id is None:\n            return onSelReturn().errRet(TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED)",
+      "new": "        validation_errors = []\n        mount_id = add_template_mountpoint(\n            self.cfg, self.template_name, label, target, validation_errors=validation_errors\n        )\n        if mount_id is None:\n            if validation_errors:\n                return onSelReturn().errRet(\n                    TXT_SFTP_MENU_TEMPLATE_ASSIGNMENT_CONFLICT.format(\n                        error=\" | \".join(validation_errors)\n                    )\n                )\n            return onSelReturn().errRet(TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu_templates.py",
+      "old": "            if not set_template_mountpoint_label(self.cfg, self.template_name, mount_id, new_label):\n                return onSelReturn().errRet(TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_UPDATE_FAILED)",
+      "new": "            validation_errors = []\n            if not set_template_mountpoint_label(\n                self.cfg,\n                self.template_name,\n                mount_id,\n                new_label,\n                validation_errors=validation_errors,\n            ):\n                if validation_errors:\n                    return onSelReturn().errRet(\n                        TXT_SFTP_MENU_TEMPLATE_ASSIGNMENT_CONFLICT.format(\n                            error=\" | \".join(validation_errors)\n                        )\n                    )\n                return onSelReturn().errRet(TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_UPDATE_FAILED)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/default.py",
+      "old": "TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED = \"Template mountpoint could not be added (duplicate label or invalid value).\"\nTXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADDED",
+      "new": "TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED = \"Template mountpoint could not be added (duplicate label or invalid value).\"\nTXT_SFTP_MENU_TEMPLATE_ASSIGNMENT_CONFLICT = \"Template change conflicts with an assigned user: {error}\"\nTXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADDED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/lng/cs-CZ.py",
+      "old": "TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED = \"Mountpoint šablony se nepodařilo přidat (duplicitní label nebo neplatná hodnota).\"\nTXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADDED",
+      "new": "TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED = \"Mountpoint šablony se nepodařilo přidat (duplicitní label nebo neplatná hodnota).\"\nTXT_SFTP_MENU_TEMPLATE_ASSIGNMENT_CONFLICT = \"Změna šablony koliduje s konfigurací přiřazeného uživatele: {error}\"\nTXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADDED",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.3.0\"",
+      "new": "    _VERSION_: str = \"1.3.1\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.3.0\")",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.3.1\")",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_sftp_mountpoint_templates.py",
+      "old": "    def test_local_enabled_flag_is_explicit_and_legacy_default_stays_enabled(self):",
+      "new": "    def test_add_conflicting_point_reports_assigned_user_and_rolls_back(self):\n        cfg = self._cfg()\n        cfg[\"users\"][1][\"sftpmounts\"] = {\"web1\": \"/srv/local-web1\"}\n        self.assertTrue(hlp.create_template(cfg, \"webdev\"))\n        self.assertTrue(hlp.assign_template(cfg, \"developer\", \"webdev\"))\n        errors = []\n\n        mount_id = hlp.add_template_mountpoint(\n            cfg, \"webdev\", \"web1\", \"/var/www/html\", validation_errors=errors\n        )\n\n        self.assertIsNone(mount_id)\n        self.assertEqual(hlp.list_template_mounts(cfg, \"webdev\"), [])\n        self.assertTrue(any(\"developer:\" in error for error in errors))\n        self.assertTrue(any(\"Mountpoint label conflict 'web1'\" in error for error in errors))\n\n    def test_rename_conflicting_point_reports_assigned_user_and_rolls_back(self):\n        cfg = self._cfg()\n        cfg[\"users\"][1][\"sftpmounts\"] = {\"web1\": \"/srv/local-web1\"}\n        self.assertTrue(hlp.create_template(cfg, \"webdev\"))\n        mount_id = hlp.add_template_mountpoint(cfg, \"webdev\", \"shared\", \"/var/www/html\")\n        self.assertIsNotNone(mount_id)\n        self.assertTrue(hlp.assign_template(cfg, \"developer\", \"webdev\"))\n        errors = []\n\n        self.assertFalse(\n            hlp.set_template_mountpoint_label(\n                cfg, \"webdev\", mount_id, \"web1\", validation_errors=errors\n            )\n        )\n        mounts = dict(hlp.list_template_mounts(cfg, \"webdev\"))\n        self.assertEqual(mounts[mount_id][\"label\"], \"shared\")\n        self.assertTrue(any(\"developer:\" in error for error in errors))\n        self.assertTrue(any(\"Mountpoint label conflict 'web1'\" in error for error in errors))\n\n    def test_local_enabled_flag_is_explicit_and_legacy_default_stays_enabled(self):",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.3.0",
+      "new": "# SFTP Manager Changelog\n\n## 1.3.1\n\n- UX při konfliktu změny šablony s již přiřazeným uživatelem zobrazuje konkrétního uživatele a resolver chybu místo obecného tvrzení o duplicitním labelu nebo neplatné hodnotě.\n- SAFE přidání i přejmenování template pointu při konfliktu dál změnu rollbackne; regresní testy ověřují zachování původní konfigurace.\n\n## 1.3.0",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.7\n\n- ADD SFTP Manager 1.3.0",
+      "new": "## v2.2.7\n\n- FIX SFTP Manager 1.3.1 při rollbacku konfliktní změny mountpoint šablony ukáže konkrétního přiřazeného uživatele a skutečný resolver důvod místo zavádějící obecné chyby.\n- ADD SFTP Manager 1.3.0",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Apply must resolve local + template mountpoints through JBLibs before touching the system. Disabled records stay visible/configured but are excluded from effective desired mounts, so existing physical mountpoints are removed and not recreated. Duplicate effective labels or invalid/missing templates fail closed before user mutation. Deleting or unassigning a template mount prunes its per-user stable-ID overrides so recreated access never revives implicitly.",
+      "new": "- Apply must resolve local + template mountpoints through JBLibs before touching the system. Disabled records stay visible/configured but are excluded from effective desired mounts, so existing physical mountpoints are removed and not recreated. Duplicate effective labels or invalid/missing templates fail closed before user mutation. Deleting or unassigning a template mount prunes its per-user stable-ID overrides so recreated access never revives implicitly.\n- When a template edit is rejected because an assigned user's effective mountpoints conflict, preserve rollback semantics but propagate the concrete username + resolver error to the menu; do not collapse that safety rejection into a generic invalid-value message.",
+      "expected": 1
+    }
+  ]
+}
