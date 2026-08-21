@@ -8,6 +8,8 @@
 - ADD uživatel může přiřazovat/odebírat šablony a v jednom Mountpoints přehledu vidí lokální i template položky se zdrojem a stavem Disabled/RO/RW.
 - SAFE disabled položky zůstávají v konfiguraci, ale JBLibs 1.2.30 je vyřadí z effective desired mounts; Apply odstraní případný aktivní mount a znovu jej nevytvoří. Konfliktní výsledné labely failují před změnou systému.
 - SAFE šablona sdílí pouze definici pointu; fyzická Samba/CIFS identita zůstává vždy `username + point` (`sftp_mount_<username>_<point>`), takže stejný template/path může mít u různých uživatelů nezávisle Disabled, RO nebo RW.
+- SAFE přidání nebo přejmenování pointu v již přiřazené šabloně se před potvrzením validuje proti effective mountům všech jejích uživatelů; případná label kolize změnu okamžitě vrátí zpět místo vytvoření neaplikovatelné konfigurace.
+- TEST regrese pokrývají bezpečné defaulty, stabilní ID, delete/recreate, unassign/reassign, per-user RO/RW nad stejným template pointem, fyzickou identitu `sftp_mount_<username>_<point>` a rollback kolizních změn šablony.
 
 ## 1.2.14
 
