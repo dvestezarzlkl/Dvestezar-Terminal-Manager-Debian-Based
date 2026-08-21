@@ -1,5 +1,12 @@
 // příklad sftp uživatele v JSONC formátu
 {
+    "mountpointTemplates": { // optional: centrálně spravované sady mountpointů
+        "web-developers": {
+            "mounts": {
+                "mp_example_web": {"label": "web", "path": "/var/www/example"}
+            }
+        }
+    },
     "users": [
         {
             "sftpuser": "testovaci_test", // systémový uživatel
@@ -12,6 +19,10 @@
             "sftpcerts": [ // seznam SSH klíčů pro přístup k SFTP serveru, buď RAW nebo přidáme na začátek 'b64:' a zakódujeme do base64
                 "b64:c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFERS8rU1N3SU9acURXa1MwWkNxakgxQ0xRanFlSU8xZnlnT0lzWnVRZ1BueW5tM2NMNHV1REdqMXp3UjVzcG5adWMvN2RmN216cFl1bjRnWTBwcUx1SkRpY2dESlkyNUNzOTJlMWR2VkZ5V0s5Z3hOaW0rUzk4SW5QNGZJdi9KOFRJSkJDRzM2Sk5QSElIR3UwenVpYktDeHhLZGNXdXA0c05EcU9xV3gyLzk2Z1FDT3VuVUYyZWcvdk0xVTIrcnRycy9LNE1iMXg0LzRCdXdZazYvVk5vblAvUmVTdDVoaGVvRjhNeDJBSmJUT04zVXJibDk2bTNaeS9USkpQOXN1QWFBSDNSL3lTS3N6NWZYMk9VT0x5bCtMK0licGEwTlYrdEhwQTV4Ni94SmlOUE91N3A2VmhWdC9kQTc0eFpLVjkyclNhbGJldFpPdS9NazFEVTV4Rmogcm9vdEB3b3Jrc3RhdGlvbi1oZWxwZXItdWJ1bnR1MjQ="
             ],
+            "mountTemplates": ["web-developers"], // optional: přiřazené šablony; jejich nové mounty jsou default disabled + RO
+            "templatePoints": { // optional per-user nastavení template mountů podle stabilního ID
+                "mp_example_web": {"enabled": false, "rw": false}
+            },
             "pointsSet":{ // optional, pokud uvedeme na property je název mountpointu jako v sftpmounts
                 "img":{ // jsou jen property 'my' a 'perm' a nejsou povinné - toto platí jen pro samaba mounty
                     // "my":true, // (optional default false) pokud je true, tak se tento sftp uživatel nastavuje jako vlastník
@@ -52,5 +63,10 @@
 //          my: (bool) není povinný, default je false
 //              pokud je true, tak se tento sftp uživatel nastavuje jako vlastník
 //              jinak je vlastní z daného adresáře
+//          enabled: (bool) není povinný, default je true pro lokální mountpoint
+//              pokud je false, mountpoint zůstane v konfiguraci, ale Apply jej nepřipojí
 //          rw: (bool) není povinný, default je true
 //              pokud je false, tak je mount readonly
+// mountpointTemplates: (object) optional, šablony mountpointů se stabilními ID; nový template mount je per-user default disabled + RO
+// mountTemplates: (array) optional, názvy šablon přiřazené uživateli
+// templatePoints: (object) optional, per-user `enabled`/`rw` podle stabilního ID template mountpointu
