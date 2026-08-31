@@ -196,6 +196,7 @@ class m_mountpoint_template(c_menu):
         target = selectDir("/", TXT_SFTP_MENU_SELECT_MOUNTPOINT_PATH)
         if not target:
             return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
+        target = str(target)
         mount_id = add_template_mountpoint(self.cfg, self.template_name, label, target)
         if mount_id is None:
             return onSelReturn().errRet(TXT_SFTP_MENU_TEMPLATE_MOUNTPOINT_ADD_FAILED)
@@ -245,6 +246,7 @@ class m_mountpoint_template(c_menu):
         )
         if not target:
             return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
+        target = str(target)
         if target == path:
             return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED)
         if not set_template_mountpoint_path(self.cfg, self.template_name, mount_id, target):

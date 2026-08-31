@@ -1,5 +1,10 @@
 # SFTP Manager Changelog
 
+## 1.3.1
+
+- FIX `selectDir()` vrací `pathlib.Path`; SFTP menu nyní výsledek na UI hranici normalizuje na string před uložením/validací local i template mountpointu, takže přidání a změna cesty nepadá na falešné validaci typu.
+- TEST regrese používají skutečný `Path` návrat z `selectDir()` pro lokální i template add workflow.
+
 ## 1.3.0
 
 - ADD spravované mountpoint šablony/profily s více přiřazenými uživateli a stabilními interními ID nezávislými na labelu/cestě.
