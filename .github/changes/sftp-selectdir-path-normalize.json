@@ -52,8 +52,8 @@
     },
     {
       "path": "tests/test_menu_mail_feedback.py",
-      "old": "            sftp_menu, \"selectDir\", return_value=\"/srv/docs\"\n",
-      "new": "            sftp_menu, \"selectDir\", return_value=Path(\"/srv/docs\")\n",
+      "old": "        ), patch.object(\n            sftp_menu, \"selectDir\", return_value=\"/srv/docs\"\n        ), patch.object(\n            sftp_menu, \"select\", return_value=selected\n        ):\n",
+      "new": "        ), patch.object(\n            sftp_menu, \"selectDir\", return_value=Path(\"/srv/docs\")\n        ), patch.object(\n            sftp_menu, \"select\", return_value=selected\n        ):\n",
       "expected": 1
     },
     {
