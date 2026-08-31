@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,6 +17,7 @@ from libs.app.menus.app_20_node_red import menu as node_red_menu
 from libs.app.menus.app_30_ssh import menu as ssh_menu
 from libs.app.menus.app_30_ssh import ssh_mail_hlp
 from libs.app.menus.app_33_sftpmanagr import menu as sftp_menu
+from libs.app.menus.app_33_sftpmanagr import menu_templates as sftp_template_menu
 from libs.app.menus.app_33_sftpmanagr import sftp_manager_hlp as sftp_hlp
 
 
@@ -116,7 +118,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.0")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.1")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -153,7 +155,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         with patch.object(sftp_menu, "cls"), patch.object(
             sftp_menu, "get_input", return_value="docs"
         ), patch.object(
-            sftp_menu, "selectDir", return_value="/srv/docs"
+            sftp_menu, "selectDir", return_value=Path("/srv/docs")
         ), patch.object(
             sftp_menu, "select", return_value=selected
         ):
@@ -163,6 +165,27 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertFalse(cfg["users"][0]["pointsSet"]["docs"]["rw"])
         self.assertTrue(sftp_hlp.get_mountpointReadOnlyStatus(cfg, "alice", "docs"))
         self.assertTrue(main_menu.changed)
+
+    def test_sftp_template_mountpoint_add_normalizes_selectdir_path(self):
+        cfg = {"users": [], "mountpointTemplates": {"webs_dev": {"mounts": {}}}}
+        main_menu = SimpleNamespace(cfg=cfg, changed=False, basicTitle=lambda **kwargs: None)
+        submenu = sftp_template_menu.m_mountpoint_template("webs_dev", main_menu)
+
+        with patch.object(
+            sftp_template_menu, "get_input", return_value="web1"
+        ), patch.object(
+            sftp_template_menu, "selectDir", return_value=Path("/var/www/html")
+        ):
+            result = submenu.add_mountpoint(SimpleNamespace())
+
+        mounts = cfg["mountpointTemplates"]["webs_dev"]["mounts"]
+        self.assertEqual(len(mounts), 1)
+        row = next(iter(mounts.values()))
+        self.assertEqual(row["label"], "web1")
+        self.assertEqual(row["path"], "/var/www/html")
+        self.assertIsInstance(row["path"], str)
+        self.assertTrue(main_menu.changed)
+        self.assertFalse(bool(getattr(result, "err", None)))
 
     def test_sftp_mountpoint_add_escape_selection_does_not_crash(self):
         cfg = {

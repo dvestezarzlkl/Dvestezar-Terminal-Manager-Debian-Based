@@ -74,7 +74,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.3.0"
+    _VERSION_: str = "1.3.1"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -445,6 +445,7 @@ class m_user_mountpoints(c_menu):
             target = selectDir("/", TXT_SFTP_MENU_SELECT_MOUNTPOINT_PATH)
             if not target:
                 return ret.errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
+            target = str(target)
             existing_record = find_user_mountpoint_path(self.cfg, self.username, target)
             if existing_record:
                 print(text_color(TXT_SFTP_MENU_MOUNTPOINT_PATH_USED.format(path=target, label=existing_record.label), en_color.BRIGHT_RED))
@@ -526,6 +527,7 @@ class m_user_mountpoints(c_menu):
                 )
                 if not target:
                     return onSelReturn().errRet(TXT_SFTP_MENU_NO_MOUNTPOINT_PATH)
+                target = str(target)
                 if target == current_target:
                     return onSelReturn(ok=TXT_SFTP_MENU_MOUNTPOINT_PATH_UNCHANGED)
                 existing_record = find_user_mountpoint_path(self.cfg, self.username, target)
