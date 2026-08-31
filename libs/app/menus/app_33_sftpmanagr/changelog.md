@@ -1,5 +1,11 @@
 # SFTP Manager Changelog
 
+## 1.3.2
+
+- FIX top-level počet mountpointů používá stejný local+template resolver jako user detail, takže template-only uživatel už není zobrazen jako `mountpointy:0`.
+- FIX CIFS preflight vyhodnocuje enabled effective local+template mountpointy; template-only Samba user už nemůže obejít kontrolu `cifs-utils`, zatímco pouze disabled pointy ji zbytečně nevyžadují.
+- UPD Apply používá JBLibs hotfix s resolver-based validací template-only uživatelů.
+
 ## 1.3.1
 
 - FIX `selectDir()` vrací `pathlib.Path`; SFTP menu nyní výsledek na UI hranici normalizuje na string před uložením/validací local i template mountpointu, takže přidání a změna cesty nepadá na falešné validaci typu.

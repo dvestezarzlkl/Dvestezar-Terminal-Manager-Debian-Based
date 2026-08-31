@@ -118,7 +118,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._format_menu_version(""), "?")
         self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
         self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.1")
+        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.2")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -186,6 +186,36 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertIsInstance(row["path"], str)
         self.assertTrue(main_menu.changed)
         self.assertFalse(bool(getattr(result, "err", None)))
+
+    def test_sftp_template_only_user_count_and_cifs_preflight_use_resolved_mounts(self):
+        cfg = {
+            "mountpointTemplates": {
+                "test": {
+                    "mounts": {
+                        "mp_tmp": {"label": "tmp", "path": "/tmp"},
+                        "mp_var": {"label": "var", "path": "/var"},
+                    }
+                }
+            },
+            "users": [{
+                "sftpuser": "testovaci_user",
+                "sambaVault": True,
+                "sftpmounts": {},
+                "mountTemplates": ["test"],
+                "templatePoints": {
+                    "mp_tmp": {"enabled": True, "rw": True},
+                },
+                "sftpcerts": [],
+            }],
+        }
+
+        records, errors = sftp_menu.list_user_mountpoint_records(cfg, "testovaci_user")
+        self.assertEqual(errors, [])
+        self.assertEqual(len(records), 2)
+        self.assertTrue(sftp_hlp.config_requires_cifs(cfg))
+
+        cfg["users"][0]["templatePoints"]["mp_tmp"]["enabled"] = False
+        self.assertFalse(sftp_hlp.config_requires_cifs(cfg))
 
     def test_sftp_mountpoint_add_escape_selection_does_not_crash(self):
         cfg = {

@@ -74,7 +74,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.3.1"
+    _VERSION_: str = "1.3.2"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -170,7 +170,8 @@ class menu(c_menu):
         # FIXME jako u disku zobrazovat ve sloupcích
         for idx, usr in enumerate(self.users, start=1):
             name = usr.get("sftpuser") or TXT_SFTP_MENU_USER_FALLBACK.format(index=idx)
-            mp_count = len(usr.get("sftpmounts", {}))
+            mount_records, _ = list_user_mountpoint_records(self.cfg, name)
+            mp_count = len(mount_records)
             key_count = len(usr.get("sftpcerts", []))
             mail = usr.get("mail") or TXT_SFTP_MENU_NOT_SET
             label = text_color(f"{name}",en_color.YELLOW)

@@ -15,6 +15,7 @@ import time
 
 from libs.JBLibs.helper import getLogger
 from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
+from libs.JBLibs.sftp.mountpoint_templates import effective_mountpoint_records, resolve_mountpoint_records
 from libs.JBLibs.sftp.sambaPoint import smbHelp, ManagedCIFSTargetNotEmptyError
 from libs.JBLibs.sftp.ssh import restart_sshd
 from libs.JBLibs.term import text_color, en_color
@@ -52,12 +53,15 @@ def cifs_exists() -> bool:
     return smbHelp.checkCIFSInstalled()
 
 def config_requires_cifs(cfg: Dict) -> bool:
-    """Return True when at least one configured Samba vault has mountpoints."""
+    """Return True when an enabled effective mount belongs to a Samba vault user."""
     users = cfg.get("users", []) if isinstance(cfg, dict) else []
     for user in users:
-        if not isinstance(user, dict):
+        if not isinstance(user, dict) or user.get("sambaVault") is not True:
             continue
-        if user.get("sambaVault") is True and bool(user.get("sftpmounts")):
+        records, errors = resolve_mountpoint_records(cfg, user)
+        if errors:
+            continue
+        if effective_mountpoint_records(records):
             return True
     return False
 
