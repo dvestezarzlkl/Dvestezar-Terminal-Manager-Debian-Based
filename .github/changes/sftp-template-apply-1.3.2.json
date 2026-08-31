@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "commit_message": "SFTP Manager 1.3.2: use resolved template mounts in summary and CIFS preflight",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers\nfrom libs.JBLibs.sftp.sambaPoint import smbHelp, ManagedCIFSTargetNotEmptyError\n",
+      "new": "from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers\nfrom libs.JBLibs.sftp.mountpoint_templates import effective_mountpoint_records, resolve_mountpoint_records\nfrom libs.JBLibs.sftp.sambaPoint import smbHelp, ManagedCIFSTargetNotEmptyError\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/sftp_manager_hlp.py",
+      "old": "def config_requires_cifs(cfg: Dict) -> bool:\n    \"\"\"Return True when at least one configured Samba vault has mountpoints.\"\"\"\n    users = cfg.get(\"users\", []) if isinstance(cfg, dict) else []\n    for user in users:\n        if not isinstance(user, dict):\n            continue\n        if user.get(\"sambaVault\") is True and bool(user.get(\"sftpmounts\")):\n            return True\n    return False\n",
+      "new": "def config_requires_cifs(cfg: Dict) -> bool:\n    \"\"\"Return True when an enabled effective mount belongs to a Samba vault user.\"\"\"\n    users = cfg.get(\"users\", []) if isinstance(cfg, dict) else []\n    for user in users:\n        if not isinstance(user, dict) or user.get(\"sambaVault\") is not True:\n            continue\n        records, errors = resolve_mountpoint_records(cfg, user)\n        if errors:\n            continue\n        if effective_mountpoint_records(records):\n            return True\n    return False\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "            name = usr.get(\"sftpuser\") or TXT_SFTP_MENU_USER_FALLBACK.format(index=idx)\n            mp_count = len(usr.get(\"sftpmounts\", {}))\n            key_count = len(usr.get(\"sftpcerts\", []))\n",
+      "new": "            name = usr.get(\"sftpuser\") or TXT_SFTP_MENU_USER_FALLBACK.format(index=idx)\n            mount_records, _ = list_user_mountpoint_records(self.cfg, name)\n            mp_count = len(mount_records)\n            key_count = len(usr.get(\"sftpcerts\", []))\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.3.1\"\n",
+      "new": "    _VERSION_: str = \"1.3.2\"\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.3.1\")\n",
+      "new": "        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), \"1.3.2\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_menu_mail_feedback.py",
+      "old": "        self.assertFalse(bool(getattr(result, \"err\", None)))\n\n    def test_sftp_mountpoint_add_escape_selection_does_not_crash(self):\n",
+      "new": "        self.assertFalse(bool(getattr(result, \"err\", None)))\n\n    def test_sftp_template_only_user_count_and_cifs_preflight_use_resolved_mounts(self):\n        cfg = {\n            \"mountpointTemplates\": {\n                \"test\": {\n                    \"mounts\": {\n                        \"mp_tmp\": {\"label\": \"tmp\", \"path\": \"/tmp\"},\n                        \"mp_var\": {\"label\": \"var\", \"path\": \"/var\"},\n                    }\n                }\n            },\n            \"users\": [{\n                \"sftpuser\": \"testovaci_user\",\n                \"sambaVault\": True,\n                \"sftpmounts\": {},\n                \"mountTemplates\": [\"test\"],\n                \"templatePoints\": {\n                    \"mp_tmp\": {\"enabled\": True, \"rw\": True},\n                },\n                \"sftpcerts\": [],\n            }],\n        }\n\n        records, errors = sftp_menu.list_user_mountpoint_records(cfg, \"testovaci_user\")\n        self.assertEqual(errors, [])\n        self.assertEqual(len(records), 2)\n        self.assertTrue(sftp_hlp.config_requires_cifs(cfg))\n\n        cfg[\"users\"][0][\"templatePoints\"][\"mp_tmp\"][\"enabled\"] = False\n        self.assertFalse(sftp_hlp.config_requires_cifs(cfg))\n\n    def test_sftp_mountpoint_add_escape_selection_does_not_crash(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/changelog.md",
+      "old": "# SFTP Manager Changelog\n\n## 1.3.1\n",
+      "new": "# SFTP Manager Changelog\n\n## 1.3.2\n\n- FIX top-level počet mountpointů používá stejný local+template resolver jako user detail, takže template-only uživatel už není zobrazen jako `mountpointy:0`.\n- FIX CIFS preflight vyhodnocuje enabled effective local+template mountpointy; template-only Samba user už nemůže obejít kontrolu `cifs-utils`, zatímco pouze disabled pointy ji zbytečně nevyžadují.\n- UPD Apply používá JBLibs hotfix s resolver-based validací template-only uživatelů.\n\n## 1.3.1\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.7\n\n- FIX SFTP Manager 1.3.1",
+      "new": "## v2.2.7\n\n- FIX SFTP Manager 1.3.2 sjednocuje top-level počet mountpointů a CIFS preflight s local+template resolverem; template-only uživatelé se správně počítají a Apply je nepovažuje za prázdné.\n- FIX SFTP Manager 1.3.1",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/AGENTS.md",
+      "old": "- Apply must resolve local + template mountpoints through JBLibs before touching the system. Disabled records stay visible/configured but are excluded from effective desired mounts, so existing physical mountpoints are removed and not recreated. Duplicate effective labels or invalid/missing templates fail closed before user mutation. Deleting or unassigning a template mount prunes its per-user stable-ID overrides so recreated access never revives implicitly.\n",
+      "new": "- Apply must resolve local + template mountpoints through JBLibs before touching the system. Disabled records stay visible/configured but are excluded from effective desired mounts, so existing physical mountpoints are removed and not recreated. Duplicate effective labels or invalid/missing templates fail closed before user mutation. Deleting or unassigning a template mount prunes its per-user stable-ID overrides so recreated access never revives implicitly. Top-level configured mountpoint counts must use the same resolver (including disabled records), while CIFS preflight must use only enabled effective records; never infer either from raw `sftpmounts`.\n",
+      "expected": 1
+    }
+  ]
+}
