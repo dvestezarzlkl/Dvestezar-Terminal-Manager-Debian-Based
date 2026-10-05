@@ -46,8 +46,8 @@
     },
     {
       "path": "libs/app/menus/app_30_ssh/lng/cs-CZ.py",
-      "old": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč e-mailem\"",
-      "new": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU2_TITLE_48 = \"Login shell\"\nTXT_MENU2_TITLE_49 = \"neznámý\"\nTXT_MENU2_TITLE_50 = \"Přepnout login shell na Bash\"\nTXT_MENU2_TITLE_51 = \"Změnit login shell uživatele {user} z {shell} na /bin/bash?\"\nTXT_MENU2_TITLE_52 = \"Měním login shell uživatele {user}...\"\nTXT_MENU2_TITLE_53 = \"Login shell uživatele {user} byl změněn na /bin/bash.\"\nTXT_MENU2_TITLE_54 = \"Změna login shellu selhala: {error}\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč e-mailem\"",
+      "old": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč mailem\"",
+      "new": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU2_TITLE_48 = \"Login shell\"\nTXT_MENU2_TITLE_49 = \"neznámý\"\nTXT_MENU2_TITLE_50 = \"Přepnout login shell na Bash\"\nTXT_MENU2_TITLE_51 = \"Změnit login shell uživatele {user} z {shell} na /bin/bash?\"\nTXT_MENU2_TITLE_52 = \"Měním login shell uživatele {user}...\"\nTXT_MENU2_TITLE_53 = \"Login shell uživatele {user} byl změněn na /bin/bash.\"\nTXT_MENU2_TITLE_54 = \"Změna login shellu selhala: {error}\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč mailem\"",
       "expected": 1
     },
     {
