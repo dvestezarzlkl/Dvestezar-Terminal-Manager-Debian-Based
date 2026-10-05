@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "commit_message": "SSH/Node-RED: standardize interactive user login shell on Bash",
+  "replacements": [
+    {
+      "path": "libs/app/install_instance.py",
+      "old": "        log.debug(f\"Creating user {username}\")\n        os.system(f'sudo useradd -m {username}')",
+      "new": "        log.debug(f\"Creating user {username} with Bash login shell\")\n        subprocess.run(['useradd', '-m', '-s', '/bin/bash', username], check=True)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "from libs.JBLibs.term import text_color,en_color\n\nfrom libs.JBLibs.helper import getLogger,loadLng",
+      "new": "from libs.JBLibs.term import text_color,en_color\nfrom libs.JBLibs.systemUserManager import sshMng\n\nfrom libs.JBLibs.helper import getLogger,loadLng",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "        recipient=user_contact.get_user_email(self._mData.selectedUser.userName)\n        self._setAppHeader(t,\"\",",
+      "new": "        recipient=user_contact.get_user_email(self._mData.selectedUser.userName)\n        shell=sshMng.getUserShell(self._mData.selectedUser.userName)\n        shell_is_bash=sshMng.userUsesBash(self._mData.selectedUser.userName)\n        shell_color=en_color.GREEN if shell_is_bash else en_color.BRIGHT_RED\n        self._setAppHeader(t,\"\",",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "                ( TXT_MENU2_TITLE_40, recipient or TXT_MENU2_TITLE_41 ),\n            ]),",
+      "new": "                ( TXT_MENU2_TITLE_40, recipient or TXT_MENU2_TITLE_41 ),\n                ( TXT_MENU2_TITLE_48, text_color(shell or TXT_MENU2_TITLE_49, color=shell_color) ),\n            ]),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "        self.menu.extend([\n            None,\n            c_menu_item(text_color(TXT_MENU2_TITLE_03,color=en_color.GREEN),\"a\",self.createKey),",
+      "new": "        if not shell_is_bash:\n            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_50,color=en_color.YELLOW),\"bash\",self.setBashShell))\n\n        self.menu.extend([\n            None,\n            c_menu_item(text_color(TXT_MENU2_TITLE_03,color=en_color.GREEN),\"a\",self.createKey),",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu_user_edit.py",
+      "old": "    def setUserMail(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "new": "    def setBashShell(self,selItem:c_menu_item) -> onSelReturn:\n        username=self._mData.selectedUser.userName\n        current=sshMng.getUserShell(username) or TXT_MENU2_TITLE_49\n        if not confirm(TXT_MENU2_TITLE_51.format(user=username,shell=current)):\n            return None\n        cls()\n        print(TXT_MENU2_TITLE_52.format(user=username))\n        error=sshMng.setUserShell(username, \"/bin/bash\")\n        if error:\n            print(TXT_MENU2_TITLE_54.format(error=error))\n        else:\n            print(TXT_MENU2_TITLE_53.format(user=username))\n        anyKey()\n        return None\n\n    def setUserMail(self,selItem:c_menu_item) -> onSelReturn:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/lng/default.py",
+      "old": "TXT_MENU2_TITLE_47 = \"The mail recipient was cleared.\"\nTXT_MENU3_TITLE_03 = \"Send key by mail\"",
+      "new": "TXT_MENU2_TITLE_47 = \"The mail recipient was cleared.\"\nTXT_MENU2_TITLE_48 = \"Login shell\"\nTXT_MENU2_TITLE_49 = \"unknown\"\nTXT_MENU2_TITLE_50 = \"Set login shell to Bash\"\nTXT_MENU2_TITLE_51 = \"Change login shell for user {user} from {shell} to /bin/bash?\"\nTXT_MENU2_TITLE_52 = \"Changing login shell for user {user}...\"\nTXT_MENU2_TITLE_53 = \"Login shell for user {user} was changed to /bin/bash.\"\nTXT_MENU2_TITLE_54 = \"Failed to change login shell: {error}\"\nTXT_MENU3_TITLE_03 = \"Send key by mail\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/lng/cs-CZ.py",
+      "old": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč e-mailem\"",
+      "new": "TXT_MENU2_TITLE_47 = \"E-mail příjemce byl zrušen.\"\nTXT_MENU2_TITLE_48 = \"Login shell\"\nTXT_MENU2_TITLE_49 = \"neznámý\"\nTXT_MENU2_TITLE_50 = \"Přepnout login shell na Bash\"\nTXT_MENU2_TITLE_51 = \"Změnit login shell uživatele {user} z {shell} na /bin/bash?\"\nTXT_MENU2_TITLE_52 = \"Měním login shell uživatele {user}...\"\nTXT_MENU2_TITLE_53 = \"Login shell uživatele {user} byl změněn na /bin/bash.\"\nTXT_MENU2_TITLE_54 = \"Změna login shellu selhala: {error}\"\nTXT_MENU3_TITLE_03 = \"Odeslat klíč e-mailem\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/menu.py",
+      "old": "    _VERSION_: str = \"1.0.0\"",
+      "new": "    _VERSION_: str = \"1.0.1\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/menu.py",
+      "old": "    _VERSION_: str = \"1.0.0\"",
+      "new": "    _VERSION_: str = \"1.0.1\"",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.7\n\n",
+      "new": "## v2.2.7\n\n- FIX Node-RED Manager 1.0.1 vytváří systémové uživatele explicitně s login shellem `/bin/bash`, takže interaktivní SSH terminál má standardní Bash historii a ovládání.\n- UX SSH Manager 1.0.1 zobrazuje aktuální login shell uživatele a pokud nejde o Bash, nabídne explicitní potvrzenou akci pro přepnutí na `/bin/bash`; využívá JBLibs 1.2.32.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/AGENTS.md",
+      "old": "- One Node-RED instance maps to one system user. Store its delivery contact through the existing user-owned XDG file",
+      "new": "- One Node-RED instance maps to one system user. New instance users are interactive maintenance accounts and must be created explicitly with Bash as their login shell (`useradd -m -s /bin/bash`), not with the distribution-dependent `useradd` default shell.\n- One Node-RED instance maps to one system user. Store its delivery contact through the existing user-owned XDG file",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_30_ssh/AGENTS.md",
+      "old": "- SSH Manager controls ordinary system-user SSH access: the managed key may be used for an interactive terminal login and, through the same account, also for SCP/SFTP file transfer. Do not describe this account as an SFTP-only sandbox.\n",
+      "new": "- SSH Manager controls ordinary system-user SSH access: the managed key may be used for an interactive terminal login and, through the same account, also for SCP/SFTP file transfer. Do not describe this account as an SFTP-only sandbox.\n- Ordinary SSH users should use Bash for the expected interactive terminal experience. Read and change the configured login shell through `JBLibs.systemUserManager.sshMng`; never rewrite `/etc/passwd` directly. If an existing account is not using Bash, show the current shell and offer an explicit confirmed switch to `/bin/bash` instead of changing it automatically.\n",
+      "expected": 1
+    }
+  ]
+}
