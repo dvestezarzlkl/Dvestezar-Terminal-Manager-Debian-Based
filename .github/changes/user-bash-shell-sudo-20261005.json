@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "Node-RED: preserve sudo when creating Bash user",
+  "replacements": [
+    {
+      "path": "libs/app/install_instance.py",
+      "old": "subprocess.run(['useradd', '-m', '-s', '/bin/bash', username], check=True)",
+      "new": "subprocess.run(['sudo', 'useradd', '-m', '-s', '/bin/bash', username], check=True)",
+      "expected": 1
+    }
+  ]
+}
