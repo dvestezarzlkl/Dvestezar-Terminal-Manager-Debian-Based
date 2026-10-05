@@ -2,6 +2,8 @@
 
 ## v2.2.7
 
+- FIX Node-RED Manager 1.0.1 vytváří systémové uživatele explicitně s login shellem `/bin/bash`, takže interaktivní SSH terminál má standardní Bash historii a ovládání.
+- UX SSH Manager 1.0.1 zobrazuje aktuální login shell uživatele a pokud nejde o Bash, nabídne explicitní potvrzenou akci pro přepnutí na `/bin/bash`; využívá společné login-shell helpery v JBLibs.
 - FIX SFTP Manager 1.3.2 sjednocuje top-level počet mountpointů a CIFS preflight s local+template resolverem; template-only uživatelé se správně počítají a Apply je nepovažuje za prázdné.
 - FIX SFTP Manager 1.3.1 normalizuje `Path` vracený centrálním `selectDir()` na string před zpracováním local/template mountpointů; opravuje falešné selhání při přidání a změně cesty.
 - ADD SFTP Manager 1.3.0 přidává spravované mountpoint šablony se stabilními ID, per-user Enabled/Disabled a RO/RW override, vytvoření šablony z existujícího uživatele a společný přehled lokálních i template mountů.

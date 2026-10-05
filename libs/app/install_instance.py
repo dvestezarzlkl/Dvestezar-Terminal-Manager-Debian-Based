@@ -308,8 +308,8 @@ def __make(username: str, title: str, port: int, pwdPlain: str, fresh_or_archive
         return TX_INST_MAKE_ERR02
     
     try:
-        log.debug(f"Creating user {username}")
-        os.system(f'sudo useradd -m {username}')
+        log.debug(f"Creating user {username} with Bash login shell")
+        subprocess.run(['sudo', 'useradd', '-m', '-s', '/bin/bash', username], check=True)
     except Exception as e:
         log.error(f"Error creating user {username}", exc_info=True)
         return TX_INST_MAKE_ERR03.format(username=username,e=e)

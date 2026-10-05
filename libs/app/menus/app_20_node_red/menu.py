@@ -25,7 +25,7 @@ def hub_collect(context):
     return collect_node_red_snapshot(context)
 
 class menu (nd_menu):
-    _VERSION_: str = "1.0.0"
+    _VERSION_: str = "1.0.1"
 
     # own
     serviceVersion="1.1.1"

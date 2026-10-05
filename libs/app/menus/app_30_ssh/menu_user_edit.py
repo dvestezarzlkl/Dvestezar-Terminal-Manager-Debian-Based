@@ -9,6 +9,7 @@ from libs.JBLibs.input import confirm,anyKey,get_input
 from libs.app import mail_hlp,user_contact
 from libs.JBLibs.term import cls
 from libs.JBLibs.term import text_color,en_color
+from libs.JBLibs.systemUserManager import sshMng
 
 from libs.JBLibs.helper import getLogger,loadLng
 log = getLogger(__name__)
@@ -32,10 +33,14 @@ class menu_user_edit (ssh_menu):
         t=TXT_MENU2_TITLE_01 + " (" + ( TXT_MENU_01 if self._mData.selectedUser.hasSudo else TXT_MENU_00 ) + ")"
         cl=en_color.GREEN if self._mData.selectedUser.keyCount>0 else en_color.BRIGHT_BLACK
         recipient=user_contact.get_user_email(self._mData.selectedUser.userName)
+        shell=sshMng.getUserShell(self._mData.selectedUser.userName)
+        shell_is_bash=sshMng.userUsesBash(self._mData.selectedUser.userName)
+        shell_color=en_color.GREEN if shell_is_bash else en_color.BRIGHT_RED
         self._setAppHeader(t,"",
             c_menu_block_items([
                 ( text_color(TXT_MENU2_TITLE_02,color=cl)      ,text_color(str( self._mData.selectedUser.keyCount ),color=cl) ),
                 ( TXT_MENU2_TITLE_40, recipient or TXT_MENU2_TITLE_41 ),
+                ( TXT_MENU2_TITLE_48, text_color(shell or TXT_MENU2_TITLE_49, color=shell_color) ),
             ]),
             self._mData.selectedUser.userName
         )
@@ -94,6 +99,9 @@ class menu_user_edit (ssh_menu):
             else:
                 self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31_not_available,color=en_color.BRIGHT_BLACK)))
         
+        if not shell_is_bash:
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_50,color=en_color.YELLOW),"bash",self.setBashShell))
+
         self.menu.extend([
             None,
             c_menu_item(text_color(TXT_MENU2_TITLE_03,color=en_color.GREEN),"a",self.createKey),
@@ -102,6 +110,21 @@ class menu_user_edit (ssh_menu):
             c_menu_item(TXT_MENU2_TITLE_42,"mail",self.setUserMail),
             c_menu_item(text_color(TXT_MENU2_TITLE_10,color=en_color.YELLOW),"u",self.updateUserSSH),
         ])
+
+    def setBashShell(self,selItem:c_menu_item) -> onSelReturn:
+        username=self._mData.selectedUser.userName
+        current=sshMng.getUserShell(username) or TXT_MENU2_TITLE_49
+        if not confirm(TXT_MENU2_TITLE_51.format(user=username,shell=current)):
+            return None
+        cls()
+        print(TXT_MENU2_TITLE_52.format(user=username))
+        error=sshMng.setUserShell(username, "/bin/bash")
+        if error:
+            print(TXT_MENU2_TITLE_54.format(error=error))
+        else:
+            print(TXT_MENU2_TITLE_53.format(user=username))
+        anyKey()
+        return None
 
     def setUserMail(self,selItem:c_menu_item) -> onSelReturn:
         username=self._mData.selectedUser.userName
