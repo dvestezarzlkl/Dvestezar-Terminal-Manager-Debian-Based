@@ -99,7 +99,9 @@ class menu_user_edit (ssh_menu):
             else:
                 self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_31_not_available,color=en_color.BRIGHT_BLACK)))
         
-        if not shell_is_bash:
+        if shell_is_bash:
+            self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_55,color=en_color.BRIGHT_BLACK)))
+        else:
             self.menu.append(c_menu_item(text_color(TXT_MENU2_TITLE_50,color=en_color.YELLOW),"bash",self.setBashShell))
 
         self.menu.extend([

@@ -13,6 +13,7 @@ TXT_MENU2_TITLE_51 = "Změnit login shell uživatele {user} z {shell} na /bin/ba
 TXT_MENU2_TITLE_52 = "Měním login shell uživatele {user}..."
 TXT_MENU2_TITLE_53 = "Login shell uživatele {user} byl změněn na /bin/bash."
 TXT_MENU2_TITLE_54 = "Změna login shellu selhala: {error}"
+TXT_MENU2_TITLE_55 = "Bash login shell je aktivní"
 TXT_MENU3_TITLE_03 = "Odeslat klíč mailem"
 TXT_MENU3_TITLE_04 = "Uživatel nemá nastaveného e-mail příjemce."
 TXT_MENU3_TITLE_05 = "Generuji balíček SSH klíče..."
