@@ -13,7 +13,7 @@ _MENU_NAME_:str = TXT_MAIN_NAME
 
 # ******* SSH    MANAGER   MENU    *******
 class menu (ssh_menu):
-    _VERSION_: str = "1.0.1"
+    _VERSION_: str = "1.0.2"
 
     choiceBack=None
     choiceQuit=None

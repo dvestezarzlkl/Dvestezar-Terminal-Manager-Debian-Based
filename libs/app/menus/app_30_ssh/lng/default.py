@@ -80,6 +80,7 @@ TXT_MENU2_TITLE_51 = "Change login shell for user {user} from {shell} to /bin/ba
 TXT_MENU2_TITLE_52 = "Changing login shell for user {user}..."
 TXT_MENU2_TITLE_53 = "Login shell for user {user} was changed to /bin/bash."
 TXT_MENU2_TITLE_54 = "Failed to change login shell: {error}"
+TXT_MENU2_TITLE_55 = "Bash login shell is active"
 TXT_MENU3_TITLE_03 = "Send key by mail"
 TXT_MENU3_TITLE_04 = "No mail recipient is configured for this user."
 TXT_MENU3_TITLE_05 = "Generating the SSH key package..."
