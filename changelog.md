@@ -2,6 +2,7 @@
 
 ## v2.2.7
 
+- FIX SFTP Manager 1.3.3 + JBLibs řeší race po `systemctl reload smbd`, kdy nový nebo změněný loopback CIFS share mohl při prvním mountu vrátit `mount error(2): No such file or directory` a projít až druhým Apply. Remount nyní krátce a omezeně opakuje pouze transientní ENOENT; permanentní chyby selžou okamžitě a nezměněné mountpointy zůstávají připojené.
 - FIX Node-RED Manager 1.0.1 vytváří systémové uživatele explicitně s login shellem `/bin/bash`, takže interaktivní SSH terminál má standardní Bash historii a ovládání.
 - UX SSH Manager 1.0.2 zobrazuje aktuální login shell uživatele; pokud nejde o Bash, nabídne explicitní potvrzenou akci pro přepnutí na `/bin/bash`, a pokud Bash aktivní je, ponechá na stejné pozici šedý informační řádek, aby byla funkce i její stav v menu vždy viditelné. Využívá společné login-shell helpery v JBLibs.
 - FIX SFTP Manager 1.3.2 sjednocuje top-level počet mountpointů a CIFS preflight s local+template resolverem; template-only uživatelé se správně počítají a Apply je nepovažuje za prázdné.
