@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "commit_message": "SFTP Manager 1.3.3: handle Samba reload mount race",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_33_sftpmanagr/menu.py",
+      "old": "    _VERSION_: str = \"1.3.2\"",
+      "new": "    _VERSION_: str = \"1.3.3\"",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.7\n\n",
+      "new": "## v2.2.7\n\n- FIX SFTP Manager 1.3.3 + JBLibs řeší race po `systemctl reload smbd`, kdy nový nebo změněný loopback CIFS share mohl při prvním mountu vrátit `mount error(2): No such file or directory` a projít až druhým Apply. Remount nyní krátce a omezeně opakuje pouze transientní ENOENT; permanentní chyby selžou okamžitě a nezměněné mountpointy zůstávají připojené.\n",
+      "expected": 1
+    }
+  ]
+}
