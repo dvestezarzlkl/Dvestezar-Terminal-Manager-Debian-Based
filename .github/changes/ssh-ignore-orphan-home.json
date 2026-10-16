@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "chore(sys_apps): document SSH orphan-home guard with JBLibs 1.2.32",
+  "replacements": [
+    {
+      "path": "changelog.md",
+      "old": "## v2.2.7\n\n",
+      "new": "## v2.2.7\n\n- FIX SSH Manager 1.0.2 + JBLibs 1.2.32 nevyhodí výjimku při zobrazení seznamu systémových SSH uživatelů, pokud `/home` obsahuje osiřelý adresář bez účtu v NSS/passwd (např. `samba_all`); adresáře ani Samba/SFTP konfigurace se nemění.\n",
+      "expected": 1
+    }
+  ]
+}
