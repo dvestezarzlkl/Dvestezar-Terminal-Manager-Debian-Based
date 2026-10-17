@@ -76,6 +76,43 @@ class HubScheduleTests(unittest.TestCase):
             self.assertFalse((units / scheduler.SERVICE_NAME).exists())
             self.assertFalse((units / scheduler.TIMER_NAME).exists())
 
+    def test_menu_mode_selection_installs_timer_before_saving(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        with patch.object(cfg, "HUB_SYNC_MODE", ""), patch.object(
+            cfg, "HUB_AUTO_SYNC", True
+        ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
+            hub_menu, "get_input", return_value="2"
+        ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+            cfg, "save"
+        ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
+            def require_install_first():
+                schedule.assert_called_once_with("timer")
+            save.side_effect = require_install_first
+            result = HubSettingsMenu().choose_sync_mode(None)
+            self.assertEqual(cfg.HUB_SYNC_MODE, "timer")
+            self.assertTrue(bool(getattr(result, "ok", None)))
+
+    def test_menu_mode_selection_rolls_back_on_systemd_failure(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        with patch.object(cfg, "HUB_SYNC_MODE", ""), patch.object(
+            cfg, "HUB_AUTO_SYNC", True
+        ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
+            hub_menu, "get_input", return_value="2"
+        ), patch.object(
+            hub_menu, "set_schedule", side_effect=[RuntimeError("systemctl failed"), None]
+        ) as schedule, patch.object(cfg, "save") as save:
+            result = HubSettingsMenu().choose_sync_mode(None)
+            self.assertEqual(cfg.HUB_SYNC_MODE, "")
+            self.assertIsNotNone(result.err)
+            self.assertEqual(schedule.call_count, 2)
+            schedule.assert_any_call("timer")
+            schedule.assert_any_call("startup")
+            save.assert_not_called()
+
     def test_process_lock_detects_overlapping_collections(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(
             sync_lock, "_lock_path", return_value=Path(tmp) / "collection.lock"
