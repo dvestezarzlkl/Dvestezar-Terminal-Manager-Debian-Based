@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): headless scheduled collection and collector discovery",
+  "replacements": [
+    {
+      "path": "venv_run.py",
+      "old": "#!/usr/bin/env python3.10\nfrom datetime import datetime\nimport sys\n",
+      "new": "#!/usr/bin/env python3.10\nfrom datetime import datetime\nimport sys\n\n# Headless collector must be selected before terminal imports and the menu lock.\nif \"--hub-sync\" in sys.argv[1:]:\n    if sys.argv[1:] != [\"--hub-sync\"]:\n        print(\"Usage: sys_apps --hub-sync\", file=sys.stderr)\n        sys.exit(2)\n    from libs.app.hub.headless import main as hub_headless_main\n    sys.exit(hub_headless_main())\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.2.7\"",
+      "new": "VERSION = \"2.3.0\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "HUB_AUTO_SYNC:bool        = True                            # automatický sync po úspěšném startup health-checku\n",
+      "new": "HUB_AUTO_SYNC:bool        = True                            # kompatibilní legacy startup režim z central settings\nHUB_SYNC_MODE:str        = \"\"                              # lokalni: \"\"=legacy auto_sync; startup/timer/off; neexportovat do SYSAPP1E\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "    hub_runtime.clear_providers()\n    _configure_global_menu_context()\n",
+      "new": "    hub_runtime.clear_providers()\n    from libs.app.hub.provider_discovery import register_collectors\n    # Hub-only collectors are usable without menu.py or terminal initialization.\n    try:\n        for warning in register_collectors(hub_runtime):\n            log.warning(\"SysApps Hub collector discovery: %s\", warning)\n    except Exception:\n        log.exception(\"SysApps Hub collector discovery failed\")\n    _configure_global_menu_context()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "                if provider_key and callable(provider_collector):\n",
+      "new": "                if (provider_key and callable(provider_collector)\n                        and not hub_runtime.has_provider(provider_key)):\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "        report = hub_runtime.sync_all()\n",
+      "new": "        report = hub_runtime.sync_all_locked()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "from .settings import HubSettings\n",
+      "new": "from .settings import HubSettings\nfrom .sync_policy import effective_sync_mode\nfrom .sync_lock import HubSyncBusy, hub_sync_lock\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        self._providers[key] = registration\n\n    def refresh_status",
+      "new": "        self._providers[key] = registration\n\n    def has_provider(self, key: str) -> bool:\n        return key in self._providers\n\n    def refresh_status",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def sync_all(\n        self,\n        progress: Callable[[int, int, str], None] | None = None,\n    ) -> HubSyncReport:\n",
+      "new": "    def sync_all_locked(\n        self,\n        progress: Callable[[int, int, str], None] | None = None,\n    ) -> HubSyncReport:\n        \"\"\"Serialize periodic, startup, and manual collection on this host.\"\"\"\n        try:\n            with hub_sync_lock():\n                return self.sync_all(progress)\n        except (HubSyncBusy, OSError) as exc:\n            return HubSyncReport(error=str(exc))\n\n    def sync_all(\n        self,\n        progress: Callable[[int, int, str], None] | None = None,\n    ) -> HubSyncReport:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def sync_provider_best_effort(self, key: str) -> None:\n",
+      "new": "    def sync_provider_locked(self, key: str) -> tuple[bool, str]:\n        try:\n            with hub_sync_lock():\n                return self.sync_provider(key)\n        except (HubSyncBusy, OSError) as exc:\n            return False, str(exc)\n\n    def sync_provider_best_effort(self, key: str) -> None:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        ok, error = self.sync_provider(key)\n",
+      "new": "        ok, error = self.sync_provider_locked(key)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        if not status.ready or not settings.auto_sync:\n",
+      "new": "        if not status.ready or effective_sync_mode(settings.auto_sync) != \"startup\":\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "        report = self.sync_all(print_progress)\n",
+      "new": "        report = self.sync_all_locked(print_progress)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "from .runtime import hub_runtime\n",
+      "new": "from .runtime import hub_runtime\nfrom .sync_policy import effective_sync_mode\nfrom .scheduler import set_schedule, timer_status\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "        self.subTitle.append((TXT_HUB_PREFIX, settings.prefix))\n        self.menu = [\n",
+      "new": "        self.subTitle.append((TXT_HUB_PREFIX, settings.prefix))\n        mode = effective_sync_mode(settings.auto_sync)\n        if mode == \"timer\":\n            self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))\n        mode_labels = {\n            \"startup\": TXT_HUB_MODE_STARTUP,\n            \"timer\": TXT_HUB_MODE_TIMER,\n            \"off\": TXT_HUB_MODE_OFF,\n        }\n        self.menu = [\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "            c_menu_item(\n                TXT_HUB_AUTO_SYNC,\n                \"a\",\n                self.toggle_auto_sync,\n                atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF,\n                hidden=hide_managed and \"HUB_AUTO_SYNC\" in managed_keys,\n            ),\n",
+      "new": "            c_menu_item(\n                TXT_HUB_SYNC_MODE,\n                \"a\",\n                self.choose_sync_mode,\n                atRight=mode_labels[mode],\n            ),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "    def toggle_auto_sync(self, selItem: c_menu_item) -> onSelReturn:\n        cfg.HUB_AUTO_SYNC = not bool(cfg.HUB_AUTO_SYNC)\n        self._save(\"HUB_AUTO_SYNC\")\n        return onSelReturn(ok=TXT_HUB_SAVED)\n",
+      "new": "    def choose_sync_mode(self, selItem: c_menu_item) -> onSelReturn:\n        current = effective_sync_mode()\n        value = get_input(\n            TXT_HUB_MODE_PROMPT.format(current=current),\n            accept_empty=False,\n            maxLen=1,\n            rgx=r\"^[123]$\",\n            errTx=TXT_HUB_MODE_INVALID,\n        )\n        if value is None:\n            return onSelReturn().errRet(TXT_HUB_CANCELLED)\n        selected = {\"1\": \"startup\", \"2\": \"timer\", \"3\": \"off\"}[value]\n        if selected == \"timer\" and not bool(cfg.HUB_ENABLED):\n            return onSelReturn().errRet(TXT_HUB_TIMER_REQUIRED)\n        old_raw = str(getattr(cfg, \"HUB_SYNC_MODE\", \"\") or \"\")\n        try:\n            # Apply OS state first. Never report success on an uninstalled timer.\n            set_schedule(selected)\n            cfg.HUB_SYNC_MODE = selected\n            cfg.save()\n        except Exception as exc:\n            cfg.HUB_SYNC_MODE = old_raw\n            try:\n                set_schedule(current)\n            except Exception:\n                pass\n            return onSelReturn().errRet(str(exc))\n        hub_runtime.refresh_status()\n        return onSelReturn(ok=TXT_HUB_SAVED)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "        report = hub_runtime.sync_all()\n",
+      "new": "        report = hub_runtime.sync_all_locked()\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_20_node_red/hub_provider.py",
+      "old": "    return HubProviderSnapshot(\n        source_key=PROVIDER_KEY,\n        dataset=DATASET,\n        items=tuple(items),\n    )\n",
+      "new": "    return HubProviderSnapshot(\n        source_key=PROVIDER_KEY,\n        dataset=DATASET,\n        items=tuple(items),\n    )\n\n\n# Importable without loading the Node-RED terminal menu.\nHUB_PROVIDER_KEY = PROVIDER_KEY\nhub_collect = collect_node_red_snapshot\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_10_disk/hub_provider.py",
+      "old": "def apply_disk_updates(updates: tuple[HubDiskNameUpdate, ...]) -> None:\n    disk_settings.apply_remote_names(updates)\n",
+      "new": "def apply_disk_updates(updates: tuple[HubDiskNameUpdate, ...]) -> None:\n    disk_settings.apply_remote_names(updates)\n\n\n# Shared provider contract for menu and headless runners.\nHUB_PROVIDER_KEY = SOURCE_KEY\nhub_collect = collect_disk_snapshot\nhub_apply_remote = apply_disk_updates\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/lng/default.py",
+      "old": "TXT_HUB_AUTO_SYNC = \"Automatic synchronization at startup\"\n",
+      "new": "TXT_HUB_AUTO_SYNC = \"Automatic synchronization at startup\"\nTXT_HUB_SYNC_MODE = \"Inventory synchronization mode\"\nTXT_HUB_MODE_STARTUP = \"On application startup\"\nTXT_HUB_MODE_TIMER = \"Every hour (systemd timer)\"\nTXT_HUB_MODE_OFF = \"Disabled\"\nTXT_HUB_TIMER_STATUS = \"systemd timer\"\nTXT_HUB_MODE_PROMPT = \"Mode [1=startup, 2=hourly timer, 3=off] (current {current}):\"\nTXT_HUB_MODE_INVALID = \"Select 1, 2 or 3.\"\nTXT_HUB_TIMER_REQUIRED = \"Enable SysApps Hub before enabling the hourly timer.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/lng/cs-CZ.py",
+      "old": "TXT_HUB_AUTO_SYNC = \"Automatická synchronizace při startu\"\n",
+      "new": "TXT_HUB_AUTO_SYNC = \"Automatická synchronizace při startu\"\nTXT_HUB_SYNC_MODE = \"Režim synchronizace inventáře\"\nTXT_HUB_MODE_STARTUP = \"Při spuštění aplikace\"\nTXT_HUB_MODE_TIMER = \"Každou hodinu (systemd timer)\"\nTXT_HUB_MODE_OFF = \"Vypnuto\"\nTXT_HUB_TIMER_STATUS = \"systemd timer\"\nTXT_HUB_MODE_PROMPT = \"Režim [1=start, 2=hodinový timer, 3=vypnuto] (nyní {current}):\"\nTXT_HUB_MODE_INVALID = \"Zvolte 1, 2 nebo 3.\"\nTXT_HUB_TIMER_REQUIRED = \"Před aktivací hodinového timeru zapněte SysApps Hub.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "\nv2.2.7\n",
+      "new": "\nv2.3.0\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.2.7\n",
+      "new": "# Changelog\n\n## v2.3.0\n\n- ADD SysApps Hub podporuje neinteraktivní `sys_apps --hub-sync` a hodinový `systemd` oneshot/timer nezávislý na běžícím menu; lokální režim lze přepnout v nastavení Hubu (startup / hourly / off).\n- SAFE sdílený neblokující host lock zabraňuje souběhu automatického, ručního a dílčího sběru; neúspěšná instalace timeru nesmí uložit nový režim.\n- ADD kolektory oddělené od menu lze přidat do `libs/app/hub/sys_hub_plg/` jako samostatné soubory; existující Node-RED a Disk providery jsou načitatelné také bez UI.\n- COMPAT `HUB_AUTO_SYNC` zůstává beze změn ve starých konfiguracích a SYSAPP1E; nový `HUB_SYNC_MODE` je pouze lokální nastavení a je přednostní.\n- UPD hlavní verze aplikace na 2.3.0.\n\n## v2.2.7\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            libs/app/hub/*.py \\\n",
+      "new": "            libs/app/hub/*.py \\\n            libs/app/hub/sys_hub_plg/*.py \\\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests/test_hub_runtime.py \\\n",
+      "new": "            tests/test_hub_runtime.py \\\n            tests/test_hub_headless.py \\\n            tests/test_hub_scheduling.py \\\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            tests.test_hub_runtime \\\n",
+      "new": "            tests.test_hub_runtime \\\n            tests.test_hub_headless \\\n            tests.test_hub_scheduling \\\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "# SysApps Hub instructions\n\n",
+      "new": "# SysApps Hub instructions\n\n- Hub has a headless `--hub-sync` entrypoint, independent of c_menu and the interactive session lock. Startup, timer and manual sync must use the same nonblocking host-level sync lock.\n- Central provider discovery scans app_*/hub_provider.py (subject to PluginRegistry policy) and trusted `libs/app/hub/sys_hub_plg/*.py`. Collectors expose stable `HUB_PROVIDER_KEY` + `hub_collect(context)`, optionally `hub_apply_remote(updates)`; do not import menu.py for headless collection.\n- `HUB_SYNC_MODE` is local only: empty uses legacy HUB_AUTO_SYNC, explicit startup/timer/off overrides it. Never export this knob via SYSAPP1E or silently activate systemd via central settings import.\n- Only trusted fixed-schema SQL migrations and writers owned by Hub can modify its database. Collector-local SQL credentials or direct SQL execution are forbidden. Plugin migrations remain future work and require checksummed, namespaced, controlled management.\n- Timer unit files must be owned/marked by SysApps, installed atomically, and never overwrite another admin's systemd unit. Mode is persisted only after successful systemd operations.\n\n",
+      "expected": 1
+    },
+    {
+      "path": "AGENTS.md",
+      "old": "- Obousměrný Hub provider může vedle `hub_collect(context)` nabídnout `hub_apply_remote(updates)`. Provider nedostává DB/SQL a zpětné změny se smějí aplikovat až po úspěšném databázovém commitu.\n",
+      "new": "- Obousměrný Hub provider může vedle `hub_collect(context)` nabídnout `hub_apply_remote(updates)`. Provider nedostává DB/SQL a zpětné změny se smějí aplikovat až po úspěšném databázovém commitu.\n- Hub inventarizace má i neinteraktivní spuštění `--hub-sync`; nemá importovat c_menu ani používat jeho session lock. Nové read-only sběrné pluginy patří do `libs/app/hub/sys_hub_plg` podle provider kontraktu. SQL migrace zůstávají výhradně centrální, s checksumy a pevnou allowlist tabulek; žádný collector neprovádí SQL přímo.\n- Lokální režim HUB_SYNC_MODE (startup/timer/off) není součástí SYSAPP1E, výchozí prázdná hodnota zachovává HUB_AUTO_SYNC. Timer změny vyžadují úspěšné systemd enable/disable dříve, než se režim uloží.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "## Provider kontrakt\n",
+      "new": "## Neinteraktivní sběr a plánovač\n\nHlavní aplikace nabízí lokální volbu: **startup**, **timer** (každou hodinu) nebo **off**; ruční synchronizace zůstává dostupná vždy, pokud je Hub zapnutý. Prázdná hodnota nového lokálního `HUB_SYNC_MODE` zachovává historickou politiku `HUB_AUTO_SYNC` bez zásahu do stávajících instalací. `HUB_SYNC_MODE` se nikdy nedistribuuje centrálním balíkem `SYSAPP1E`.\n\nVolba **timer** z menu vytvoří spravované jednotky `/etc/systemd/system/jb-sysapps-hub.service` a `jb-sysapps-hub.timer`, aktivuje časovač a teprve pak uloží režim. Timer spouští `run.sh --hub-sync` přes stejný Python virtualenv a bez grafického/terminálového menu. Všechna spuštění sdílejí procesní lock pro synchronizaci, nezávislý na zámku otevřeného menu. Manuální a automatické spouštění mohou koexistovat; při souběhu druhý sběr bezpečně skončí chybou/skipped, ne paralelním zápisem.\n\nPro ruční ověření lze použít `sudo /opt/sys_apps/run.sh --hub-sync` a `systemctl status jb-sysapps-hub.timer` / `journalctl -u jb-sysapps-hub.service`. V reálné instalaci se cesta určí podle umístění aplikace. Při nedostupnosti centrální DB neproběhne schema upgrade ani změna lokální konfigurace.\n\n## Headless provider a sběrné pluginy\n\nSamostatné sběrné moduly jsou interní, důvěryhodné soubory v `libs/app/hub/sys_hub_plg/` a neobjevují se jako další terminálová menu. Jeden modul implementuje `HUB_PROVIDER_KEY` a `hub_collect(context)` a vrací `HubProviderSnapshot` pro aktuálně podporovaný `dataset`. Načítání je sdílené v headless i interaktivním režimu. Stávající `app_*` poskytovatelé zůstávají funkční přes `hub_provider.py` a starší `menu.py` kontrakt, včetně oprávnění v PluginRegistry.\n\nPříklad rozhraní (až po přidání datasetu do centrálního writeru):\n\n```python\nHUB_PROVIDER_KEY = \"bacula_fd\"\n\ndef hub_collect(context):\n    # Pouze read-only lokální detekce; bez SQL a DB credentials.\n    return HubProviderSnapshot(\"bacula_fd\", \"inventory_items\", items)\n```\n\n**Důležitá hranice:** obecný dataset `inventory_items` ani plugin-local schema migrace v této etapě ještě nejsou implementovány. Současný DB writer přijímá pouze existující typované datasety. Nový plugin nesmí sám provádět SQL; rozšíření tabulek bude v další etapě řešit centrální migrátor s verzemi, SHA-256 a kontrolou namespace. Záměr je zachovat možnost přidat nový jednoduchý collector jediným souborem, aniž by získal přístup k DB.\n\n## Provider kontrakt\n",
+      "expected": 1
+    }
+  ]
+}
