@@ -15,11 +15,12 @@ MANAGED_MARKER = "# Managed by SysApps Hub. Edit through sys_apps, not manually.
 _APP_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _quoted_path(path: Path) -> str:
+def _unit_path(path: Path, *, quoted: bool = False) -> str:
     text = str(path.resolve())
-    if not text.startswith("/") or any(ch in text for ch in ("\n", "\r", '"', "%")):
+    if not text.startswith("/") or any(ch in text for ch in ("\n", "\r", '"', "%", "\\")):
         raise ValueError("SysApps Hub installation path cannot be used in a systemd unit.")
-    return f'"{text}"'
+    # WorkingDirectory takes a raw absolute path; only ExecStart accepts quoting.
+    return f'"{text}"' if quoted else text
 
 
 def render_units(root: Path | None = None) -> tuple[str, str]:
@@ -27,8 +28,8 @@ def render_units(root: Path | None = None) -> tuple[str, str]:
     runner = root / "run.sh"
     if not runner.is_file() or not os.access(runner, os.X_OK):
         raise FileNotFoundError(f"Executable SysApps runtime wrapper not found: {runner}")
-    directory = _quoted_path(root)
-    command = _quoted_path(runner)
+    directory = _unit_path(root)
+    command = _unit_path(runner, quoted=True)
     service = (
         MANAGED_MARKER
         + "[Unit]\n"
