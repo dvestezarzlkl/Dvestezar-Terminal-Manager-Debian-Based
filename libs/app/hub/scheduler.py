@@ -25,8 +25,8 @@ def _quoted_path(path: Path) -> str:
 def render_units(root: Path | None = None) -> tuple[str, str]:
     root = _APP_ROOT if root is None else root
     runner = root / "run.sh"
-    if not runner.is_file():
-        raise FileNotFoundError(f"SysApps runtime wrapper not found: {runner}")
+    if not runner.is_file() or not os.access(runner, os.X_OK):
+        raise FileNotFoundError(f"Executable SysApps runtime wrapper not found: {runner}")
     directory = _quoted_path(root)
     command = _quoted_path(runner)
     service = (
@@ -144,10 +144,14 @@ def set_schedule(
         _systemctl("daemon-reload")
         _systemctl("enable", "--now", TIMER_NAME)
     except Exception:
+        if backup[timer_path] is None:
+            try:
+                # Disable first while the newly installed timer file still exists.
+                _systemctl("disable", "--now", TIMER_NAME)
+            except Exception:
+                pass
         _restore_units(backup)
         try:
-            if backup[timer_path] is None:
-                _systemctl("disable", "--now", TIMER_NAME)
             _systemctl("daemon-reload")
         except Exception:
             # Preserve original setup error while retaining a useful journal.
