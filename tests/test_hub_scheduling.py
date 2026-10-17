@@ -35,7 +35,10 @@ class HubScheduleTests(unittest.TestCase):
             ):
                 scheduler.set_schedule("timer", root=root, unit_dir=unit_dir)
                 self.assertIn("OnCalendar=hourly", (unit_dir / scheduler.TIMER_NAME).read_text())
-                self.assertIn("--hub-sync", (unit_dir / scheduler.SERVICE_NAME).read_text())
+                service_text = (unit_dir / scheduler.SERVICE_NAME).read_text()
+                self.assertIn("--hub-sync", service_text)
+                self.assertIn(f"WorkingDirectory={root.resolve()}\n", service_text)
+                self.assertNotIn('WorkingDirectory="', service_text)
                 before = (unit_dir / scheduler.TIMER_NAME).read_bytes()
                 scheduler.set_schedule("timer", root=root, unit_dir=unit_dir)
                 self.assertEqual((unit_dir / scheduler.TIMER_NAME).read_bytes(), before)
