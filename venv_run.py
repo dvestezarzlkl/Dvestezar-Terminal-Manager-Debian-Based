@@ -1,6 +1,14 @@
 #!/usr/bin/env python3.10
 from datetime import datetime
 import sys
+
+# Headless collector must be selected before terminal imports and the menu lock.
+if "--hub-sync" in sys.argv[1:]:
+    if sys.argv[1:] != ["--hub-sync"]:
+        print("Usage: sys_apps --hub-sync", file=sys.stderr)
+        sys.exit(2)
+    from libs.app.hub.headless import main as hub_headless_main
+    sys.exit(hub_headless_main())
 from time import perf_counter
 
 from libs.app.runtime_flags import (

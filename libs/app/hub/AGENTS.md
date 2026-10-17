@@ -1,5 +1,11 @@
 # SysApps Hub instructions
 
+- Hub has a headless `--hub-sync` entrypoint, independent of c_menu and the interactive session lock. Startup, timer and manual sync must use the same nonblocking host-level sync lock.
+- Central provider discovery scans app_*/hub_provider.py (subject to PluginRegistry policy) and trusted `libs/app/hub/sys_hub_plg/*.py`. Collectors expose stable `HUB_PROVIDER_KEY` + `hub_collect(context)`, optionally `hub_apply_remote(updates)`; do not import menu.py for headless collection.
+- `HUB_SYNC_MODE` is local only: empty uses legacy HUB_AUTO_SYNC, explicit startup/timer/off overrides it. Never export this knob via SYSAPP1E or silently activate systemd via central settings import.
+- Only trusted fixed-schema SQL migrations and writers owned by Hub can modify its database. Collector-local SQL credentials or direct SQL execution are forbidden. Plugin migrations remain future work and require checksummed, namespaced, controlled management.
+- Timer unit files must be owned/marked by SysApps, installed atomically, and never overwrite another admin's systemd unit. Mode is persisted only after successful systemd operations.
+
 - SysApps Hub is a central inventory. MySQL/MariaDB is the transport and storage layer, not the provider API.
 - Provider modules never receive a database connection, cursor, table name, SQL fragment, credentials, or migration access. They return typed snapshots only.
 - Dynamic `app_*` providers register through module-level `_HUB_PROVIDER_KEY_` and `hub_collect(context)`. Provider keys must be stable, unique, lowercase identifiers.

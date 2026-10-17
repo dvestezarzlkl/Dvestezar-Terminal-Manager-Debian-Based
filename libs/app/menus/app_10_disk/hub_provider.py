@@ -95,3 +95,9 @@ def collect_disk_snapshot(context: HubContext) -> HubProviderSnapshot:
 
 def apply_disk_updates(updates: tuple[HubDiskNameUpdate, ...]) -> None:
     disk_settings.apply_remote_names(updates)
+
+
+# Shared provider contract for menu and headless runners.
+HUB_PROVIDER_KEY = SOURCE_KEY
+hub_collect = collect_disk_snapshot
+hub_apply_remote = apply_disk_updates

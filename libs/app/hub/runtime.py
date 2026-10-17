@@ -21,6 +21,8 @@ from .models import (
     HubSyncReport,
 )
 from .settings import HubSettings
+from .sync_policy import effective_sync_mode
+from .sync_lock import HubSyncBusy, hub_sync_lock
 
 
 log = getLogger(__name__)
@@ -52,6 +54,9 @@ class HubRuntime:
         if current is not None and current != registration:
             raise ValueError(f"Duplicate SysApps Hub provider key: {key}")
         self._providers[key] = registration
+
+    def has_provider(self, key: str) -> bool:
+        return key in self._providers
 
     def refresh_status(self) -> HubStatus:
         settings = HubSettings.from_cfg()
@@ -177,6 +182,17 @@ class HubRuntime:
         )
         return result.item_count
 
+    def sync_all_locked(
+        self,
+        progress: Callable[[int, int, str], None] | None = None,
+    ) -> HubSyncReport:
+        """Serialize periodic, startup, and manual collection on this host."""
+        try:
+            with hub_sync_lock():
+                return self.sync_all(progress)
+        except (HubSyncBusy, OSError) as exc:
+            return HubSyncReport(error=str(exc))
+
     def sync_all(
         self,
         progress: Callable[[int, int, str], None] | None = None,
@@ -289,23 +305,30 @@ class HubRuntime:
             )
             return False, safe_error
 
+    def sync_provider_locked(self, key: str) -> tuple[bool, str]:
+        try:
+            with hub_sync_lock():
+                return self.sync_provider(key)
+        except (HubSyncBusy, OSError) as exc:
+            return False, str(exc)
+
     def sync_provider_best_effort(self, key: str) -> None:
         settings = HubSettings.from_cfg()
         if not settings.enabled:
             return
-        ok, error = self.sync_provider(key)
+        ok, error = self.sync_provider_locked(key)
         if not ok:
             log.warning("Best-effort SysApps Hub sync skipped/failed for %s: %s", key, error)
 
     def startup(self) -> HubSyncReport | None:
         status = self.refresh_status()
         settings = HubSettings.from_cfg()
-        if not status.ready or not settings.auto_sync:
+        if not status.ready or effective_sync_mode(settings.auto_sync) != "startup":
             return None
         def print_progress(step: int, total: int, label: str) -> None:
             print(f"SysApps Hub: synchronization {step}/{total} - {label}...")
 
-        report = self.sync_all(print_progress)
+        report = self.sync_all_locked(print_progress)
         if report.error:
             print(f"SysApps Hub synchronization failed: {report.error}")
         else:

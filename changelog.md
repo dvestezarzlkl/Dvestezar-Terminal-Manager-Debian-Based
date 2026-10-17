@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.3.0
+
+- ADD SysApps Hub podporuje neinteraktivní `sys_apps --hub-sync` a hodinový `systemd` oneshot/timer nezávislý na běžícím menu; lokální režim lze přepnout v nastavení Hubu (startup / hourly / off).
+- SAFE sdílený neblokující host lock zabraňuje souběhu automatického, ručního a dílčího sběru; neúspěšná instalace timeru nesmí uložit nový režim.
+- ADD kolektory oddělené od menu lze přidat do `libs/app/hub/sys_hub_plg/` jako samostatné soubory; existující Node-RED a Disk providery jsou načitatelné také bez UI.
+- COMPAT `HUB_AUTO_SYNC` zůstává beze změn ve starých konfiguracích a SYSAPP1E; nový `HUB_SYNC_MODE` je pouze lokální nastavení a je přednostní.
+- UPD hlavní verze aplikace na 2.3.0.
+
 ## v2.2.7
 
 - FIX SSH Manager 1.0.2 + JBLibs 1.2.32 nevyhodí výjimku při zobrazení seznamu systémových SSH uživatelů, pokud `/home` obsahuje osiřelý adresář bez účtu v NSS/passwd (např. `samba_all`); adresáře ani Samba/SFTP konfigurace se nemění.

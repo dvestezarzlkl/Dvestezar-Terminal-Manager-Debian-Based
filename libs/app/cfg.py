@@ -6,7 +6,7 @@ from libs.JBLibs.machine_info import c_machine_info
 from ..app import g_def as defs
 
 # cspell:ignore fullchain
-VERSION = "2.2.7"
+VERSION = "2.3.0"
 MAIN_TITLE: str = f"Dvestezar Terminal Manager (Debian Based) - version: {VERSION}"
 
 # **** následují proměnné které budou přepsány z config.ini který je v root-u hlavního skriptu, tzn jak je app.py ****
@@ -42,7 +42,8 @@ HUB_DB_PASSWORD:str       = ""                            # databázové heslo
 HUB_DB_NAME:str           = "sys_apps"                    # výchozí databáze Hubu
 HUB_DB_PREFIX:str         = "sysapps_"                    # validovaný prefix tabulek
 HUB_CONNECT_TIMEOUT:int   = 3                               # krátký startup/connect timeout
-HUB_AUTO_SYNC:bool        = True                            # automatický sync po úspěšném startup health-checku
+HUB_AUTO_SYNC:bool        = True                            # kompatibilní legacy startup režim z central settings
+HUB_SYNC_MODE:str        = ""                              # lokalni: ""=legacy auto_sync; startup/timer/off; neexportovat do SYSAPP1E
 
 # Centrální distribuce přenositelných nastavení
 SETTINGS_URL:str          = ""                              # HTTPS URL s jedním šifrovaným SYSAPP1E balíkem

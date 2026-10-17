@@ -85,3 +85,8 @@ def collect_node_red_snapshot(context: HubContext) -> HubProviderSnapshot:
         dataset=DATASET,
         items=tuple(items),
     )
+
+
+# Importable without loading the Node-RED terminal menu.
+HUB_PROVIDER_KEY = PROVIDER_KEY
+hub_collect = collect_node_red_snapshot
