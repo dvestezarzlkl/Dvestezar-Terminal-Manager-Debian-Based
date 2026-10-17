@@ -28,6 +28,7 @@ class HubScheduleTests(unittest.TestCase):
             root.mkdir()
             unit_dir.mkdir()
             (root / "run.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+            (root / "run.sh").chmod(0o755)
             commands = []
             with patch.object(scheduler.os, "geteuid", return_value=0), patch.object(
                 scheduler, "_systemctl", side_effect=lambda *args: commands.append(args)
@@ -48,6 +49,7 @@ class HubScheduleTests(unittest.TestCase):
             root.mkdir()
             units.mkdir()
             (root / "run.sh").write_text("#!/bin/sh\n")
+            (root / "run.sh").chmod(0o755)
             (units / scheduler.TIMER_NAME).write_text("[Timer]\nOnCalendar=weekly\n")
             with patch.object(scheduler.os, "geteuid", return_value=0), patch.object(
                 scheduler, "_systemctl"
@@ -62,6 +64,7 @@ class HubScheduleTests(unittest.TestCase):
             root.mkdir()
             units.mkdir()
             (root / "run.sh").write_text("#!/bin/sh\n")
+            (root / "run.sh").chmod(0o755)
             def fail_enable(*args):
                 if args[:2] == ("enable", "--now"):
                     raise RuntimeError("simulated systemctl failure")
