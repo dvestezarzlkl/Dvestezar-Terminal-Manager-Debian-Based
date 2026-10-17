@@ -147,24 +147,6 @@
       "expected": 1
     },
     {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            libs/app/hub/*.py \\\n",
-      "new": "            libs/app/hub/*.py \\\n            libs/app/hub/sys_hub_plg/*.py \\\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests/test_hub_runtime.py \\\n",
-      "new": "            tests/test_hub_runtime.py \\\n            tests/test_hub_headless.py \\\n            tests/test_hub_scheduling.py \\\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests.test_hub_runtime \\\n",
-      "new": "            tests.test_hub_runtime \\\n            tests.test_hub_headless \\\n            tests.test_hub_scheduling \\\n",
-      "expected": 1
-    },
-    {
       "path": "libs/app/hub/AGENTS.md",
       "old": "# SysApps Hub instructions\n\n",
       "new": "# SysApps Hub instructions\n\n- Hub has a headless `--hub-sync` entrypoint, independent of c_menu and the interactive session lock. Startup, timer and manual sync must use the same nonblocking host-level sync lock.\n- Central provider discovery scans app_*/hub_provider.py (subject to PluginRegistry policy) and trusted `libs/app/hub/sys_hub_plg/*.py`. Collectors expose stable `HUB_PROVIDER_KEY` + `hub_collect(context)`, optionally `hub_apply_remote(updates)`; do not import menu.py for headless collection.\n- `HUB_SYNC_MODE` is local only: empty uses legacy HUB_AUTO_SYNC, explicit startup/timer/off overrides it. Never export this knob via SYSAPP1E or silently activate systemd via central settings import.\n- Only trusted fixed-schema SQL migrations and writers owned by Hub can modify its database. Collector-local SQL credentials or direct SQL execution are forbidden. Plugin migrations remain future work and require checksummed, namespaced, controlled management.\n- Timer unit files must be owned/marked by SysApps, installed atomically, and never overwrite another admin's systemd unit. Mode is persisted only after successful systemd operations.\n\n",
@@ -180,6 +162,12 @@
       "path": "docs/sysapps-hub.md",
       "old": "## Provider kontrakt\n",
       "new": "## Neinteraktivní sběr a plánovač\n\nHlavní aplikace nabízí lokální volbu: **startup**, **timer** (každou hodinu) nebo **off**; ruční synchronizace zůstává dostupná vždy, pokud je Hub zapnutý. Prázdná hodnota nového lokálního `HUB_SYNC_MODE` zachovává historickou politiku `HUB_AUTO_SYNC` bez zásahu do stávajících instalací. `HUB_SYNC_MODE` se nikdy nedistribuuje centrálním balíkem `SYSAPP1E`.\n\nVolba **timer** z menu vytvoří spravované jednotky `/etc/systemd/system/jb-sysapps-hub.service` a `jb-sysapps-hub.timer`, aktivuje časovač a teprve pak uloží režim. Timer spouští `run.sh --hub-sync` přes stejný Python virtualenv a bez grafického/terminálového menu. Všechna spuštění sdílejí procesní lock pro synchronizaci, nezávislý na zámku otevřeného menu. Manuální a automatické spouštění mohou koexistovat; při souběhu druhý sběr bezpečně skončí chybou/skipped, ne paralelním zápisem.\n\nPro ruční ověření lze použít `sudo /opt/sys_apps/run.sh --hub-sync` a `systemctl status jb-sysapps-hub.timer` / `journalctl -u jb-sysapps-hub.service`. V reálné instalaci se cesta určí podle umístění aplikace. Při nedostupnosti centrální DB neproběhne schema upgrade ani změna lokální konfigurace.\n\n## Headless provider a sběrné pluginy\n\nSamostatné sběrné moduly jsou interní, důvěryhodné soubory v `libs/app/hub/sys_hub_plg/` a neobjevují se jako další terminálová menu. Jeden modul implementuje `HUB_PROVIDER_KEY` a `hub_collect(context)` a vrací `HubProviderSnapshot` pro aktuálně podporovaný `dataset`. Načítání je sdílené v headless i interaktivním režimu. Stávající `app_*` poskytovatelé zůstávají funkční přes `hub_provider.py` a starší `menu.py` kontrakt, včetně oprávnění v PluginRegistry.\n\nPříklad rozhraní (až po přidání datasetu do centrálního writeru):\n\n```python\nHUB_PROVIDER_KEY = \"bacula_fd\"\n\ndef hub_collect(context):\n    # Pouze read-only lokální detekce; bez SQL a DB credentials.\n    return HubProviderSnapshot(\"bacula_fd\", \"inventory_items\", items)\n```\n\n**Důležitá hranice:** obecný dataset `inventory_items` ani plugin-local schema migrace v této etapě ještě nejsou implementovány. Současný DB writer přijímá pouze existující typované datasety. Nový plugin nesmí sám provádět SQL; rozšíření tabulek bude v další etapě řešit centrální migrátor s verzemi, SHA-256 a kontrolou namespace. Záměr je zachovat možnost přidat nový jednoduchý collector jediným souborem, aniž by získal přístup k DB.\n\n## Provider kontrakt\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "import unittest\nfrom datetime import datetime, timezone\n",
+      "new": "import unittest\nfrom datetime import datetime, timezone\n\n# The existing Hub CI workflow invokes this test module explicitly.\n# Re-export independent headless and scheduling test cases for that runner.\nfrom tests.test_hub_headless import HubHeadlessTests\nfrom tests.test_hub_scheduling import HubScheduleTests\n",
       "expected": 1
     }
   ]
