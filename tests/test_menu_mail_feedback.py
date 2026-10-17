@@ -66,8 +66,10 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             ):
                 hub_settings = HubSettingsMenu()
                 hub_settings.onShowMenu()
-            for choice in ("e", "a", "h", "p", "u", "w", "d", "x", "o"):
+            for choice in ("e", "h", "p", "u", "w", "d", "x", "o"):
                 self.assertTrue(self._menu_item(hub_settings.menu, choice).hidden)
+            # The new scheduler mode is local and is never centrally managed.
+            self.assertFalse(self._menu_item(hub_settings.menu, "a").hidden)
             for choice in ("t", "i", "s"):
                 self.assertFalse(self._menu_item(hub_settings.menu, choice).hidden)
             self.assertFalse(self._menu_item(hub_settings.menu, "s").enabled)
@@ -116,9 +118,11 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
         self.assertEqual(menuBoss._get_menu_version(MissingVersion), "")
         self.assertEqual(menuBoss._format_menu_version("3.5.0"), "v. 3.5.0")
         self.assertEqual(menuBoss._format_menu_version(""), "?")
-        self.assertEqual(menuBoss._get_menu_version(node_red_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(ssh_menu.menu), "1.0.0")
-        self.assertEqual(menuBoss._get_menu_version(sftp_menu.menu), "1.3.2")
+        for menu_cls in (node_red_menu.menu, ssh_menu.menu, sftp_menu.menu):
+            self.assertEqual(menuBoss._get_menu_version(menu_cls), menu_cls._VERSION_)
+        self.assertEqual(node_red_menu.menu._VERSION_, "1.0.1")
+        self.assertEqual(ssh_menu.menu._VERSION_, "1.0.2")
+        self.assertEqual(sftp_menu.menu._VERSION_, "1.3.3")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
