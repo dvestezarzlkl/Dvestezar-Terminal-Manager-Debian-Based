@@ -12,16 +12,22 @@ def main() -> int:
         return 77
 
     from libs.app import cfg
+    try:
+        cfg.load()
+    except Exception:
+        print("SysApps Hub headless configuration initialization failed.", file=sys.stderr)
+        return 1
+
+    # Match the interactive bootstrap: logging is initialized after cfg.load().
     from libs.JBLibs.helper import getLogger, setLng
     from .provider_discovery import register_collectors
     from .runtime import hub_runtime
 
     log = getLogger(__name__)
     try:
-        cfg.load()
         setLng(cfg.LANGUAGE)
     except Exception:
-        log.exception("SysApps Hub headless configuration initialization failed.")
+        log.exception("SysApps Hub headless language initialization failed.")
         return 1
 
     if not cfg.HUB_ENABLED:
