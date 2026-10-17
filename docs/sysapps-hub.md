@@ -56,6 +56,30 @@ Aktuální migrace:
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 
+## Neinteraktivní sběr a plánovač
+
+Hlavní aplikace nabízí lokální volbu: **startup**, **timer** (každou hodinu) nebo **off**; ruční synchronizace zůstává dostupná vždy, pokud je Hub zapnutý. Prázdná hodnota nového lokálního `HUB_SYNC_MODE` zachovává historickou politiku `HUB_AUTO_SYNC` bez zásahu do stávajících instalací. `HUB_SYNC_MODE` se nikdy nedistribuuje centrálním balíkem `SYSAPP1E`.
+
+Volba **timer** z menu vytvoří spravované jednotky `/etc/systemd/system/jb-sysapps-hub.service` a `jb-sysapps-hub.timer`, aktivuje časovač a teprve pak uloží režim. Timer spouští `run.sh --hub-sync` přes stejný Python virtualenv a bez grafického/terminálového menu. Všechna spuštění sdílejí procesní lock pro synchronizaci, nezávislý na zámku otevřeného menu. Manuální a automatické spouštění mohou koexistovat; při souběhu druhý sběr bezpečně skončí chybou/skipped, ne paralelním zápisem.
+
+Pro ruční ověření lze použít `sudo /opt/sys_apps/run.sh --hub-sync` a `systemctl status jb-sysapps-hub.timer` / `journalctl -u jb-sysapps-hub.service`. V reálné instalaci se cesta určí podle umístění aplikace. Při nedostupnosti centrální DB neproběhne schema upgrade ani změna lokální konfigurace.
+
+## Headless provider a sběrné pluginy
+
+Samostatné sběrné moduly jsou interní, důvěryhodné soubory v `libs/app/hub/sys_hub_plg/` a neobjevují se jako další terminálová menu. Jeden modul implementuje `HUB_PROVIDER_KEY` a `hub_collect(context)` a vrací `HubProviderSnapshot` pro aktuálně podporovaný `dataset`. Načítání je sdílené v headless i interaktivním režimu. Stávající `app_*` poskytovatelé zůstávají funkční přes `hub_provider.py` a starší `menu.py` kontrakt, včetně oprávnění v PluginRegistry.
+
+Příklad rozhraní (až po přidání datasetu do centrálního writeru):
+
+```python
+HUB_PROVIDER_KEY = "bacula_fd"
+
+def hub_collect(context):
+    # Pouze read-only lokální detekce; bez SQL a DB credentials.
+    return HubProviderSnapshot("bacula_fd", "inventory_items", items)
+```
+
+**Důležitá hranice:** obecný dataset `inventory_items` ani plugin-local schema migrace v této etapě ještě nejsou implementovány. Současný DB writer přijímá pouze existující typované datasety. Nový plugin nesmí sám provádět SQL; rozšíření tabulek bude v další etapě řešit centrální migrátor s verzemi, SHA-256 a kontrolou namespace. Záměr je zachovat možnost přidat nový jednoduchý collector jediným souborem, aniž by získal přístup k DB.
+
 ## Provider kontrakt
 
 Dynamická podaplikace může v `menu.py` nabídnout jednosměrný provider:

@@ -166,7 +166,7 @@ class menuBoss(menu):
         if hub_runtime.refresh_status().state is not HubState.READY:
             return onSelReturn().errRet(hub_runtime.status_text())
         print("SysApps Hub: collecting and synchronizing inventory...")
-        report = hub_runtime.sync_all()
+        report = hub_runtime.sync_all_locked()
         if report.error:
             return onSelReturn().errRet(report.error)
         for warning in report.warnings:
@@ -505,6 +505,13 @@ def init() -> bool:
     init_started = perf_counter()
     _items_.clear()
     hub_runtime.clear_providers()
+    from libs.app.hub.provider_discovery import register_collectors
+    # Hub-only collectors are usable without menu.py or terminal initialization.
+    try:
+        for warning in register_collectors(hub_runtime):
+            log.warning("SysApps Hub collector discovery: %s", warning)
+    except Exception:
+        log.exception("SysApps Hub collector discovery failed")
     _configure_global_menu_context()
 
     discovery_started = perf_counter()
@@ -585,7 +592,8 @@ def init() -> bool:
                 provider_key = str(getattr(mod, "_HUB_PROVIDER_KEY_", "") or "").strip()
                 provider_collector = getattr(mod, "hub_collect", None)
                 provider_applier = getattr(mod, "hub_apply_remote", None)
-                if provider_key and callable(provider_collector):
+                if (provider_key and callable(provider_collector)
+                        and not hub_runtime.has_provider(provider_key)):
                     try:
                         hub_runtime.register_provider(
                             provider_key, provider_collector, provider_applier

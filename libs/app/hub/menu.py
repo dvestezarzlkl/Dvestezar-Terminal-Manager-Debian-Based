@@ -17,6 +17,8 @@ from libs.app.settings_package import (
 from .config_package import export_encrypted_settings, import_encrypted_settings
 from .models import HubState
 from .runtime import hub_runtime
+from .sync_policy import effective_sync_mode
+from .scheduler import set_schedule, timer_status
 from .settings import HubSettings, apply_settings
 
 
@@ -46,6 +48,14 @@ class HubSettingsMenu(c_menu):
         self.subTitle.append((TXT_HUB_STATUS, text_color(hub_runtime.status_text(), self._status_color())))
         self.subTitle.append((TXT_HUB_TARGET, f"{settings.host}:{settings.port}/{settings.database}"))
         self.subTitle.append((TXT_HUB_PREFIX, settings.prefix))
+        mode = effective_sync_mode(settings.auto_sync)
+        if mode == "timer":
+            self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))
+        mode_labels = {
+            "startup": TXT_HUB_MODE_STARTUP,
+            "timer": TXT_HUB_MODE_TIMER,
+            "off": TXT_HUB_MODE_OFF,
+        }
         self.menu = [
             c_menu_title_label(text_color(TXT_HUB_TITLE, en_color.CYAN)),
             c_menu_item(
@@ -56,11 +66,10 @@ class HubSettingsMenu(c_menu):
                 hidden=hide_managed and "HUB_ENABLED" in managed_keys,
             ),
             c_menu_item(
-                TXT_HUB_AUTO_SYNC,
+                TXT_HUB_SYNC_MODE,
                 "a",
-                self.toggle_auto_sync,
-                atRight=TXT_HUB_ON if settings.auto_sync else TXT_HUB_OFF,
-                hidden=hide_managed and "HUB_AUTO_SYNC" in managed_keys,
+                self.choose_sync_mode,
+                atRight=mode_labels[mode],
             ),
             None,
             c_menu_item(
@@ -129,9 +138,34 @@ class HubSettingsMenu(c_menu):
         self._save("HUB_ENABLED")
         return onSelReturn(ok=TXT_HUB_SAVED)
 
-    def toggle_auto_sync(self, selItem: c_menu_item) -> onSelReturn:
-        cfg.HUB_AUTO_SYNC = not bool(cfg.HUB_AUTO_SYNC)
-        self._save("HUB_AUTO_SYNC")
+    def choose_sync_mode(self, selItem: c_menu_item) -> onSelReturn:
+        current = effective_sync_mode()
+        value = get_input(
+            TXT_HUB_MODE_PROMPT.format(current=current),
+            accept_empty=False,
+            maxLen=1,
+            rgx=r"^[123]$",
+            errTx=TXT_HUB_MODE_INVALID,
+        )
+        if value is None:
+            return onSelReturn().errRet(TXT_HUB_CANCELLED)
+        selected = {"1": "startup", "2": "timer", "3": "off"}[value]
+        if selected == "timer" and not bool(cfg.HUB_ENABLED):
+            return onSelReturn().errRet(TXT_HUB_TIMER_REQUIRED)
+        old_raw = str(getattr(cfg, "HUB_SYNC_MODE", "") or "")
+        try:
+            # Apply OS state first. Never report success on an uninstalled timer.
+            set_schedule(selected)
+            cfg.HUB_SYNC_MODE = selected
+            cfg.save()
+        except Exception as exc:
+            cfg.HUB_SYNC_MODE = old_raw
+            try:
+                set_schedule(current)
+            except Exception:
+                pass
+            return onSelReturn().errRet(str(exc))
+        hub_runtime.refresh_status()
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def _edit_text(self, prompt: str, attr_name: str, max_len: int = 255) -> onSelReturn:
@@ -228,7 +262,7 @@ class HubSettingsMenu(c_menu):
         if not confirm(TXT_HUB_SYNC_CONFIRM):
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
         print("SysApps Hub: collecting and synchronizing inventory...")
-        report = hub_runtime.sync_all()
+        report = hub_runtime.sync_all_locked()
         if report.error:
             return onSelReturn().errRet(report.error)
         for warning in report.warnings:

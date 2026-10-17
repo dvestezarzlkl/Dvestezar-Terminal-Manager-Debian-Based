@@ -1,5 +1,10 @@
 import unittest
 from datetime import datetime, timezone
+
+# The existing Hub CI workflow invokes this test module explicitly.
+# Re-export independent headless and scheduling test cases for that runner.
+from tests.test_hub_headless import HubHeadlessTests
+from tests.test_hub_scheduling import HubScheduleTests
 from types import SimpleNamespace
 from unittest.mock import patch
 
