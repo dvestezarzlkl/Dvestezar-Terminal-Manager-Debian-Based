@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.3.2
+
+- ADD podmíněná volba „Ověřit/otestovat systemd synchronizaci“ v nastavení SysApps Hub pro režim hodinového timeru.
+- DIAG read-only kontrola skutečných systemd jednotek: managed unit files, enabled/active, poslední trigger timeru, dokončení oneshot, Result/exit status, odstup od hodinového plánu a příští spuštění.
+- SAFE skutečný test spustí jednorázově jb-sysapps-hub.service až po explicitním potvrzení; nemění konfiguraci ani stav timeru. Výsledek služby ověří i po dokončení.
+- TEST zdravý/neúplný/opožděný timer, uživatelské potvrzení a bezpečná ruční aktivace oneshot.
+- UPD verze 2.3.2.
+
 ## v2.3.1
 
 - FIX SysApps Hub: volba režimu synchronizace používá standardní JBLibs `select()` místo číselného `get_input()`; umožňuje výběr šipkami, zkratky S/T/O a ESC bez změny konfigurace nebo systemd.

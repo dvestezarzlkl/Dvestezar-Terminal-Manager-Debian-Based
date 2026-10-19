@@ -19,6 +19,7 @@ from .models import HubState
 from .runtime import hub_runtime
 from .sync_policy import effective_sync_mode
 from .scheduler import set_schedule, timer_status
+from .systemd_diagnostics import inspect_timer_sync, run_systemd_sync
 from .settings import HubSettings, apply_settings
 
 
@@ -70,6 +71,14 @@ class HubSettingsMenu(c_menu):
                 "a",
                 self.choose_sync_mode,
                 atRight=mode_labels[mode],
+            ),
+            *(
+                [c_menu_item(
+                    text_color(TXT_HUB_SYSTEMD_TEST, en_color.BRIGHT_CYAN),
+                    "z",
+                    self.test_systemd_sync,
+                )]
+                if mode == "timer" else []
             ),
             None,
             c_menu_item(
@@ -177,6 +186,48 @@ class HubSettingsMenu(c_menu):
             return onSelReturn().errRet(str(exc))
         hub_runtime.refresh_status()
         return onSelReturn(ok=TXT_HUB_SAVED)
+
+    def test_systemd_sync(self, selItem: c_menu_item) -> onSelReturn:
+        if effective_sync_mode() != "timer":
+            return onSelReturn().errRet(TXT_HUB_SYSTEMD_MODE_REQUIRED)
+        try:
+            check = inspect_timer_sync()
+        except (OSError, RuntimeError) as exc:
+            return onSelReturn().errRet(str(exc))
+
+        def age(value: float | None) -> str:
+            return TXT_HUB_SYSTEMD_UNKNOWN if value is None else str(int(value // 60))
+
+        print(TXT_HUB_SYSTEMD_REPORT.format(
+            installed=TXT_HUB_ON if check.managed else TXT_HUB_OFF,
+            enabled=TXT_HUB_ON if check.timer_enabled else TXT_HUB_OFF,
+            active=TXT_HUB_ON if check.timer_active else TXT_HUB_OFF,
+            trigger=check.last_trigger,
+            trigger_age=age(check.trigger_age_seconds),
+            start=check.last_start,
+            start_age=age(check.start_age_seconds),
+            completion=check.last_completion,
+            completion_age=age(check.completion_age_seconds),
+            result=check.result,
+            code=check.exit_status,
+            next_run=check.next_run,
+        ))
+        if not cfg.HUB_ENABLED:
+            return onSelReturn().errRet(TXT_HUB_SYSTEMD_HUB_DISABLED)
+        if not check.can_test:
+            return onSelReturn().errRet(TXT_HUB_SYSTEMD_NOT_READY)
+        summary = TXT_HUB_SYSTEMD_HEALTHY if check.healthy else TXT_HUB_SYSTEMD_WARNING
+        if not confirm(f"{summary}\n{TXT_HUB_SYSTEMD_CONFIRM}"):
+            return onSelReturn()
+
+        print(TXT_HUB_SYSTEMD_RUNNING)
+        try:
+            ok, message = run_systemd_sync()
+        except (OSError, RuntimeError) as exc:
+            return onSelReturn().errRet(str(exc))
+        if ok:
+            return onSelReturn(ok=TXT_HUB_SYSTEMD_SUCCESS)
+        return onSelReturn().errRet(f"{TXT_HUB_SYSTEMD_FAILED}: {message}")
 
     def _edit_text(self, prompt: str, attr_name: str, max_len: int = 255) -> onSelReturn:
         current = str(getattr(cfg, attr_name, "") or "")
