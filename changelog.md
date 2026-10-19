@@ -2,6 +2,7 @@
 
 ## v2.3.0
 
+- DIAG centrální SMTP transport zapisuje pokus o odeslání včetně To/Cc/Bcc, relay hostu a výsledku SMTP handoffu (accepted / failed / partial) s korelačním ID; nikdy nevypisuje obsah zpráv, klíče nebo credentials. JBLibs SMTP transport odhaluje částečně odmítnuté příjemce místo falešného úspěchu.
 - ADD SysApps Hub podporuje neinteraktivní `sys_apps --hub-sync` a hodinový `systemd` oneshot/timer nezávislý na běžícím menu; lokální režim lze přepnout v nastavení Hubu (startup / hourly / off).
 - SAFE sdílený neblokující host lock zabraňuje souběhu automatického, ručního a dílčího sběru; neúspěšná instalace timeru nesmí uložit nový režim.
 - ADD kolektory oddělené od menu lze přidat do `libs/app/hub/sys_hub_plg/` jako samostatné soubory; existující Node-RED a Disk providery jsou načitatelné také bez UI.

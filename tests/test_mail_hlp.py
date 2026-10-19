@@ -61,6 +61,52 @@ class MailHelperTests(unittest.TestCase):
         self.assertEqual(kwargs["attachments"], [attachment])
         self.assertEqual(kwargs["smtp_settings"].timeout, 12)
 
+    def test_send_mail_logs_recipients_and_smtp_acceptance(self):
+        with self.configured_mail(), patch.object(
+            mail_hlp, "send_smtp_message", return_value=(True, None)
+        ), patch.object(mail_hlp, "log") as audit:
+            ok, error = mail_hlp.send_mail(
+                ["admin@example.test", "user@example.test"],
+                "Sensitive subject",
+                "private body",
+                bcc=["hidden@example.test"],
+            )
+
+        self.assertEqual((ok, error), (True, None))
+        lines = "\n".join(
+            item.args[0] % item.args[1:] for item in audit.info.call_args_list
+        )
+        self.assertIn("status=START", lines)
+        self.assertIn("status=SMTP_ACCEPTED", lines)
+        self.assertIn("admin@example.test", lines)
+        self.assertIn("user@example.test", lines)
+        self.assertIn("hidden@example.test", lines)
+        self.assertNotIn("Sensitive subject", lines)
+        self.assertNotIn("private body", lines)
+        self.assertNotIn("secret-value", lines)
+
+    def test_send_mail_logs_partial_recipient_failure(self):
+        error_text = (
+            "SMTP recipient rejection: accepted=['admin@example.test']; "
+            "rejected=user@example.test (SMTP 550)"
+        )
+        with self.configured_mail(), patch.object(
+            mail_hlp, "send_smtp_message", return_value=(False, error_text)
+        ), patch.object(mail_hlp, "log") as audit:
+            ok, error = mail_hlp.send_mail(
+                ["admin@example.test", "user@example.test"], "S", "B"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("SMTP 550", error)
+        lines = "\n".join(
+            item.args[0] % item.args[1:] for item in audit.error.call_args_list
+        )
+        self.assertIn("status=FAILED_OR_PARTIAL", lines)
+        self.assertIn("admin@example.test", lines)
+        self.assertIn("user@example.test", lines)
+        self.assertNotIn("secret-value", lines)
+
     def test_send_mail_preserves_port_hint(self):
         with self.configured_mail(port=993, mode="ssl"), patch.object(
             mail_hlp,
