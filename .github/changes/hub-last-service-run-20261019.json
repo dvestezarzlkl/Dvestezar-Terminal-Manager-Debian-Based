@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): show last systemd service run in hourly Hub menu header",
+  "replacements": [
+    {
+      "path": "libs/app/hub/systemd_diagnostics.py",
+      "old": "def run_systemd_sync() -> tuple[bool, str]:\n",
+      "new": "def last_service_run() -> tuple[str | None, str, str, str]:\n    \"\"\"Read the last service start and result without querying or changing the timer.\n\n    The service might have been started manually: this is not evidence that\n    the hourly timer has already fired.\n    \"\"\"\n    props = _show_properties(SERVICE_NAME, (\n        \"LoadState\", \"ActiveState\", \"Result\",\n        \"ExecMainStatus\", \"ExecMainStartTimestamp\",\n    ))\n    if props.get(\"LoadState\") != \"loaded\":\n        raise RuntimeError(\"SysApps Hub systemd service is not loaded.\")\n    started_at = _timestamp_seconds(props.get(\"ExecMainStartTimestamp\", \"\"))\n    started = (\n        datetime.fromtimestamp(started_at).strftime(\"%Y-%m-%d %H:%M:%S\")\n        if started_at is not None else None\n    )\n    return (\n        started,\n        props.get(\"ActiveState\", \"unknown\"),\n        props.get(\"Result\", \"unknown\"),\n        props.get(\"ExecMainStatus\", \"?\"),\n    )\n\n\ndef run_systemd_sync() -> tuple[bool, str]:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "from .systemd_diagnostics import inspect_timer_sync, run_systemd_sync\n",
+      "new": "from .systemd_diagnostics import inspect_timer_sync, last_service_run, run_systemd_sync\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "from __future__ import annotations\n\n",
+      "new": "from __future__ import annotations\n\nfrom subprocess import SubprocessError\n\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "        if mode == \"timer\":\n            self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))\n        mode_labels = {\n",
+      "new": "        if mode == \"timer\":\n            self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))\n            try:\n                started, state, result, code = last_service_run()\n                if started is None:\n                    last_run = TXT_HUB_LAST_RUN_NEVER\n                elif state in (\"active\", \"activating\"):\n                    last_run = f\"{started} ({TXT_HUB_LAST_RUN_RUNNING})\"\n                elif result == \"success\" and code == \"0\":\n                    last_run = f\"{started} ({TXT_HUB_LAST_RUN_OK})\"\n                else:\n                    last_run = f\"{started} ({TXT_HUB_LAST_RUN_FAILED.format(code=code)})\"\n            except (OSError, RuntimeError, SubprocessError):\n                # Status display must never block a functional menu.\n                last_run = TXT_HUB_LAST_RUN_UNAVAILABLE\n            self.subTitle.append((TXT_HUB_LAST_RUN, last_run))\n        mode_labels = {\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/lng/default.py",
+      "old": "TXT_HUB_TIMER_STATUS = \"systemd timer\"\n",
+      "new": "TXT_HUB_TIMER_STATUS = \"systemd timer\"\nTXT_HUB_LAST_RUN = \"Last service run\"\nTXT_HUB_LAST_RUN_NEVER = \"not run yet\"\nTXT_HUB_LAST_RUN_RUNNING = \"running\"\nTXT_HUB_LAST_RUN_OK = \"OK\"\nTXT_HUB_LAST_RUN_FAILED = \"failed, exit {code}\"\nTXT_HUB_LAST_RUN_UNAVAILABLE = \"unavailable\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/lng/cs-CZ.py",
+      "old": "TXT_HUB_TIMER_STATUS = \"systemd timer\"\n",
+      "new": "TXT_HUB_TIMER_STATUS = \"systemd timer\"\nTXT_HUB_LAST_RUN = \"Poslední běh služby\"\nTXT_HUB_LAST_RUN_NEVER = \"dosud neproběhl\"\nTXT_HUB_LAST_RUN_RUNNING = \"probíhá\"\nTXT_HUB_LAST_RUN_OK = \"OK\"\nTXT_HUB_LAST_RUN_FAILED = \"chyba, exit {code}\"\nTXT_HUB_LAST_RUN_UNAVAILABLE = \"nedostupné\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.3.2\"",
+      "new": "VERSION = \"2.3.3\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.3.2\n",
+      "new": "v2.3.3\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.3.2\n",
+      "new": "# Changelog\n\n## v2.3.3\n\n- UX v hodinovém režimu SysApps Hub přidává do hlavičky pod stav timeru poslední spuštění systemd služby včetně výsledku (OK, probíhá, chyba, dosud neproběhl).\n- INFO údaj se čte živě přes systemctl show při zobrazení menu, v režimech startup/off se neprovádí; poslední běh služby může být i ruční test a není důkazem automatického triggeru.\n- SAFE výpadek systemd nezablokuje zobrazení Hub menu. Doplněny regresní testy.\n- UPD verze 2.3.3.\n\n## v2.3.2\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "V hodinovém režimu se v Hub menu zobrazí také **Ověřit/otestovat systemd synchronizaci**.",
+      "new": "V hodinovém režimu se v hlavičce menu vedle stavu `systemd timer` uvádí i **Poslední běh služby** (čas startu a výsledek). Jde o poslední systemd spuštění, ať už hodinovým timerem nebo ručně, nikoli o potvrzení posledního automatického triggeru. Údaj se načítá read-only přes `systemctl show` při zobrazení menu; při chybě systemd se zobrazí „nedostupné“ a ostatní ovládání zůstává funkční. V režimech startup/off se tato informace ani nezjišťuje.\n\nV hodinovém režimu se v Hub menu zobrazí také **Ověřit/otestovat systemd synchronizaci**.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- In hourly mode, the systemd diagnostic action reads unit properties first (timer enabled/active, LastTriggerUSec, next scheduled run, service Result/ExecMainStatus and completion time), checks current managed unit definitions and reports missing/overdue history. A manual service invocation must require user confirm and must not alter timer state. One-shot exit code 2 from Hub warnings is a failure, not success.\n",
+      "new": "- In hourly mode, the systemd diagnostic action reads unit properties first (timer enabled/active, LastTriggerUSec, next scheduled run, service Result/ExecMainStatus and completion time), checks current managed unit definitions and reports missing/overdue history. A manual service invocation must require user confirm and must not alter timer state. One-shot exit code 2 from Hub warnings is a failure, not success.\n- In hourly mode only, the Hub menu subtitle includes the last service execution (start timestamp and result), using a single read-only systemctl show. This is not the last timer trigger: a manually started service can be the most recent run. Missing/unavailable systemd must not break menu rendering.\n",
+      "expected": 1
+    }
+  ]
+}
