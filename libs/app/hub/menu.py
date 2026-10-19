@@ -204,6 +204,8 @@ class HubSettingsMenu(c_menu):
             active=TXT_HUB_ON if check.timer_active else TXT_HUB_OFF,
             trigger=check.last_trigger,
             trigger_age=age(check.trigger_age_seconds),
+            start=check.last_start,
+            start_age=age(check.start_age_seconds),
             completion=check.last_completion,
             completion_age=age(check.completion_age_seconds),
             result=check.result,
