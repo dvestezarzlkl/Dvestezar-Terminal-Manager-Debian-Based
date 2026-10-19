@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 # Re-export independent headless and scheduling test cases for that runner.
 from tests.test_hub_headless import HubHeadlessTests
 from tests.test_hub_scheduling import HubScheduleTests
+from tests.test_hub_systemd_diagnostics import HubSystemdDiagnosticsTests
 from types import SimpleNamespace
 from unittest.mock import patch
 
