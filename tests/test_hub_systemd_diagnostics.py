@@ -17,10 +17,13 @@ def _health(*, trigger_age=600, completion_age=590, due=2600, managed=True,
         managed=managed, timer_loaded=True, timer_enabled=enabled,
         timer_active=active, service_loaded=True, service_state="inactive",
         last_trigger="Mon 2026-10-19 11:00:00 CEST",
+        last_start="Mon 2026-10-19 11:00:01 CEST",
         last_completion="Mon 2026-10-19 11:00:10 CEST",
         next_run="Mon 2026-10-19 12:00:00 CEST",
         result=result, exit_status=status,
-        trigger_age_seconds=trigger_age, completion_age_seconds=completion_age,
+        trigger_age_seconds=trigger_age,
+        start_age_seconds=None if trigger_age is None else trigger_age - 1,
+        completion_age_seconds=completion_age,
         next_due_seconds=due,
     )
 
@@ -31,6 +34,7 @@ class HubSystemdDiagnosticsTests(unittest.TestCase):
         # A manual service run must not pass as proof that the timer fired.
         self.assertFalse(_health(trigger_age=None).healthy)
         self.assertFalse(_health(trigger_age=80 * 60).healthy)
+        self.assertFalse(replace(_health(), start_age_seconds=60).healthy)
         self.assertFalse(_health(completion_age=80 * 60).healthy)
         self.assertFalse(_health(due=None).healthy)
         self.assertFalse(_health(result="exit-code", status="2").healthy)
@@ -52,6 +56,7 @@ class HubSystemdDiagnosticsTests(unittest.TestCase):
         service = {
             "LoadState": "loaded", "ActiveState": "inactive",
             "Result": "success", "ExecMainStatus": "0",
+            "ExecMainStartTimestamp": formatted(now - 14 * 60 + 1),
             "ExecMainExitTimestamp": formatted(now - 13 * 60),
         }
         with patch.object(diagnostics, "render_units", return_value=("service", "timer")), patch.object(
