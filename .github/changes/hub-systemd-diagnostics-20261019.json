@@ -52,8 +52,8 @@
     },
     {
       "path": "docs/sysapps-hub.md",
-      "old": "Volba **timer** z menu vytvoří spravované jednotky ",
-      "new": "V hodinovém režimu se v Hub menu zobrazí také **Ověřit/otestovat systemd synchronizaci**. Nejprve pouze čte skutečný systemd stav obou jednotek (spravované soubory, enabled/active, poslední plánovaný trigger, poslední dokončení služby a exit status, příští trigger). Kontrola času používá u hodinového kalendáře toleranci 65 min kvůli nastavení RandomizedDelaySec=2min a AccuracySec=1min. Čerstvý ruční sběr není důkazem, že se již spustil samotný timer: oba časy se evidují zvlášť. Pokud ještě plánovaný běh nenastal, diagnostika to přizná. Po výpisu se nabídne potvrzený jednorázový běh přes systemctl start jb-sysapps-hub.service; timer se nemění a žádná služba se nespouští před souhlasem uživatele. Čeká se na dokončení oneshot (do limitu služby) a následně se ověří exit status i čerstvý výsledek. Neúspěch lze dohledat v journalctl -u jb-sysapps-hub.service.\n\nVolba **timer** z menu vytvoří spravované jednotky ",
+      "old": "## Neinteraktivní sběr a plánovač\n\n",
+      "new": "## Neinteraktivní sběr a plánovač\n\nV hodinovém režimu se v Hub menu zobrazí také **Ověřit/otestovat systemd synchronizaci**. Nejprve pouze čte skutečný systemd stav obou jednotek (spravované soubory, enabled/active, poslední plánovaný trigger, poslední dokončení služby a exit status, příští trigger). Kontrola času používá u hodinového kalendáře toleranci 65 min kvůli nastavení RandomizedDelaySec=2min a AccuracySec=1min. Čerstvý ruční sběr není důkazem, že se již spustil samotný timer: oba časy se evidují zvlášť. Pokud ještě plánovaný běh nenastal, diagnostika to přizná. Po výpisu se nabídne potvrzený jednorázový běh přes systemctl start jb-sysapps-hub.service; timer se nemění a žádná služba se nespouští před souhlasem uživatele. Čeká se na dokončení oneshot (do limitu služby) a následně se ověří exit status i čerstvý výsledek. Neúspěch lze dohledat v journalctl -u jb-sysapps-hub.service.\n\n",
       "expected": 1
     },
     {
