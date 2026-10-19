@@ -146,6 +146,26 @@ class HubScheduleTests(unittest.TestCase):
         save.assert_not_called()
         self.assertIsNone(getattr(result, "err", None))
 
+    def test_menu_mode_selection_startup_and_off(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        for initial, selected in (("timer", "startup"), ("startup", "off")):
+            with self.subTest(selected=selected), patch.object(
+                cfg, "HUB_SYNC_MODE", initial
+            ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
+                hub_menu, "select", return_value=SimpleNamespace(
+                    item=SimpleNamespace(data=selected)
+                )
+            ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+                cfg, "save"
+            ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
+                result = HubSettingsMenu().choose_sync_mode(None)
+                schedule.assert_called_once_with(selected)
+                save.assert_called_once()
+                self.assertEqual(cfg.HUB_SYNC_MODE, selected)
+                self.assertTrue(bool(getattr(result, "ok", None)))
+
     def test_menu_mode_invalid_framework_data_is_rejected(self):
         from libs.app.hub import menu as hub_menu
         from libs.app.hub.menu import HubSettingsMenu
