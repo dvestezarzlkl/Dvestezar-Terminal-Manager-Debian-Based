@@ -49,6 +49,66 @@
       "old": "        hub_runtime.refresh_status()\n        return onSelReturn(ok=TXT_HUB_SAVED)\n\n    def test_systemd_sync",
       "new": "        hub_runtime.refresh_status()\n        if selected != current:\n            hub_runtime.sync_core_best_effort()\n        return onSelReturn(ok=TXT_HUB_SAVED)\n\n    def test_systemd_sync",
       "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertEqual([item.version for item in migrations], [1, 2, 3])\n",
+      "new": "        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4])\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        service_host = migrations[2].render(self.settings.prefix)\n",
+      "new": "        service_host = migrations[2].render(self.settings.prefix)\n        metadata = migrations[3].render(self.settings.prefix)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertEqual(len(service_host), 1)\n",
+      "new": "        self.assertEqual(len(service_host), 1)\n        self.assertEqual(len(metadata), 1)\n        self.assertIn(\"`name` VARCHAR(255) NULL\", metadata[0])\n        self.assertIn(\"`description` TEXT NULL\", metadata[0])\n        self.assertIn(\"`auto_sync_enabled` TINYINT(1) NULL\", metadata[0])\n        self.assertIn(\"Never synchronized or overwritten\", metadata[0])\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "from datetime import datetime, timedelta, timezone\n",
+      "new": "from dataclasses import replace\nfrom datetime import datetime, timedelta, timezone\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "        if version != 3:\n            raise AssertionError(f\"Expected schema version 3, got {version}\")\n",
+      "new": "        if version != 4:\n            raise AssertionError(f\"Expected schema version 4, got {version}\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "                self.assertEqual(cursor.fetchone()[0], 3)\n",
+      "new": "                self.assertEqual(cursor.fetchone()[0], 4)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "    def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:\n",
+      "new": "    def test_host_ui_metadata_is_never_overwritten_by_sync(self) -> None:\n        hosts = table_identifier(self.settings, \"hosts\")\n        first = replace(\n            self._host(\"machine-metadata\", \"host-first\"),\n            auto_sync_enabled=True,\n        )\n        self.database.sync_core(first)\n        with self.database.connect() as connection:\n            with connection.cursor() as cursor:\n                cursor.execute(\n                    f\"SELECT name, description, auto_sync_enabled, \"\n                    f\"COALESCE(NULLIF(name, ''), NULLIF(fqdn, ''), hostname) \"\n                    f\"FROM {hosts} WHERE machine_id=%s\",\n                    (\"machine-metadata\",),\n                )\n                self.assertEqual(\n                    cursor.fetchone(),\n                    (None, None, 1, \"host-first.example.test\"),\n                )\n                cursor.execute(\n                    f\"UPDATE {hosts} SET name=%s, description=%s WHERE machine_id=%s\",\n                    (\"Výrobní server\", \"# Provoz\\n\\nRuční popis v **Markdownu**.\", \"machine-metadata\"),\n                )\n            connection.commit()\n\n        renamed = replace(\n            first,\n            hostname=\"host-second\",\n            fqdn=\"host-second.example.test\",\n            auto_sync_enabled=False,\n        )\n        self.database.sync_core(renamed)\n        self.database.sync_core(replace(renamed, auto_sync_enabled=None))\n        with self.database.connect() as connection:\n            with connection.cursor() as cursor:\n                cursor.execute(\n                    f\"SELECT name, description, auto_sync_enabled, fqdn FROM {hosts} \"\n                    \"WHERE machine_id=%s\",\n                    (\"machine-metadata\",),\n                )\n                self.assertEqual(\n                    cursor.fetchone(),\n                    (\n                        \"Výrobní server\",\n                        \"# Provoz\\n\\nRuční popis v **Markdownu**.\",\n                        0,\n                        \"host-second.example.test\",\n                    ),\n                )\n\n    def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "from tests.test_hub_scheduling import HubScheduleTests\n",
+      "new": "from tests.test_hub_scheduling import HubScheduleTests\nfrom tests.test_hub_host_metadata import HubHostMetadataTests\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_scheduling.py",
+      "old": "        ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"):\n            def require_install_first():\n",
+      "new": "        ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"), patch.object(\n            hub_menu.hub_runtime, \"sync_core_best_effort\"\n        ):\n            def require_install_first():\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_scheduling.py",
+      "old": "            ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"):\n                result = HubSettingsMenu().choose_sync_mode(None)\n",
+      "new": "            ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"), patch.object(\n                hub_menu.hub_runtime, \"sync_core_best_effort\"\n            ):\n                result = HubSettingsMenu().choose_sync_mode(None)\n",
+      "expected": 1
     }
   ]
 }
