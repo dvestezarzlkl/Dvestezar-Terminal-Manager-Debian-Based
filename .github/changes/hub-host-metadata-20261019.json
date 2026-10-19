@@ -109,6 +109,48 @@
       "old": "            ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"):\n                result = HubSettingsMenu().choose_sync_mode(None)\n",
       "new": "            ) as save, patch.object(hub_menu.hub_runtime, \"refresh_status\"), patch.object(\n                hub_menu.hub_runtime, \"sync_core_best_effort\"\n            ):\n                result = HubSettingsMenu().choose_sync_mode(None)\n",
       "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.3.3\"",
+      "new": "VERSION = \"2.3.4\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.3.3\n",
+      "new": "v2.3.4\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.3.3\n",
+      "new": "# Changelog\n\n## v2.3.4\n\n- ADD SysApps Hub schema 004: uživatelsky spravované `hosts.name` (volitelný UI název; NULL = FQDN/hostname) a `hosts.description` (Markdown TEXT). Obě pole mají SQL COMMENT zakazující změnu collectorem.\n- ADD `hosts.auto_sync_enabled` podle skutečného `systemctl is-enabled jb-sysapps-hub.timer` (1 enabled, 0 disabled, NULL nezjištěno). Tento příznak neověřuje úspěch posledního běhu.\n- SAFE core upsert neaktualizuje `name` ani `description`; neznámý výsledek systemctl nesmaže dříve známý stav. Změna režimu v menu provede best-effort aktualizaci pouze host inventáře.\n- TEST SQL migrace 004, zachování uživatelských metadat při opakovaném sběru, přepínání timeru a unknown stav.\n- DEPLOY migrace 004 není automatická. Starší klienti 2.3.3 předpokládají schéma 003 a po migraci hlásí SCHEMA OUTDATED; napřed sjednotit verze sběrných klientů.\n- UPD verze 2.3.4.\n\n## v2.3.3\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "- `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.\n",
+      "new": "- `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.\n- `004_host_metadata_timer.sql`: centrálně editovatelná metadata hostu a hlášené zapnutí hodinového timeru.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "- `hosts`: machine-id, systémový hostname/FQDN, samostatný `service_host`, OS, kernel, architektura, hardware a verze sys_apps/JBLibs,\n",
+      "new": "- `hosts`: machine-id, systémový hostname/FQDN, samostatný `service_host`, OS, kernel, architektura, hardware a verze sys_apps/JBLibs; navíc `name`/`description` spravované uživatelem a `auto_sync_enabled` hlášené strojem,\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.\n",
+      "new": "Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrálním UI editovatelná, ale lokální SysApps je nikdy neposílá ani nepřepisuje. `name = NULL` znamená zobrazit `COALESCE(NULLIF(name,''),NULLIF(fqdn,''),hostname)`; FQDN se tedy nekopíruje do uživatelského názvu. `description` ukládá surový Markdown jako `TEXT`, při převodu do HTML jej UI musí bezpečně sanitizovat. Pole `auto_sync_enabled` hlásí skutečný stav `systemctl is-enabled jb-sysapps-hub.timer`, nikoli legacy `HUB_AUTO_SYNC`, a samo neprokazuje úspěšný hodinový běh. Při chybě detekce je hodnota neznámá (`NULL`) a dříve známá hodnota v DB se nemaže. Při změně režimu přes menu proběhne best-effort synchronizace core inventáře, aby vypnutí timeru nezůstalo bez zpětné aktualizace.\n\n**Koordinace migrace 004:** starší SysApps 2.3.3 předpokládá přesnou verzi schématu 003; po globální migraci 004 začne hlásit `SCHEMA OUTDATED` a neprovede synchronizaci. Rozšíření tabulky je aditivní, ale kvůli klientské kontrole verze je nutné před migrací připravit sjednocenou aktualizaci ostatních sběrných klientů a zálohu DB. Akce `Inicializovat/aktualizovat schéma Hubu` spustí migraci až explicitně; samotný Update me ji nespouští.\n\nHesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- The host identity is the existing `cfg.machineInfo.machine_id`, with `/etc/machine-id` only as a fallback. Do not invent another host ID. The local service host/FQDN/IP is a separate `hosts.service_host` attribute and must never replace or overwrite the system `hostname`/`fqdn`.\n",
+      "new": "- The host identity is the existing `cfg.machineInfo.machine_id`, with `/etc/machine-id` only as a fallback. Do not invent another host ID. The local service host/FQDN/IP is a separate `hosts.service_host` attribute and must never replace or overwrite the system `hostname`/`fqdn`.\n- `hosts.name`/`hosts.description` are centrally USER-OWNED and must NEVER be included in host snapshots or UPDATE lists. A NULL `name` means displaying FQDN/hostname dynamically. On-host `auto_sync_enabled` is the real systemd timer unit enablement (NULL unknown), never legacy `HUB_AUTO_SYNC`; it does not prove successful timer execution.\n- Schema migration 004 is additive but shared-DB rollout MUST be coordinated: older SysApps 2.3.3 requires exact schema 003 and will reject the upgraded schema with `SCHEMA OUTDATED`. Do not apply DB migration or merge for production before planning safe fleet upgrade.\n",
+      "expected": 1
     }
   ]
 }
