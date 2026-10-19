@@ -93,6 +93,7 @@ Aktuální podaplikace zahrnují mimo jiné UART tester, SSH manager, SFTP manag
 - Aplikační nastavení patří do hlavního `menuBoss.py` a ukládá se do globálního `config.ini`; zahrnuje `SERVER_URL` i mailing a malé související submenu klidně nech v jednom `menu.py`, pokud není rozsáhlé.
 - `libs/app/cfg.py` má mít jednoduché `load()` a `save()` wrappery; `save()` je nová nadstavba nad dříve read-only app configem a interně používá sdílený helper v `libs/JBLibs/helper.py`.
 - Pro nápovědu ve vstupních polích používej `get_input(..., titleNote=...)`, klidně s víc řádky přes `\n`; nepřidávej kvůli tomu nový prompt helper, pokud už to stačí.
+- Pro výběr z konečného seznamu možností (režimy, stavy, akce) používej JBLibs `select()` a `select_item`, nikoli číselný `get_input()`; ESC má výběr zrušit bez zápisu do konfigurace či volání systémových změn.
 - U SMTP měj režim a port svázané dohromady; výchozí porty jsou `plain=25`, `starttls=587`, `ssl=465` a port `993` je obvykle IMAPS, ne SMTP.
 - V mailovém submenu používej ESC jako návrat a neschovávej to za vlastní `b` back položku.
 - `SERVER_URL` je aplikační adresa bez portu; v menu je lepší nabídnout FQDN, lokální IPv4 a ruční zadání.
