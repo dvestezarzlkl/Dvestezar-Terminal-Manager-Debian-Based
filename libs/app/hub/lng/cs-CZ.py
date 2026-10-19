@@ -16,6 +16,7 @@ TXT_HUB_SYSTEMD_REPORT = (
     "\n--- Kontrola systemd synchronizace SysApps Hub ---\n"
     "Spravované jednotky: {installed}; timer enabled: {enabled}; active: {active}\n"
     "Poslední spuštění timeru: {trigger} (před {trigger_age} min)\n"
+    "Poslední start služby: {start} (před {start_age} min)\n"
     "Poslední dokončený sběr: {completion} (před {completion_age} min)\n"
     "Výsledek služby: {result} (exit {code})\n"
     "Další plánované spuštění: {next_run}\n"
