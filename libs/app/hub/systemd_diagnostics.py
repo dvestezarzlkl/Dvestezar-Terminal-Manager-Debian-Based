@@ -26,11 +26,13 @@ class HubTimerCheck:
     service_loaded: bool
     service_state: str
     last_trigger: str
+    last_start: str
     last_completion: str
     next_run: str
     result: str
     exit_status: str
     trigger_age_seconds: float | None
+    start_age_seconds: float | None
     completion_age_seconds: float | None
     next_due_seconds: float | None
 
@@ -49,6 +51,10 @@ class HubTimerCheck:
             and self.result == "success" and self.exit_status == "0"
             and self.trigger_age_seconds is not None
             and 0 <= self.trigger_age_seconds <= MAX_INTERVAL_SECONDS
+            and self.start_age_seconds is not None
+            # Do not let a later manual service run masquerade as a timer
+            # success. The service must have started near the last timer event.
+            and -30 <= self.trigger_age_seconds - self.start_age_seconds <= 180
             and self.completion_age_seconds is not None
             and 0 <= self.completion_age_seconds <= MAX_INTERVAL_SECONDS
             and self.next_due_seconds is not None
@@ -103,13 +109,15 @@ def inspect_timer_sync() -> HubTimerCheck:
     ))
     service = _show_properties(SERVICE_NAME, (
         "LoadState", "ActiveState", "Result",
-        "ExecMainStatus", "ExecMainExitTimestamp",
+        "ExecMainStatus", "ExecMainStartTimestamp", "ExecMainExitTimestamp",
     ))
     now = time.time()
     last_trigger = timer.get("LastTriggerUSec", "n/a")
+    last_start = service.get("ExecMainStartTimestamp", "n/a")
     last_completion = service.get("ExecMainExitTimestamp", "n/a")
     next_run = timer.get("NextElapseUSecRealtime", "n/a")
     trigger = _timestamp_seconds(last_trigger)
+    start = _timestamp_seconds(last_start)
     completion = _timestamp_seconds(last_completion)
     next_due = _timestamp_seconds(next_run)
     return HubTimerCheck(
@@ -120,11 +128,13 @@ def inspect_timer_sync() -> HubTimerCheck:
         service_loaded=service.get("LoadState") == "loaded",
         service_state=service.get("ActiveState", "unknown"),
         last_trigger=last_trigger,
+        last_start=last_start,
         last_completion=last_completion,
         next_run=next_run,
         result=service.get("Result", "unknown"),
         exit_status=service.get("ExecMainStatus", "?"),
         trigger_age_seconds=None if trigger is None else now - trigger,
+        start_age_seconds=None if start is None else now - start,
         completion_age_seconds=None if completion is None else now - completion,
         next_due_seconds=None if next_due is None else next_due - now,
     )
