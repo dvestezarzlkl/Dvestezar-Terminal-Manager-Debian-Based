@@ -42,10 +42,11 @@ Aktuální migrace:
 - `001_initial_schema.sql`: host, adresy, služby, zdroje synchronizace a Node-RED,
 - `002_disk_inventory.sql`: globální registr disků a vazby disk-host-device,
 - `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.
+- `004_host_metadata_timer.sql`: centrálně editovatelná metadata hostu a hlášené zapnutí hodinového timeru.
 
 ## Datové sady
 
-- `hosts`: machine-id, systémový hostname/FQDN, samostatný `service_host`, OS, kernel, architektura, hardware a verze sys_apps/JBLibs,
+- `hosts`: machine-id, systémový hostname/FQDN, samostatný `service_host`, OS, kernel, architektura, hardware a verze sys_apps/JBLibs; navíc `name`/`description` spravované uživatelem a `auto_sync_enabled` hlášené strojem,
 - `host_addresses`: samostatný řádek pro každou IPv4/IPv6 adresu a rozhraní,
 - `host_services`: SSH, Webmin a ISPConfig včetně zjištěného portu/stavu,
 - `sync_sources`: poslední stav každého zdroje,
@@ -53,6 +54,10 @@ Aktuální migrace:
 - `node_red_editor_users`: uživatelé `adminAuth` a jejich RW/R oprávnění,
 - `disks`: globální disk podle jedinečného PTUUID, sdílený název a čas změny,
 - `host_disks`: aktuální vazba disku na host, `/dev` zařízení, velikost, partitiony, mounty a systémový příznak.
+
+Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrálním UI editovatelná, ale lokální SysApps je nikdy neposílá ani nepřepisuje. `name = NULL` znamená zobrazit `COALESCE(NULLIF(name,''),NULLIF(fqdn,''),hostname)`; FQDN se tedy nekopíruje do uživatelského názvu. `description` ukládá surový Markdown jako `TEXT`, při převodu do HTML jej UI musí bezpečně sanitizovat. Pole `auto_sync_enabled` hlásí skutečný stav `systemctl is-enabled jb-sysapps-hub.timer`, nikoli legacy `HUB_AUTO_SYNC`, a samo neprokazuje úspěšný hodinový běh. Při chybě detekce je hodnota neznámá (`NULL`) a dříve známá hodnota v DB se nemaže. Při změně režimu přes menu proběhne best-effort synchronizace core inventáře, aby vypnutí timeru nezůstalo bez zpětné aktualizace.
+
+**Koordinace migrace 004:** starší SysApps 2.3.3 předpokládá přesnou verzi schématu 003; po globální migraci 004 začne hlásit `SCHEMA OUTDATED` a neprovede synchronizaci. Rozšíření tabulky je aditivní, ale kvůli klientské kontrole verze je nutné před migrací připravit sjednocenou aktualizaci ostatních sběrných klientů a zálohu DB. Akce `Inicializovat/aktualizovat schéma Hubu` spustí migraci až explicitně; samotný Update me ji nespouští.
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 

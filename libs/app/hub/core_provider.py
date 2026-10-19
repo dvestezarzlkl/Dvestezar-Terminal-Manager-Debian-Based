@@ -228,6 +228,24 @@ def _detect_ispconfig() -> HubService:
     )
 
 
+def _timer_is_enabled() -> Optional[bool]:
+    """Report the actual systemd enablement of the hourly Hub timer.
+
+    This is not HUB_AUTO_SYNC (legacy startup) and not a timer health check.
+    A failed/unrecognized probe returns unknown (NULL), not false.
+    """
+    result = _run(["systemctl", "is-enabled", "jb-sysapps-hub.timer"])
+    if result is None:
+        return None
+    values = _text(result.stdout).lower().splitlines()
+    state = values[0] if values else ""
+    if state in ("enabled", "enabled-runtime"):
+        return True
+    if state in ("disabled", "masked", "not-found", "static"):
+        return False
+    return None
+
+
 def collect_services() -> tuple[HubService, ...]:
     return (_detect_ssh(), _detect_webmin(), _detect_ispconfig())
 
@@ -258,6 +276,7 @@ def collect_host_snapshot() -> HubHostSnapshot:
         sys_apps_version=_text(getattr(cfg, "VERSION", "")),
         jblibs_version=_text(jblibs_version),
         service_host=configured_service_host(),
+        auto_sync_enabled=_timer_is_enabled(),
         addresses=collect_addresses(),
         services=collect_services(),
     )

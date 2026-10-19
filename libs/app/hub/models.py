@@ -64,6 +64,7 @@ class HubHostSnapshot:
     sys_apps_version: str
     jblibs_version: str
     service_host: str = ""
+    auto_sync_enabled: Optional[bool] = None
     addresses: tuple[HubAddress, ...] = field(default_factory=tuple)
     services: tuple[HubService, ...] = field(default_factory=tuple)
 
