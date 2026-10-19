@@ -184,6 +184,22 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             self.assertFalse(send.enabled)
             self.assertEqual(send.atRight, sftp_menu.TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET)
 
+    def test_sftp_key_menu_with_fallback_admin_and_user(self):
+        cfg = {"users": [{"sftpuser": "alice", "mail": "alice@example.test"}]}
+        parent = SimpleNamespace(cfg=cfg, basicTitle=lambda **kwargs: None)
+        action = sftp_menu.m_key_actions("alice", parent, "stored-key", "comment")
+        with patch.object(
+            sftp_menu, "get_printable_keys", return_value=(True, (PUBLIC_KEY, PRIVATE_KEY))
+        ):
+            action.onEnterMenu()
+        with patch.object(
+            sftp_menu.mail_hlp, "get_fallback_admin_mail", return_value="backup@example.test"
+        ):
+            action.onShowMenu()
+        send = self._menu_item(action.menu, "m")
+        self.assertTrue(send.enabled)
+        self.assertEqual(send.atRight, "backup@example.test, alice@example.test")
+
     def test_sftp_mountpoint_add_honors_read_only_selection(self):
         cfg = {
             "users": [{
