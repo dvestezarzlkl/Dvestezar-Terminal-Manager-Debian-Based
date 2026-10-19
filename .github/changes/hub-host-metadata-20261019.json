@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): add host UI-owned metadata and timer state",
+  "replacements": [
+    {
+      "path": "libs/app/hub/models.py",
+      "old": "    service_host: str = \"\"\n    addresses: tuple[HubAddress, ...] = field(default_factory=tuple)\n",
+      "new": "    service_host: str = \"\"\n    auto_sync_enabled: Optional[bool] = None\n    addresses: tuple[HubAddress, ...] = field(default_factory=tuple)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/core_provider.py",
+      "old": "def collect_services() -> tuple[HubService, ...]:\n",
+      "new": "def _timer_is_enabled() -> Optional[bool]:\n    \"\"\"Report the actual systemd enablement of the hourly Hub timer.\n\n    This is not HUB_AUTO_SYNC (legacy startup) and not a timer health check.\n    A failed/unrecognized probe returns unknown (NULL), not false.\n    \"\"\"\n    result = _run([\"systemctl\", \"is-enabled\", \"jb-sysapps-hub.timer\"])\n    if result is None:\n        return None\n    values = _text(result.stdout).lower().splitlines()\n    state = values[0] if values else \"\"\n    if state in (\"enabled\", \"enabled-runtime\"):\n        return True\n    if state in (\"disabled\", \"masked\", \"not-found\", \"static\"):\n        return False\n    return None\n\n\ndef collect_services() -> tuple[HubService, ...]:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/core_provider.py",
+      "old": "        service_host=configured_service_host(),\n        addresses=collect_addresses(),\n",
+      "new": "        service_host=configured_service_host(),\n        auto_sync_enabled=_timer_is_enabled(),\n        addresses=collect_addresses(),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                        \"(machine_id, hostname, fqdn, service_host, operating_system, kernel, \"\n                        \"architecture, hardware_vendor, hardware_model, \"\n                        \"sys_apps_version, jblibs_version, first_seen_at, last_seen_at) \"\n                        \"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) \"\n",
+      "new": "                        \"(machine_id, hostname, fqdn, service_host, operating_system, kernel, \"\n                        \"architecture, hardware_vendor, hardware_model, \"\n                        \"sys_apps_version, jblibs_version, auto_sync_enabled, \"\n                        \"first_seen_at, last_seen_at) \"\n                        \"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) \"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                        \"jblibs_version=VALUES(jblibs_version), \"\n                        \"last_seen_at=VALUES(last_seen_at)\",\n",
+      "new": "                        \"jblibs_version=VALUES(jblibs_version), \"\n                        \"auto_sync_enabled=COALESCE(VALUES(auto_sync_enabled), auto_sync_enabled), \"\n                        \"last_seen_at=VALUES(last_seen_at)\",\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                            snapshot.jblibs_version,\n                            now,\n                            now,\n",
+      "new": "                            snapshot.jblibs_version,\n                            _optional_bool(snapshot.auto_sync_enabled),\n                            now,\n                            now,\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "    def sync_provider(self, key: str) -> tuple[bool, str]:\n",
+      "new": "    def sync_core_best_effort(self) -> None:\n        \"\"\"Refresh host metadata after an explicit local timer mode change.\n\n        Local operation never fails because the central DB is unavailable.\n        \"\"\"\n        settings = HubSettings.from_cfg()\n        if not settings.enabled:\n            return\n        try:\n            with hub_sync_lock():\n                _, database = self._ready_database()\n                database.sync_core(collect_host_snapshot())\n                self.last_sync_at = datetime.now().astimezone()\n                self.refresh_status()\n        except Exception as exc:\n            log.warning(\n                \"SysApps Hub best-effort host metadata refresh skipped: %s\",\n                settings.redact_error(exc),\n            )\n\n    def sync_provider(self, key: str) -> tuple[bool, str]:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/menu.py",
+      "old": "        hub_runtime.refresh_status()\n        return onSelReturn(ok=TXT_HUB_SAVED)\n\n    def test_systemd_sync",
+      "new": "        hub_runtime.refresh_status()\n        if selected != current:\n            hub_runtime.sync_core_best_effort()\n        return onSelReturn(ok=TXT_HUB_SAVED)\n\n    def test_systemd_sync",
+      "expected": 1
+    }
+  ]
+}
