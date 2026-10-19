@@ -11,7 +11,7 @@ from libs.app.hub.models import (
     HubHostSnapshot,
     HubProviderSnapshot,
 )
-from libs.app.hub.schema import table_identifier
+from libs.app.hub.schema import HubSchemaManager, table_identifier
 from libs.app.hub.settings import HubSettings
 
 
@@ -175,6 +175,49 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
                 self.assertEqual(cursor.fetchone()[0], 4)
+
+    def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
+        old_settings = replace(
+            self.settings, database=f"{self.settings.database}_upgrade"
+        )
+        db = HubDatabase(old_settings)
+        with db.connect(include_database=False) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE `{old_settings.database}`")
+            connection.commit()
+        try:
+            with db.connect() as connection:
+                old_schema = HubSchemaManager(old_settings)
+                old_schema.migrations = old_schema.migrations[:3]
+                self.assertEqual(old_schema.apply(connection), 3)
+                hosts = table_identifier(old_settings, "hosts")
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"INSERT INTO {hosts} "
+                        "(machine_id, hostname, fqdn, first_seen_at, last_seen_at) "
+                        "VALUES (%s, %s, %s, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))",
+                        ("old-machine", "old-host", "old-host.example.test"),
+                    )
+                connection.commit()
+                new_schema = HubSchemaManager(old_settings)
+                self.assertEqual(new_schema.apply(connection), 4)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT hostname, fqdn, name, description, auto_sync_enabled "
+                        f"FROM {hosts} WHERE machine_id=%s",
+                        ("old-machine",),
+                    )
+                    self.assertEqual(
+                        cursor.fetchone(),
+                        ("old-host", "old-host.example.test", None, None, None),
+                    )
+        finally:
+            with db.connect(include_database=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"DROP DATABASE IF EXISTS `{old_settings.database}`"
+                    )
+                connection.commit()
 
     def test_host_ui_metadata_is_never_overwritten_by_sync(self) -> None:
         hosts = table_identifier(self.settings, "hosts")
