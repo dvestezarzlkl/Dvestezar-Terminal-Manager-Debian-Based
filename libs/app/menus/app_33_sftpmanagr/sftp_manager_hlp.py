@@ -184,6 +184,19 @@ def get_user_mail(cfg: Dict, username: str) -> Optional[str]:
     return mail or None
 
 
+def get_key_mail_recipients(cfg: Dict, username: str) -> List[str]:
+    """Resolve the actual admin/fallback and optional SFTP user recipients."""
+    admin_mail = get_admin_mail(cfg) or mail_hlp.get_fallback_admin_mail()
+    if not admin_mail:
+        return []
+
+    recipients = [admin_mail]
+    user_mail = get_user_mail(cfg, username)
+    if user_mail and user_mail.lower() != admin_mail.lower():
+        recipients.append(user_mail)
+    return recipients
+
+
 def set_user_mail(cfg: Dict, username: str, mail: Optional[str]) -> Tuple[bool, Optional[str]]:
     """Store or clear the optional mail address for a user."""
     usr = find_user(cfg, username)
@@ -343,8 +356,8 @@ def build_key_mail_payload(
 
 def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional[str]]:
     """Send a restricted SFTP access key as a ZIP attachment."""
-    admin_mail = get_admin_mail(cfg) or mail_hlp.get_fallback_admin_mail()
-    if not admin_mail:
+    recipients = get_key_mail_recipients(cfg, username)
+    if not recipients:
         return False, TXT_SFTP_HLP_ADMIN_MAIL_NOT_CONFIGURED
 
     user_mail = get_user_mail(cfg, username)
@@ -357,9 +370,6 @@ def send_key_by_mail(cfg: Dict, username: str, key: str) -> Tuple[bool, Optional
         return False, TXT_SFTP_HLP_KEY_PARSE_FAILED.format(error=printable)
 
     public_key, private_key = printable
-    recipients = [admin_mail]
-    if user_mail and user_mail not in recipients:
-        recipients.append(user_mail)
 
     try:
         subject, text_body, html_body, attachments = build_key_mail_payload(

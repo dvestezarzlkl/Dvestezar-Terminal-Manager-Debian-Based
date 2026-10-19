@@ -103,6 +103,35 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("rsa-user_id_rsa", files)
         self.assertIn("rsa-user_id_rsa.pub", files)
 
+    def test_key_mail_recipients_follow_admin_and_user_policy(self):
+        cfg = {
+            "adminMail": "admin@example.test",
+            "users": [{"sftpuser": "alice", "mail": "alice@example.test"}],
+        }
+        self.assertEqual(
+            sftp_hlp.get_key_mail_recipients(cfg, "alice"),
+            ["admin@example.test", "alice@example.test"],
+        )
+
+        cfg["users"][0]["mail"] = "ADMIN@example.test"
+        self.assertEqual(
+            sftp_hlp.get_key_mail_recipients(cfg, "alice"),
+            ["admin@example.test"],
+        )
+
+        cfg.pop("adminMail")
+        cfg["users"][0]["mail"] = "alice@example.test"
+        with patch.object(
+            sftp_hlp.mail_hlp, "get_fallback_admin_mail", return_value="backup@example.test"
+        ):
+            self.assertEqual(
+                sftp_hlp.get_key_mail_recipients(cfg, "alice"),
+                ["backup@example.test", "alice@example.test"],
+            )
+
+        with patch.object(sftp_hlp.mail_hlp, "get_fallback_admin_mail", return_value=""):
+            self.assertEqual(sftp_hlp.get_key_mail_recipients(cfg, "alice"), [])
+
     def test_send_key_mail_uses_admin_and_user_recipient(self):
         cfg = {
             "adminMail": "admin@example.test",
