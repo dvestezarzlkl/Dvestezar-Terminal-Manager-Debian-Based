@@ -61,6 +61,23 @@ class HubLastServiceRunTests(unittest.TestCase):
                     self.assertNotIn(hub_menu.TXT_HUB_LAST_RUN, header)
                     query.assert_not_called()
 
+    def test_header_handles_systemctl_timeout_without_blocking_menu(self):
+        from subprocess import TimeoutExpired
+        from libs.app.hub import menu as hub_menu
+
+        with patch.object(cfg, "HUB_SYNC_MODE", "timer"), patch.object(
+            hub_menu, "timer_status", return_value="active"
+        ), patch.object(
+            hub_menu, "last_service_run",
+            side_effect=TimeoutExpired(cmd="systemctl show", timeout=8)
+        ):
+            view = hub_menu.HubSettingsMenu()
+            view.onShowMenu()
+            self.assertEqual(
+                dict(view.subTitle)[hub_menu.TXT_HUB_LAST_RUN],
+                hub_menu.TXT_HUB_LAST_RUN_UNAVAILABLE
+            )
+
     def test_header_shows_missing_running_error_and_unavailable_states(self):
         from libs.app.hub import menu as hub_menu
         variants = [
