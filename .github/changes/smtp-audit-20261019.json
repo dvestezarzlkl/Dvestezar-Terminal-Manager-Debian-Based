@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "commit_message": "diag(mail): audit SMTP recipients and relay acceptance, consume JBLibs 1.2.33",
+  "commit_message": "diag(mail): log attempted SMTP recipients and relay handoff outcome",
   "replacements": [
     {
       "path": "libs/app/mail_hlp.py",
@@ -33,21 +33,9 @@
       "expected": 1
     },
     {
-      "path": ".github/workflows/test-self-updater.yml",
-      "old": "assert '__version__ = \"1.2.32\"' in package_init",
-      "new": "assert '__version__ = \"1.2.33\"' in package_init",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-runtime-dependencies.yml",
-      "old": "assert __version__ == \"1.2.32\"",
-      "new": "assert __version__ == \"1.2.33\"",
-      "expected": 1
-    },
-    {
       "path": "changelog.md",
       "old": "## v2.3.0\n\n- ADD SysApps Hub",
-      "new": "## v2.3.0\n\n- DIAG centrální SMTP transport zapisuje pokus o odeslání včetně To/Cc/Bcc, relay hostu a výsledku SMTP handoffu (accepted / failed / partial) s korelačním ID; nikdy nevypisuje obsah zpráv, klíče nebo credentials. JBLibs 1.2.33 odhaluje částečně odmítnuté příjemce místo falešného úspěchu.\n- ADD SysApps Hub",
+      "new": "## v2.3.0\n\n- DIAG centrální SMTP transport zapisuje pokus o odeslání včetně To/Cc/Bcc, relay hostu a výsledku SMTP handoffu (accepted / failed / partial) s korelačním ID; nikdy nevypisuje obsah zpráv, klíče nebo credentials. JBLibs SMTP transport odhaluje částečně odmítnuté příjemce místo falešného úspěchu.\n- ADD SysApps Hub",
       "expected": 1
     }
   ]
