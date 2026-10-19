@@ -16,6 +16,7 @@ TXT_HUB_SYSTEMD_REPORT = (
     "\n--- SysApps Hub systemd check ---\n"
     "Managed units: {installed}; timer enabled: {enabled}; active: {active}\n"
     "Last timer trigger: {trigger} ({trigger_age} min ago)\n"
+    "Last service start: {start} ({start_age} min ago)\n"
     "Last completed service: {completion} ({completion_age} min ago)\n"
     "Last service result: {result} (exit {code})\n"
     "Next scheduled trigger: {next_run}\n"
