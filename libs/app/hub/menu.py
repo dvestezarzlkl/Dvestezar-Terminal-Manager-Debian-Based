@@ -5,7 +5,7 @@ from libs.JBLibs.helper import loadLng
 loadLng()
 
 from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn
-from libs.JBLibs.input import anyKey, confirm, get_input, get_pwd
+from libs.JBLibs.input import anyKey, confirm, get_input, get_pwd, select, select_item
 from libs.JBLibs.term import en_color, text_color
 from libs.app import cfg
 from libs.app.runtime_flags import local_settings_override_enabled
@@ -140,16 +140,26 @@ class HubSettingsMenu(c_menu):
 
     def choose_sync_mode(self, selItem: c_menu_item) -> onSelReturn:
         current = effective_sync_mode()
-        value = get_input(
-            TXT_HUB_MODE_PROMPT.format(current=current),
-            accept_empty=False,
-            maxLen=1,
-            rgx=r"^[123]$",
-            errTx=TXT_HUB_MODE_INVALID,
+        mode_labels = {
+            "startup": TXT_HUB_MODE_STARTUP,
+            "timer": TXT_HUB_MODE_TIMER,
+            "off": TXT_HUB_MODE_OFF,
+        }
+        choice = select(
+            TXT_HUB_MODE_PROMPT.format(current=mode_labels[current]),
+            [
+                select_item(TXT_HUB_MODE_STARTUP, "S", "startup"),
+                select_item(TXT_HUB_MODE_TIMER, "T", "timer"),
+                select_item(TXT_HUB_MODE_OFF, "O", "off"),
+            ],
+            title=TXT_HUB_SYNC_MODE,
         )
-        if value is None:
-            return onSelReturn().errRet(TXT_HUB_CANCELLED)
-        selected = {"1": "startup", "2": "timer", "3": "off"}[value]
+        if choice is None or choice.item is None:
+            # ESC is a normal cancellation; do not touch systemd or config.
+            return onSelReturn()
+        selected = choice.item.data
+        if selected not in ("startup", "timer", "off"):
+            return onSelReturn().errRet(TXT_HUB_MODE_INVALID)
         if selected == "timer" and not bool(cfg.HUB_ENABLED):
             return onSelReturn().errRet(TXT_HUB_TIMER_REQUIRED)
         old_raw = str(getattr(cfg, "HUB_SYNC_MODE", "") or "")

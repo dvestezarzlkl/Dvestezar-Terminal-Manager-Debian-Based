@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.1
+
+- FIX SysApps Hub: volba režimu synchronizace používá standardní JBLibs `select()` místo číselného `get_input()`; umožňuje výběr šipkami, zkratky S/T/O a ESC bez změny konfigurace nebo systemd.
+- TEST regrese volby, ESC, validace vrácených dat a rollbacku při chybě systemd.
+- UPD hlavní verze aplikace na 2.3.1.
+
 ## v2.3.0
 
 - FIX SFTP Manager 1.3.4 zobrazuje v seznamu klíčů adresu uživatele (nebo admin fallback) a v akci Odeslat e-mailem oba skutečné příjemce; seznam se sestavuje stejným resolverem jako SMTP export a zachovává povinnou admin kopii.

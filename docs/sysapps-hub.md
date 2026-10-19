@@ -58,7 +58,7 @@ Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do
 
 ## Neinteraktivní sběr a plánovač
 
-Hlavní aplikace nabízí lokální volbu: **startup**, **timer** (každou hodinu) nebo **off**; ruční synchronizace zůstává dostupná vždy, pokud je Hub zapnutý. Prázdná hodnota nového lokálního `HUB_SYNC_MODE` zachovává historickou politiku `HUB_AUTO_SYNC` bez zásahu do stávajících instalací. `HUB_SYNC_MODE` se nikdy nedistribuuje centrálním balíkem `SYSAPP1E`.
+Hlavní aplikace nabízí lokální volbu: **startup**, **timer** (každou hodinu) nebo **off**; ruční synchronizace zůstává dostupná vždy, pokud je Hub zapnutý. Výběr režimu je přes JBLibs `select()` (šipky/Enter nebo zkratky S/T/O, ESC bez změny). Prázdná hodnota nového lokálního `HUB_SYNC_MODE` zachovává historickou politiku `HUB_AUTO_SYNC` bez zásahu do stávajících instalací. `HUB_SYNC_MODE` se nikdy nedistribuuje centrálním balíkem `SYSAPP1E`.
 
 Volba **timer** z menu vytvoří spravované jednotky `/etc/systemd/system/jb-sysapps-hub.service` a `jb-sysapps-hub.timer`, aktivuje časovač a teprve pak uloží režim. Timer spouští `run.sh --hub-sync` přes stejný Python virtualenv a bez grafického/terminálového menu. Všechna spuštění sdílejí procesní lock pro synchronizaci, nezávislý na zámku otevřeného menu. Manuální a automatické spouštění mohou koexistovat; při souběhu druhý sběr bezpečně skončí chybou/skipped, ne paralelním zápisem.
 

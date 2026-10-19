@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -86,14 +87,26 @@ class HubScheduleTests(unittest.TestCase):
         with patch.object(cfg, "HUB_SYNC_MODE", ""), patch.object(
             cfg, "HUB_AUTO_SYNC", True
         ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
-            hub_menu, "get_input", return_value="2"
-        ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+            hub_menu, "select", return_value=SimpleNamespace(
+                item=SimpleNamespace(data="timer")
+            )
+        ) as chooser, patch.object(hub_menu, "set_schedule") as schedule, patch.object(
             cfg, "save"
         ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
             def require_install_first():
                 schedule.assert_called_once_with("timer")
             save.side_effect = require_install_first
             result = HubSettingsMenu().choose_sync_mode(None)
+            chooser.assert_called_once()
+            self.assertEqual(
+                [option.data for option in chooser.call_args.args[1]],
+                ["startup", "timer", "off"],
+            )
+            self.assertEqual(
+                [option.choice for option in chooser.call_args.args[1]],
+                ["S", "T", "O"],
+            )
+            self.assertEqual(chooser.call_args.kwargs["title"], hub_menu.TXT_HUB_SYNC_MODE)
             self.assertEqual(cfg.HUB_SYNC_MODE, "timer")
             self.assertTrue(bool(getattr(result, "ok", None)))
 
@@ -104,7 +117,9 @@ class HubScheduleTests(unittest.TestCase):
         with patch.object(cfg, "HUB_SYNC_MODE", ""), patch.object(
             cfg, "HUB_AUTO_SYNC", True
         ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
-            hub_menu, "get_input", return_value="2"
+            hub_menu, "select", return_value=SimpleNamespace(
+                item=SimpleNamespace(data="timer")
+            )
         ), patch.object(
             hub_menu, "set_schedule", side_effect=[RuntimeError("systemctl failed"), None]
         ) as schedule, patch.object(cfg, "save") as save:
@@ -115,6 +130,57 @@ class HubScheduleTests(unittest.TestCase):
             schedule.assert_any_call("timer")
             schedule.assert_any_call("startup")
             save.assert_not_called()
+
+    def test_menu_mode_esc_does_not_change_configuration_or_systemd(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        with patch.object(cfg, "HUB_SYNC_MODE", "startup"), patch.object(
+            hub_menu, "select", return_value=SimpleNamespace(item=None)
+        ) as chooser, patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+            cfg, "save"
+        ) as save:
+            result = HubSettingsMenu().choose_sync_mode(None)
+        chooser.assert_called_once()
+        schedule.assert_not_called()
+        save.assert_not_called()
+        self.assertFalse(getattr(result, "err", None))
+
+    def test_menu_mode_selection_startup_and_off(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        for initial, selected in (("timer", "startup"), ("startup", "off")):
+            with self.subTest(selected=selected), patch.object(
+                cfg, "HUB_SYNC_MODE", initial
+            ), patch.object(cfg, "HUB_ENABLED", True), patch.object(
+                hub_menu, "select", return_value=SimpleNamespace(
+                    item=SimpleNamespace(data=selected)
+                )
+            ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+                cfg, "save"
+            ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
+                result = HubSettingsMenu().choose_sync_mode(None)
+                schedule.assert_called_once_with(selected)
+                save.assert_called_once()
+                self.assertEqual(cfg.HUB_SYNC_MODE, selected)
+                self.assertTrue(bool(getattr(result, "ok", None)))
+
+    def test_menu_mode_invalid_framework_data_is_rejected(self):
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+
+        with patch.object(cfg, "HUB_SYNC_MODE", "startup"), patch.object(
+            hub_menu, "select", return_value=SimpleNamespace(
+                item=SimpleNamespace(data="unsupported")
+            )
+        ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
+            cfg, "save"
+        ) as save:
+            result = HubSettingsMenu().choose_sync_mode(None)
+        schedule.assert_not_called()
+        save.assert_not_called()
+        self.assertIsNotNone(result.err)
 
     def test_process_lock_detects_overlapping_collections(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(
