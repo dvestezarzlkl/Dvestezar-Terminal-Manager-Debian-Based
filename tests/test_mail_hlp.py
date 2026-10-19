@@ -61,6 +61,24 @@ class MailHelperTests(unittest.TestCase):
         self.assertEqual(kwargs["attachments"], [attachment])
         self.assertEqual(kwargs["smtp_settings"].timeout, 12)
 
+    def test_send_mail_logs_failed_preflight_without_transport(self):
+        with self.configured_mail(), patch.object(
+            mail_hlp.app_cfg, "MAIL_SMTP_HOST", ""
+        ), patch.object(mail_hlp, "send_smtp_message") as sender, patch.object(
+            mail_hlp, "log"
+        ) as audit:
+            ok, error = mail_hlp.send_mail(
+                ["recipient@example.test"], "Subject", "Body"
+            )
+
+        self.assertFalse(ok)
+        self.assertIn("SMTP host", error)
+        sender.assert_not_called()
+        lines = "\n".join(
+            item.args[0] % item.args[1:] for item in audit.error.call_args_list
+        )
+        self.assertIn("status=NOT_SENT", lines)
+
     def test_send_mail_logs_recipients_and_smtp_acceptance(self):
         with self.configured_mail(), patch.object(
             mail_hlp, "send_smtp_message", return_value=(True, None)
