@@ -67,6 +67,12 @@
       "old": "- In hourly mode, the systemd diagnostic action reads unit properties first (timer enabled/active, LastTriggerUSec, next scheduled run, service Result/ExecMainStatus and completion time), checks current managed unit definitions and reports missing/overdue history. A manual service invocation must require user confirm and must not alter timer state. One-shot exit code 2 from Hub warnings is a failure, not success.\n",
       "new": "- In hourly mode, the systemd diagnostic action reads unit properties first (timer enabled/active, LastTriggerUSec, next scheduled run, service Result/ExecMainStatus and completion time), checks current managed unit definitions and reports missing/overdue history. A manual service invocation must require user confirm and must not alter timer state. One-shot exit code 2 from Hub warnings is a failure, not success.\n- In hourly mode only, the Hub menu subtitle includes the last service execution (start timestamp and result), using a single read-only systemctl show. This is not the last timer trigger: a manually started service can be the most recent run. Missing/unavailable systemd must not break menu rendering.\n",
       "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "from tests.test_hub_scheduling import HubScheduleTests\n",
+      "new": "from tests.test_hub_scheduling import HubScheduleTests\nfrom tests.test_hub_last_service_run import HubLastServiceRunTests\n",
+      "expected": 1
     }
   ]
 }
