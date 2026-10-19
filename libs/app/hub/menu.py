@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from subprocess import SubprocessError
+
 from .lng.default import *
 from libs.JBLibs.helper import loadLng
 loadLng()
@@ -19,7 +21,7 @@ from .models import HubState
 from .runtime import hub_runtime
 from .sync_policy import effective_sync_mode
 from .scheduler import set_schedule, timer_status
-from .systemd_diagnostics import inspect_timer_sync, run_systemd_sync
+from .systemd_diagnostics import inspect_timer_sync, last_service_run, run_systemd_sync
 from .settings import HubSettings, apply_settings
 
 
@@ -52,6 +54,20 @@ class HubSettingsMenu(c_menu):
         mode = effective_sync_mode(settings.auto_sync)
         if mode == "timer":
             self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))
+            try:
+                started, state, result, code = last_service_run()
+                if started is None:
+                    last_run = TXT_HUB_LAST_RUN_NEVER
+                elif state in ("active", "activating"):
+                    last_run = f"{started} ({TXT_HUB_LAST_RUN_RUNNING})"
+                elif result == "success" and code == "0":
+                    last_run = f"{started} ({TXT_HUB_LAST_RUN_OK})"
+                else:
+                    last_run = f"{started} ({TXT_HUB_LAST_RUN_FAILED.format(code=code)})"
+            except (OSError, RuntimeError, SubprocessError):
+                # Status display must never block a functional menu.
+                last_run = TXT_HUB_LAST_RUN_UNAVAILABLE
+            self.subTitle.append((TXT_HUB_LAST_RUN, last_run))
         mode_labels = {
             "startup": TXT_HUB_MODE_STARTUP,
             "timer": TXT_HUB_MODE_TIMER,
