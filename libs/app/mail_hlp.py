@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Iterable, List, Optional, Sequence, Tuple
+from uuid import uuid4
 
 from .lng.default import *
 from libs.JBLibs.helper import getLogger, loadLng
@@ -203,16 +204,28 @@ def send_mail(
     bytes, stream, or in-memory ZIP attachments created through JBLibs mail
     helpers.
     """
-    ok, reason = get_config_status()
-    if not ok:
-        return False, reason
-
+    send_id = uuid4().hex[:12]
     valid_recipients = _unique_addresses(recipients)
-    if not valid_recipients:
-        return False, "No mail recipients configured."
-
+    valid_cc = _unique_addresses(cc or [])
+    valid_bcc = _unique_addresses(bcc or [])
+    all_recipients = _unique_addresses([*valid_recipients, *valid_cc, *valid_bcc])
     mode = get_smtp_mode()
     port = get_smtp_port()
+    log.info(
+        "SMTP send id=%s status=START from=%s to=%s cc=%s bcc=%s relay=%s:%s mode=%s",
+        send_id, get_mail_from(), valid_recipients, valid_cc, valid_bcc,
+        get_smtp_host(), port, mode,
+    )
+
+    ok, reason = get_config_status()
+    if not ok:
+        log.error("SMTP send id=%s status=NOT_SENT reason=%s", send_id, reason)
+        return False, reason
+
+    if not valid_recipients:
+        log.error("SMTP send id=%s status=NOT_SENT reason=no valid To recipient", send_id)
+        return False, "No mail recipients configured."
+
     safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None
 
     print(TX_MAIL_SENDING, flush=True)
@@ -229,6 +242,10 @@ def send_mail(
         attachments=attachments,
     )
     if ok:
+        log.info(
+            "SMTP send id=%s status=SMTP_ACCEPTED recipients=%s",
+            send_id, all_recipients,
+        )
         return True, None
 
     err = error or "Failed to send mail via SMTP."
@@ -238,7 +255,10 @@ def send_mail(
     elif is_smtp_port_mismatched(mode, port):
         hint = f" The selected port {port} is unusual for {mode.upper()}; expected {get_default_smtp_port(mode)}."
 
-    log.error("Mail delivery failed: %s", err)
+    log.error(
+        "SMTP send id=%s status=FAILED_OR_PARTIAL recipients=%s reason=%s",
+        send_id, all_recipients, err,
+    )
     return False, f"{err}{hint}"
 
 
