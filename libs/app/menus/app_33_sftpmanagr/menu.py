@@ -43,6 +43,7 @@ from .sftp_manager_hlp import (
     get_admin_mail,
     set_admin_mail,
     get_user_mail,
+    get_key_mail_recipients,
     set_user_mail,
     send_key_by_mail,
     get_sftp_backup_stats,
@@ -74,7 +75,7 @@ class menu(c_menu):
     # aktuální konfigurace
     cfg:Dict
 
-    _VERSION_: str = "1.3.3"
+    _VERSION_: str = "1.3.4"
     __VERSION__ = _VERSION_
 
     def basicTitle(self, add:str|list=None, username:str|None=TXT_SFTP_MENU_NOT_SELECTED) -> c_menu_block_items:
@@ -596,6 +597,8 @@ class m_key_actions(c_menu):
 
     def onShowMenu(self) -> None:
         self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_KEY_ACTION, username=self.username)
+        recipients = get_key_mail_recipients(self.cfg, self.username)
+        recipient_label = ", ".join(recipients) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET
         self.menu = [
             c_menu_title_label(text_color(TXT_SFTP_MENU_KEY_TITLE.format(name=self.display_name), en_color.CYAN)),
             c_menu_item(
@@ -616,8 +619,8 @@ class m_key_actions(c_menu):
                     text_color(TXT_SFTP_MENU_SEND_BY_MAIL, en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
-                    enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
+                    atRight=recipient_label,
+                    enabled=bool(recipients),
                 ),
                 c_menu_item(
                     text_color(TXT_SFTP_MENU_DELETE_CERTIFICATE, en_color.BRIGHT_RED),
@@ -631,8 +634,8 @@ class m_key_actions(c_menu):
                     text_color(TXT_SFTP_MENU_SEND_BY_MAIL, en_color.BRIGHT_GREEN),
                     "m",
                     self.send_by_mail,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
-                    enabled=bool(mail_hlp.get_effective_admin_mail(get_admin_mail(self.cfg))),
+                    atRight=recipient_label,
+                    enabled=bool(recipients),
                 ),
                 c_menu_item(
                     text_color(TXT_SFTP_MENU_DELETE_KEY, en_color.BRIGHT_RED),
@@ -713,7 +716,10 @@ class m_user_keys(c_menu):
         self.title = self.mainMenu.basicTitle(add=TXT_SFTP_MENU_SECTION_KEYS, username=self.username)
         
         self.keys: List[Tuple[str,str]] = hlp_list_keys(self.cfg, self.username)
-        
+        recipients = get_key_mail_recipients(self.cfg, self.username)
+        # Long key names need room: show the user's target here, both in the send action.
+        display_mail = recipients[-1] if recipients else TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET
+
         self.menu = [
             c_menu_title_label(text_color(TXT_SFTP_MENU_KEYS_FOR.format(username=self.username), en_color.CYAN)),
             c_menu_item(TXT_SFTP_MENU_ADD_KEY, "a", self.add_key),
@@ -730,7 +736,7 @@ class m_user_keys(c_menu):
                     str(idx),
                     m_key_actions(self.username, self.mainMenu, keystr, name),
                     data=keystr,
-                    atRight=mail_hlp.get_effective_admin_mail(get_admin_mail(self.mainMenu.cfg)) or TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET,
+                    atRight=display_mail,
                 )
             )
 

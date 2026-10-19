@@ -122,7 +122,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             self.assertEqual(menuBoss._get_menu_version(menu_cls), menu_cls._VERSION_)
         self.assertEqual(node_red_menu.menu._VERSION_, "1.0.1")
         self.assertEqual(ssh_menu.menu._VERSION_, "1.0.2")
-        self.assertEqual(sftp_menu.menu._VERSION_, "1.3.3")
+        self.assertEqual(sftp_menu.menu._VERSION_, "1.3.4")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
@@ -141,6 +141,48 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
                 self.assertFalse(menuBoss.menuBoss.showGlobalTitle)
         finally:
             menuBoss.c_menu.globalTitle = original
+
+    def test_sftp_key_menu_displays_actual_mail_recipients(self):
+        cfg = {
+            "adminMail": "admin@example.test",
+            "users": [{"sftpuser": "alice", "mail": "alice@example.test"}],
+        }
+        parent = SimpleNamespace(cfg=cfg, basicTitle=lambda **kwargs: None)
+        keys_menu = sftp_menu.m_user_keys("alice", parent, cfg["users"][0])
+        keys_menu.onEnterMenu()
+        with patch.object(
+            sftp_menu, "hlp_list_keys", return_value=[("key-comment", "stored-key")]
+        ):
+            keys_menu.onShowMenu()
+        listed = self._menu_item(keys_menu.menu, "1")
+        self.assertEqual(listed.atRight, "alice@example.test")
+
+        for private in ("", PRIVATE_KEY):
+            action = sftp_menu.m_key_actions("alice", parent, "stored-key", "key-comment")
+            with patch.object(
+                sftp_menu, "get_printable_keys", return_value=(True, (PUBLIC_KEY, private))
+            ):
+                action.onEnterMenu()
+            action.onShowMenu()
+            send = self._menu_item(action.menu, "m")
+            self.assertTrue(send.enabled)
+            self.assertEqual(send.atRight, "admin@example.test, alice@example.test")
+
+        cfg["users"][0].pop("mail")
+        with patch.object(
+            sftp_menu, "hlp_list_keys", return_value=[("key-comment", "stored-key")]
+        ):
+            keys_menu.onShowMenu()
+        self.assertEqual(self._menu_item(keys_menu.menu, "1").atRight, "admin@example.test")
+        action.onShowMenu()
+        self.assertEqual(self._menu_item(action.menu, "m").atRight, "admin@example.test")
+
+        cfg.pop("adminMail")
+        with patch.object(sftp_menu.mail_hlp, "get_fallback_admin_mail", return_value=""):
+            action.onShowMenu()
+            send = self._menu_item(action.menu, "m")
+            self.assertFalse(send.enabled)
+            self.assertEqual(send.atRight, sftp_menu.TXT_SFTP_MENU_ADMIN_MAIL_NOT_SET)
 
     def test_sftp_mountpoint_add_honors_read_only_selection(self):
         cfg = {
