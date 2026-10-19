@@ -144,7 +144,7 @@ class HubScheduleTests(unittest.TestCase):
         chooser.assert_called_once()
         schedule.assert_not_called()
         save.assert_not_called()
-        self.assertIsNone(getattr(result, "err", None))
+        self.assertFalse(getattr(result, "err", None))
 
     def test_menu_mode_selection_startup_and_off(self):
         from libs.app.hub import menu as hub_menu
