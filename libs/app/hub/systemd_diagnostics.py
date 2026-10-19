@@ -140,6 +140,31 @@ def inspect_timer_sync() -> HubTimerCheck:
     )
 
 
+def last_service_run() -> tuple[str | None, str, str, str]:
+    """Read the last service start and result without querying or changing the timer.
+
+    The service might have been started manually: this is not evidence that
+    the hourly timer has already fired.
+    """
+    props = _show_properties(SERVICE_NAME, (
+        "LoadState", "ActiveState", "Result",
+        "ExecMainStatus", "ExecMainStartTimestamp",
+    ))
+    if props.get("LoadState") != "loaded":
+        raise RuntimeError("SysApps Hub systemd service is not loaded.")
+    started_at = _timestamp_seconds(props.get("ExecMainStartTimestamp", ""))
+    started = (
+        datetime.fromtimestamp(started_at).strftime("%Y-%m-%d %H:%M:%S")
+        if started_at is not None else None
+    )
+    return (
+        started,
+        props.get("ActiveState", "unknown"),
+        props.get("Result", "unknown"),
+        props.get("ExecMainStatus", "?"),
+    )
+
+
 def run_systemd_sync() -> tuple[bool, str]:
     """Explicit oneshot test without changing the hourly timer's configuration."""
     if os.geteuid() != 0:

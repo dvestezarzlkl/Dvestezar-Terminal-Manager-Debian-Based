@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.3.3
+
+- UX v hodinovém režimu SysApps Hub přidává do hlavičky pod stav timeru poslední spuštění systemd služby včetně výsledku (OK, probíhá, chyba, dosud neproběhl).
+- INFO údaj se čte živě přes systemctl show při zobrazení menu, v režimech startup/off se neprovádí; poslední běh služby může být i ruční test a není důkazem automatického triggeru.
+- SAFE výpadek systemd nezablokuje zobrazení Hub menu. Doplněny regresní testy.
+- UPD verze 2.3.3.
+
 ## v2.3.2
 
 - ADD podmíněná volba „Ověřit/otestovat systemd synchronizaci“ v nastavení SysApps Hub pro režim hodinového timeru.

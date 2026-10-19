@@ -6,6 +6,7 @@
 - Only trusted fixed-schema SQL migrations and writers owned by Hub can modify its database. Collector-local SQL credentials or direct SQL execution are forbidden. Plugin migrations remain future work and require checksummed, namespaced, controlled management.
 - Timer unit files must be owned/marked by SysApps, installed atomically, and never overwrite another admin's systemd unit. Mode is persisted only after successful systemd operations.
 - In hourly mode, the systemd diagnostic action reads unit properties first (timer enabled/active, LastTriggerUSec, next scheduled run, service Result/ExecMainStatus and completion time), checks current managed unit definitions and reports missing/overdue history. A manual service invocation must require user confirm and must not alter timer state. One-shot exit code 2 from Hub warnings is a failure, not success.
+- In hourly mode only, the Hub menu subtitle includes the last service execution (start timestamp and result), using a single read-only systemctl show. This is not the last timer trigger: a manually started service can be the most recent run. Missing/unavailable systemd must not break menu rendering.
 
 - SysApps Hub is a central inventory. MySQL/MariaDB is the transport and storage layer, not the provider API.
 - Provider modules never receive a database connection, cursor, table name, SQL fragment, credentials, or migration access. They return typed snapshots only.
