@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "commit_message": "diag(mail): audit SMTP recipients and relay acceptance, consume JBLibs 1.2.33",
+  "replacements": [
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "from typing import Iterable, List, Optional, Sequence, Tuple\n",
+      "new": "from typing import Iterable, List, Optional, Sequence, Tuple\nfrom uuid import uuid4\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "    ok, reason = get_config_status()\n    if not ok:\n        return False, reason\n\n    valid_recipients = _unique_addresses(recipients)\n    if not valid_recipients:\n        return False, \"No mail recipients configured.\"\n\n    mode = get_smtp_mode()\n    port = get_smtp_port()\n    safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None\n\n    print(TX_MAIL_SENDING, flush=True)",
+      "new": "    send_id = uuid4().hex[:12]\n    valid_recipients = _unique_addresses(recipients)\n    valid_cc = _unique_addresses(cc or [])\n    valid_bcc = _unique_addresses(bcc or [])\n    all_recipients = _unique_addresses([*valid_recipients, *valid_cc, *valid_bcc])\n    mode = get_smtp_mode()\n    port = get_smtp_port()\n    log.info(\n        \"SMTP send id=%s status=START from=%s to=%s cc=%s bcc=%s relay=%s:%s mode=%s\",\n        send_id, get_mail_from(), valid_recipients, valid_cc, valid_bcc,\n        get_smtp_host(), port, mode,\n    )\n\n    ok, reason = get_config_status()\n    if not ok:\n        log.error(\"SMTP send id=%s status=NOT_SENT reason=%s\", send_id, reason)\n        return False, reason\n\n    if not valid_recipients:\n        log.error(\"SMTP send id=%s status=NOT_SENT reason=no valid To recipient\", send_id)\n        return False, \"No mail recipients configured.\"\n\n    safe_reply_to = reply_to if reply_to and is_valid_mail_address(reply_to) else None\n\n    print(TX_MAIL_SENDING, flush=True)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "    if ok:\n        return True, None\n\n    err = error or \"Failed to send mail via SMTP.\"",
+      "new": "    if ok:\n        log.info(\n            \"SMTP send id=%s status=SMTP_ACCEPTED recipients=%s\",\n            send_id, all_recipients,\n        )\n        return True, None\n\n    err = error or \"Failed to send mail via SMTP.\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/mail_hlp.py",
+      "old": "    log.error(\"Mail delivery failed: %s\", err)\n    return False, f\"{err}{hint}\"",
+      "new": "    log.error(\n        \"SMTP send id=%s status=FAILED_OR_PARTIAL recipients=%s reason=%s\",\n        send_id, all_recipients, err,\n    )\n    return False, f\"{err}{hint}\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_mail_hlp.py",
+      "old": "    def test_send_mail_preserves_port_hint(self):",
+      "new": "    def test_send_mail_logs_recipients_and_smtp_acceptance(self):\n        with self.configured_mail(), patch.object(\n            mail_hlp, \"send_smtp_message\", return_value=(True, None)\n        ), patch.object(mail_hlp, \"log\") as audit:\n            ok, error = mail_hlp.send_mail(\n                [\"admin@example.test\", \"user@example.test\"],\n                \"Sensitive subject\",\n                \"private body\",\n                bcc=[\"hidden@example.test\"],\n            )\n\n        self.assertEqual((ok, error), (True, None))\n        lines = \"\\n\".join(\n            item.args[0] % item.args[1:] for item in audit.info.call_args_list\n        )\n        self.assertIn(\"status=START\", lines)\n        self.assertIn(\"status=SMTP_ACCEPTED\", lines)\n        self.assertIn(\"admin@example.test\", lines)\n        self.assertIn(\"user@example.test\", lines)\n        self.assertIn(\"hidden@example.test\", lines)\n        self.assertNotIn(\"Sensitive subject\", lines)\n        self.assertNotIn(\"private body\", lines)\n        self.assertNotIn(\"secret-value\", lines)\n\n    def test_send_mail_logs_partial_recipient_failure(self):\n        error_text = (\n            \"SMTP recipient rejection: accepted=['admin@example.test']; \"\n            \"rejected=user@example.test (SMTP 550)\"\n        )\n        with self.configured_mail(), patch.object(\n            mail_hlp, \"send_smtp_message\", return_value=(False, error_text)\n        ), patch.object(mail_hlp, \"log\") as audit:\n            ok, error = mail_hlp.send_mail(\n                [\"admin@example.test\", \"user@example.test\"], \"S\", \"B\"\n            )\n\n        self.assertFalse(ok)\n        self.assertIn(\"SMTP 550\", error)\n        lines = \"\\n\".join(\n            item.args[0] % item.args[1:] for item in audit.error.call_args_list\n        )\n        self.assertIn(\"status=FAILED_OR_PARTIAL\", lines)\n        self.assertIn(\"admin@example.test\", lines)\n        self.assertIn(\"user@example.test\", lines)\n        self.assertNotIn(\"secret-value\", lines)\n\n    def test_send_mail_preserves_port_hint(self):",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-self-updater.yml",
+      "old": "assert '__version__ = \"1.2.32\"' in package_init",
+      "new": "assert '__version__ = \"1.2.33\"' in package_init",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-runtime-dependencies.yml",
+      "old": "assert __version__ == \"1.2.32\"",
+      "new": "assert __version__ == \"1.2.33\"",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.3.0\n\n- ADD SysApps Hub",
+      "new": "## v2.3.0\n\n- DIAG centrální SMTP transport zapisuje pokus o odeslání včetně To/Cc/Bcc, relay hostu a výsledku SMTP handoffu (accepted / failed / partial) s korelačním ID; nikdy nevypisuje obsah zpráv, klíče nebo credentials. JBLibs 1.2.33 odhaluje částečně odmítnuté příjemce místo falešného úspěchu.\n- ADD SysApps Hub",
+      "expected": 1
+    }
+  ]
+}
