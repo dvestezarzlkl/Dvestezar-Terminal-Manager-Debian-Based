@@ -27,9 +27,34 @@ Recommended future scopes:
 
 A rule needs explicit direction (`input`, `forward`, `output`), IP family, protocol, destination ports/ranges, source IPv4/IPv6 CIDRs or source alias, action, ordering/priority and optional `interface`. Use an explicit `trusted_source_bypass` action to preserve new21's all-local-ports ACCEPT semantics, never silently conflate that with ordinary `allow ssh`.
 
-## Discovered issues in original v1.0.0
+## Intentional manual behavior versus unattended successor
 
-Review these before replacement. Do **not** run the old generator and the new manager against the same managed block concurrently.
+The legacy v1.0.0 generator intentionally **regenerates the block (including its
+generation timestamp), backs up the file and reloads UFW on every invocation**.
+It was designed for an operator-triggered manual update; this behavior is
+**not a bug to repair in the legacy repository**.
+
+The successor SysApps Firewall Manager has a different contract: the hourly Hub
+timer checks desired state, expiry of time-limited BAN rules and observed state.
+It computes a normalized effective rule set **excluding timestamps and other
+volatile annotations**. Only a real change to that effective rule set may
+trigger a new generated timestamp, file write, backup and UFW reload. Unchanged
+rules must result in `NO_CHANGE`, with zero file writes and zero service reloads.
+Track last-check time separately from last-successful-apply time. A time-limited
+BAN can expire with unchanged source JSON and must still produce a real
+effective-rule change.
+
+The old GitHub repository is marked **DEPRECATED** in
+[PR #1](https://github.com/dvestezarzlkl/ufw_opevpn_update_form_cfg_json/pull/1),
+but must remain functional until SysApps has safely taken over UFW configuration,
+including the OpenVPN and Hard Source Allow blocks, and the old invocation paths
+are disabled. Only then should it be archived.
+
+## Migration considerations for original v1.0.0
+
+Review the following as constraints for the *new unattended implementation*, not
+requests to change the legacy manual script. Do **not** run the old generator and
+the new manager against the same managed block concurrently.
 
 - `reloadUfw` uses `os.system("ufw reload")` and prints success without checking the return code.
 - `modifyUfwRules` writes `before.rules` directly (not staged + fsync + atomic replace + validation + rollback); backup alone does not prevent loss of remote access.
