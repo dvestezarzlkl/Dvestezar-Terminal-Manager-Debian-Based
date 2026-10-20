@@ -14,6 +14,12 @@ The built-in dynamic subapplication `libs/app/menus/app_40_firewall/` now has:
 
 The hourly Hub now collects **UFW presence/status**, not yet a centralized desired-policy fetch/reconcile with Apply. `NO_CHANGE` is a read-only decision; future persistent `last_checked_at`/`last_applied_at`, staging, applied hash and transactional rollback will be a separate implementation phase. These existing sections remain untouched until that phase is tested on a VM and explicitly enabled.
 
+## Reconciliation decision foundation (SysApps 2.6.1)
+
+Pure `app_40_firewall/reconcile.py` provides `reconcile(plan, previous, checked_at)`. It accepts the established `FirewallPlan` and previously verified `ReconcileState`; **no local state is saved or mutated**, no UFW command or file write exists in this layer. A known, matching `applied_hash` and `NO_CHANGE` produce `NO_CHANGE`, while a changed effective rule set (including a cooldown BAN expiry) produces `PENDING_REVIEW`. Missing/ambiguous markers return `BLOCKED`, and a changed observed hash against last-verified `applied_hash` returns `DRIFT`. No prior applied hash means explicit manual adoption is mandatory, even when observed state matches desired.
+
+Only `last_checked_at` advances during check; `last_applied_at` and `applied_hash` are unchanged until a **later, separate verified Apply transaction**. This prevents hourly checks from asserting an application or restarting any service. Durable state with anti-rollback, actual UFW apply, verification, audit, rollback and central policy fetch are NOT implemented yet. On VM, first test read-only statuses and plans.
+
 ## Existing deployed behavior
 
 Source repository: [ufw_opevpn_update_form_cfg_json](https://github.com/dvestezarzlkl/ufw_opevpn_update_form_cfg_json), default branch `master`, script `ufw_opevpn_update_form_cfg_json.py` v1.0.0.
