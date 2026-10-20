@@ -102,6 +102,8 @@ Od verze 2.4.0 lze v `sys_hub_plg` přidat jediný Python modul, který deklaruj
 
 První pilot `sys_hub_plg/bacula_fd.py` bezpečně detekuje Bacula FD pomocí systemd, instalované binárky a verze dpkg; neotevírá `bacula-fd.conf`, neukládá hesla ani nevymýšlí FD port (9102 není zaručené nastavení). Stav `active` neznamená, že funguje centrální zálohování.
 
+Od v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s `hub_provider.py` vracejícím `HubService(service_key="ufw")`: výhradně read-only dotazy `ufw status` a `ufw --version`. Headless discovery používá přímo tento provider bez importu `menu.py`. Lokální menu umí zobrazit počty pravidel v oddělených blocích UFW before.rules a provést náhled `NO_CHANGE`/`CHANGED` proti zadanému starému JS/JSON; detekce ani náhled **nikdy** nespouští Apply, zápis do /etc/ufw ani UFW reload. Vypršení cooldown BAN mění digest výsledných pravidel i při nezměněném zdrojovém JSON. Centrální firewall desired-state a write transport jsou další etapa.
+
 **Důležitá hranice:** obecný dataset `inventory_items`, více služeb/endpointů na jeden collector, plugin-local SQL migrace ani správa firewall/SSH desired-state zatím nejsou implementovány. Pro tyto složitější případy bude v další etapě potřeba samostatný typovaný dataset a centrální kontrola SQL schématu. Plugin nemá SQL spojení ani libovolný writer.
 
 ## Provider kontrakt

@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.6.0
+
+- ADD samostatná vestavěná podaplikace `Firewall Manager (UFW)` s bezpečným **read-only** menu (kontrola instalace/stavu UFW a původních BOF/EOF bloků v `/etc/ufw/before.rules`).
+- ADD typovaný Hub `service` provider `ufw` do stávajícího `host_services`: `ufw status`/`ufw --version` bez `ufw reload`, zápisu firewall konfigurace či vlastní SQL migrace.
+- ADD čistý UFW/OpenVPN policy parser a dry-run diff: kontrola samostatných BAN/izolačních a Hard Source Allow bloků včetně jejich pořadí, selhání při duplicitních/nekompletních markerech, deterministický SHA-256 digest účinných pravidel bez časových/auditních komentářů.
+- ADD časová logika cooldown BAN: `banTo` platí do konce uvedeného dne, vypršení mění výsledný seznam pravidel bez změny zdrojového JSON; `NO_CHANGE` nepřipravuje žádné zásahy do služby.
+- ADD manuální **náhled** porovnání proti zadanému legacy JSON/JS souboru (`p`) bez spuštění skriptu; `MISSING` a změna identity bloku vyžadují pozdější explicitní převzetí.
+- TEST unit regresní testy BOF/EOF, pořadí, původních komentářů, expirace, validací, dry-run bez procesů/zápisů, Hub service a read-only menu; CI rozšířeno o novou podaplikaci.
+- SAFE skutečný centrální desired-state fetch, automatický UFW Apply/rollback a převzetí new21 **nejsou** v této verzi implementovány. Původní ruční generátor zůstává funkční a deprecated.
+- UPD SysApps verze 2.6.0.
+
 ## v2.5.0
 
 - ADD SysApps Hub schema 005: centrálně USER-OWNED `host_groups(id, code, name, description)` a volitelný `hosts.group_id INT UNSIGNED NULL DEFAULT NULL` (FK ON DELETE SET NULL); každý host patří nejvýše do jedné skupiny.

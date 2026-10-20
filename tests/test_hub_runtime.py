@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 # Re-export independent headless and scheduling test cases for that runner.
 from tests.test_hub_headless import HubHeadlessTests
 from tests.test_hub_bacula_collector import HubBaculaServiceTests
+from tests.test_hub_firewall import HubFirewallCollectorTests
+from tests.test_hub_firewall_policy import HubFirewallPolicyTests
 from tests.test_hub_scheduling import HubScheduleTests
 from tests.test_hub_host_metadata import HubHostMetadataTests
 from tests.test_hub_last_service_run import HubLastServiceRunTests

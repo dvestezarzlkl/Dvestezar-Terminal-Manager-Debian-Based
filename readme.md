@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.5.0
+v2.6.0
 
 [ENG](readme_en.md)
 
@@ -36,6 +36,13 @@ Hlavní menu automaticky načte každý plugin, který obsahuje `menu.py`, takž
 - zobrazení vytížení RAM a SWAP včetně aktivních SWAP zařízení
 - výpis procesů využívajících SWAP
 - změna velikosti SWAP image podle stavu systému
+
+### Firewall Manager (UFW) — zatím read-only
+
+- detekce UFW (stav/verze) při běžném hodinovém sběru SysApps Hub
+- kontrola dvou existujících bloků v `/etc/ufw/before.rules`: OpenVPN BAN/izolace a důvěryhodné zdroje
+- dry-run porovnání proti legacy JSON/JS konfiguraci, účinný hash bez generovaného času, hlídání expirace BAN
+- žádný automatický přepis, reload ani změna firewallu (Apply a rollback se připravují samostatně)
 
 ### Node-RED manager
 

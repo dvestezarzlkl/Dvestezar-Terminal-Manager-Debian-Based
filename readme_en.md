@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager – Debian-Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v1.9.3
+v2.6.0
 
 [CZ](readme.md)
 
@@ -14,6 +14,13 @@ Dvestezar Terminal Manager is a terminal-based administration tool for Debian-ba
 The main menu automatically loads every plugin that contains a `menu.py` entry point, so the project can be extended without modifying the main menu implementation.
 
 ## Current Menu Plugins
+
+### Firewall Manager (UFW) — read-only pilot
+
+- Detect UFW status/version via existing hourly Hub service collector.
+- Inspect managed OpenVPN BAN/isolation and trusted source allow blocks without modifying files.
+- Preview a legacy JSON/JS policy against effective UFW rules including cooldown BAN expiry; timestamps are ignored in rule comparison.
+- This release does not enable firewall Apply, UFW reload, or remote policy updates.
 
 ### Disk manager
 
