@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "commit_message": "feat(firewall): integrate read-only UFW app, hub collector and tested semantic dry-run",
+  "commit_message": "feat(firewall): apply read-only UFW integration and tests for v2.6.0",
   "replacements": [
     {
       "path": "tests/test_hub_runtime.py",
