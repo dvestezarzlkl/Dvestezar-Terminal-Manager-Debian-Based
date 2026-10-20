@@ -113,6 +113,40 @@ class HubSchemaTests(unittest.TestCase):
         self.assertFalse(corrupted_checksum.current)
         self.assertIn("Checksum mismatch", corrupted_checksum.error)
 
+    def test_manual_schema_upgrade_warns_before_breaking_legacy_clients(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from libs.app.hub.menu import HubSettingsMenu
+
+        status = SimpleNamespace(schema_version=4)
+        with patch("libs.app.hub.menu.confirm", side_effect=[True, False]) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch("libs.app.hub.menu.hub_runtime.initialize_schema") as apply:
+            HubSettingsMenu.initialize_schema(None, None)
+            self.assertEqual(ask.call_count, 2)
+            apply.assert_not_called()
+
+        with patch("libs.app.hub.menu.confirm", side_effect=[True, True]) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch(
+            "libs.app.hub.menu.hub_runtime.initialize_schema",
+            return_value=(True, "schema ready"),
+        ) as apply:
+            HubSettingsMenu.initialize_schema(None, None)
+            self.assertEqual(ask.call_count, 2)
+            apply.assert_called_once_with()
+
+        # Fresh installations have no older fleet to coordinate.
+        status = SimpleNamespace(schema_version=0)
+        with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch(
+            "libs.app.hub.menu.hub_runtime.initialize_schema",
+            return_value=(True, "schema ready"),
+        ):
+            HubSettingsMenu.initialize_schema(None, None)
+            ask.assert_called_once()
+
     def test_statement_marker_is_explicit(self):
         statements = split_migration_statements(
             "-- heading\n-- statement\nSELECT 1\n-- statement\nSELECT 2"
