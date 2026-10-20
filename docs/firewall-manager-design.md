@@ -1,6 +1,18 @@
 # Firewall Manager — UFW / OpenVPN takeover design
 
-Status: **analysis and DB-only groundwork** (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.
+Status: **read-only UFW inspection + pure policy comparison implemented** as SysApps 2.6.0 (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.
+
+## Read-only phase (SysApps 2.6.0)
+
+The built-in dynamic subapplication `libs/app/menus/app_40_firewall/` now has:
+
+- `menu.py` using standard `c_menu`/localization: show UFW state, inspect owned marker blocks in `/etc/ufw/before.rules`, and explicitly preview changes against a user-selected legacy JSON/JS file. No write or apply menu action exists.
+- `hub_provider.py` returning one typed `HubService("ufw", detected, status, version)` through the existing `service` dataset in `host_services`. Reads only `ufw status` and `ufw --version`. No collector-owned SQL, no schema migration.
+- `policy.py` with exact BOF/EOF block matching, duplicate/unmatched/nested marker refusal, OpenVPN-before-Hard-Source ordering validation, rule-token normalization without variable timestamps or iptables `comment` match, and ordered deterministic SHA-256 of effective actions.
+- Pure `compile_legacy_openvpn` honoring permanent/temporary BAN and forward isolation, validating IP/CIDR and client types, treating `banTo` as valid **through** its calendar day. It returns the next expiry transition date, so future hourly checks can invalidate the result even when the JSON itself is unchanged.
+- Pure `plan_legacy_openvpn`: `NO_CHANGE` / `CHANGED` / `MISSING` / `REVIEW` with hashes, rule counts, expired BAN count; never writes/reloads anything. A changed BOF identity requires review before any future automated takeover.
+
+The hourly Hub now collects **UFW presence/status**, not yet a centralized desired-policy fetch/reconcile with Apply. `NO_CHANGE` is a read-only decision; future persistent `last_checked_at`/`last_applied_at`, staging, applied hash and transactional rollback will be a separate implementation phase. These existing sections remain untouched until that phase is tested on a VM and explicitly enabled.
 
 ## Existing deployed behavior
 
