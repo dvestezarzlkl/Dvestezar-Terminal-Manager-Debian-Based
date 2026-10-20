@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.6.1
+
+- ADD čisté, bezvedlejší reconcilační vyhodnocení Firewall Manageru: NO_CHANGE, PENDING_REVIEW, DRIFT a BLOCKED, s ochranou neověřeného prvního převzetí a změn mimo SysApps.
+- SAFE každá kontrola posouvá pouze `last_checked_at`; `last_applied_at` a poslední ověřený `applied_hash` se nikdy nemění bez skutečného a ověřeného Apply. Ani expirovaný BAN sám nespustí UFW reload.
+- TEST pokrytí shodných pravidel, cooldown BAN expirace, detekce driftu, prvního převzetí, neshodných BOF markerů a monotónního času; stále žádný zápis do /etc/ufw.
+- NOTE trvalé ukládání stavů, centrální scoped desired-state a transakční Apply/rollback budou navazující etapy; tento release jen připravuje bezpečné rozhodování.
+- UPD verze 2.6.1.
+
 ## v2.6.0
 
 - ADD samostatná vestavěná podaplikace `Firewall Manager (UFW)` s bezpečným **read-only** menu (kontrola instalace/stavu UFW a původních BOF/EOF bloků v `/etc/ufw/before.rules`).

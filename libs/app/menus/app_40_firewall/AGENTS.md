@@ -4,6 +4,7 @@
   `policy.py` is pure, `hub_provider.py` calls only UFW `status` and
   `--version`, and `menu.py` only reads existing UFW data. No UFW reload,
   no write to `/etc/ufw`, no remote Apply, no local config migration.
+- Pure `reconcile.py` only classifies plan against verified prior `applied_hash`; never mutates prior state or advances `last_applied_at`. Missing prior hash needs review; unexpected drift blocks automatic Apply. This release has NO persistent state and NO UFW Apply.
 - Future Apply belongs to a separate guarded and tested implementation.
   It must stage+validate candidate config, arm automatic rollback before
   applying, verify new remote access and rollback on missing acknowledgement.
