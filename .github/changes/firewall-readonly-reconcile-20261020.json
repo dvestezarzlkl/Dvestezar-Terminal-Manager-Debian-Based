@@ -1,18 +1,12 @@
 {
   "version": 1,
-  "commit_message": "feat(firewall): apply read-only UFW integration and tests for v2.6.0",
+  "commit_message": "feat(firewall): apply read-only UFW app, tests and docs (no workflow edits)",
   "replacements": [
     {
       "path": "tests/test_hub_runtime.py",
       "old": "from tests.test_hub_bacula_collector import HubBaculaServiceTests\n",
       "new": "from tests.test_hub_bacula_collector import HubBaculaServiceTests\nfrom tests.test_hub_firewall import HubFirewallCollectorTests\nfrom tests.test_hub_firewall_policy import HubFirewallPolicyTests\n",
       "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "      - \"libs/app/menus/app_20_node_red/**\"\n",
-      "new": "      - \"libs/app/menus/app_20_node_red/**\"\n      - \"libs/app/menus/app_40_firewall/**\"\n",
-      "expected": 2
     },
     {
       "path": "libs/app/cfg.py",
