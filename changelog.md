@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.3.4
+
+- ADD SysApps Hub schema 004: uživatelsky spravované `hosts.name` (volitelný UI název; NULL = FQDN/hostname) a `hosts.description` (Markdown TEXT). Obě pole mají SQL COMMENT zakazující změnu collectorem.
+- ADD `hosts.auto_sync_enabled` podle skutečného `systemctl is-enabled jb-sysapps-hub.timer` (1 enabled, 0 disabled, NULL nezjištěno). Tento příznak neověřuje úspěch posledního běhu.
+- SAFE core upsert neaktualizuje `name` ani `description`; neznámý výsledek systemctl nesmaže dříve známý stav. Změna režimu v menu provede best-effort aktualizaci pouze host inventáře.
+- TEST SQL migrace 004, zachování uživatelských metadat při opakovaném sběru, přepínání timeru a unknown stav.
+- DEPLOY migrace 004 není automatická. Starší klienti 2.3.3 předpokládají schéma 003 a po migraci hlásí SCHEMA OUTDATED; napřed sjednotit verze sběrných klientů.
+- UPD verze 2.3.4.
+
 ## v2.3.3
 
 - UX v hodinovém režimu SysApps Hub přidává do hlavičky pod stav timeru poslední spuštění systemd služby včetně výsledku (OK, probíhá, chyba, dosud neproběhl).

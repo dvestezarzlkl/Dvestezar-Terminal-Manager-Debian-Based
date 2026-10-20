@@ -92,7 +92,9 @@ class HubScheduleTests(unittest.TestCase):
             )
         ) as chooser, patch.object(hub_menu, "set_schedule") as schedule, patch.object(
             cfg, "save"
-        ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
+        ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"), patch.object(
+            hub_menu.hub_runtime, "sync_core_best_effort"
+        ):
             def require_install_first():
                 schedule.assert_called_once_with("timer")
             save.side_effect = require_install_first
@@ -159,7 +161,9 @@ class HubScheduleTests(unittest.TestCase):
                 )
             ), patch.object(hub_menu, "set_schedule") as schedule, patch.object(
                 cfg, "save"
-            ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"):
+            ) as save, patch.object(hub_menu.hub_runtime, "refresh_status"), patch.object(
+                hub_menu.hub_runtime, "sync_core_best_effort"
+            ):
                 result = HubSettingsMenu().choose_sync_mode(None)
                 schedule.assert_called_once_with(selected)
                 save.assert_called_once()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import os
 import unittest
@@ -10,7 +11,7 @@ from libs.app.hub.models import (
     HubHostSnapshot,
     HubProviderSnapshot,
 )
-from libs.app.hub.schema import table_identifier
+from libs.app.hub.schema import HubSchemaManager, table_identifier
 from libs.app.hub.settings import HubSettings
 
 
@@ -38,8 +39,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 3:
-            raise AssertionError(f"Expected schema version 3, got {version}")
+        if version != 4:
+            raise AssertionError(f"Expected schema version 4, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -173,7 +174,100 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 3)
+                self.assertEqual(cursor.fetchone()[0], 4)
+
+    def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
+        old_settings = replace(
+            self.settings, database=f"{self.settings.database}_upgrade"
+        )
+        db = HubDatabase(old_settings)
+        with db.connect(include_database=False) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE `{old_settings.database}`")
+            connection.commit()
+        try:
+            with db.connect() as connection:
+                old_schema = HubSchemaManager(old_settings)
+                old_schema.migrations = old_schema.migrations[:3]
+                self.assertEqual(old_schema.apply(connection), 3)
+                hosts = table_identifier(old_settings, "hosts")
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"INSERT INTO {hosts} "
+                        "(machine_id, hostname, fqdn, first_seen_at, last_seen_at) "
+                        "VALUES (%s, %s, %s, UTC_TIMESTAMP(6), UTC_TIMESTAMP(6))",
+                        ("old-machine", "old-host", "old-host.example.test"),
+                    )
+                connection.commit()
+                new_schema = HubSchemaManager(old_settings)
+                self.assertEqual(new_schema.apply(connection), 4)
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT hostname, fqdn, name, description, auto_sync_enabled "
+                        f"FROM {hosts} WHERE machine_id=%s",
+                        ("old-machine",),
+                    )
+                    self.assertEqual(
+                        cursor.fetchone(),
+                        ("old-host", "old-host.example.test", None, None, None),
+                    )
+        finally:
+            with db.connect(include_database=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"DROP DATABASE IF EXISTS `{old_settings.database}`"
+                    )
+                connection.commit()
+
+    def test_host_ui_metadata_is_never_overwritten_by_sync(self) -> None:
+        hosts = table_identifier(self.settings, "hosts")
+        first = replace(
+            self._host("machine-metadata", "host-first"),
+            auto_sync_enabled=True,
+        )
+        self.database.sync_core(first)
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT name, description, auto_sync_enabled, "
+                    f"COALESCE(NULLIF(name, ''), NULLIF(fqdn, ''), hostname) "
+                    f"FROM {hosts} WHERE machine_id=%s",
+                    ("machine-metadata",),
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    (None, None, 1, "host-first.example.test"),
+                )
+                cursor.execute(
+                    f"UPDATE {hosts} SET name=%s, description=%s WHERE machine_id=%s",
+                    ("Výrobní server", "# Provoz\n\nRuční popis v **Markdownu**.", "machine-metadata"),
+                )
+            connection.commit()
+
+        renamed = replace(
+            first,
+            hostname="host-second",
+            fqdn="host-second.example.test",
+            auto_sync_enabled=False,
+        )
+        self.database.sync_core(renamed)
+        self.database.sync_core(replace(renamed, auto_sync_enabled=None))
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT name, description, auto_sync_enabled, fqdn FROM {hosts} "
+                    "WHERE machine_id=%s",
+                    ("machine-metadata",),
+                )
+                self.assertEqual(
+                    cursor.fetchone(),
+                    (
+                        "Výrobní server",
+                        "# Provoz\n\nRuční popis v **Markdownu**.",
+                        0,
+                        "host-second.example.test",
+                    ),
+                )
 
     def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:
         first_time = datetime.now(timezone.utc).replace(microsecond=200000)

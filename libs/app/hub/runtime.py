@@ -278,6 +278,26 @@ class HubRuntime:
         )
         return report
 
+    def sync_core_best_effort(self) -> None:
+        """Refresh host metadata after an explicit local timer mode change.
+
+        Local operation never fails because the central DB is unavailable.
+        """
+        settings = HubSettings.from_cfg()
+        if not settings.enabled:
+            return
+        try:
+            with hub_sync_lock():
+                _, database = self._ready_database()
+                database.sync_core(collect_host_snapshot())
+                self.last_sync_at = datetime.now().astimezone()
+                self.refresh_status()
+        except Exception as exc:
+            log.warning(
+                "SysApps Hub best-effort host metadata refresh skipped: %s",
+                settings.redact_error(exc),
+            )
+
     def sync_provider(self, key: str) -> tuple[bool, str]:
         settings = HubSettings.from_cfg()
         registration = self._providers.get(key)

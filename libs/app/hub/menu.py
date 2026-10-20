@@ -201,6 +201,8 @@ class HubSettingsMenu(c_menu):
                 pass
             return onSelReturn().errRet(str(exc))
         hub_runtime.refresh_status()
+        if selected != current:
+            hub_runtime.sync_core_best_effort()
         return onSelReturn(ok=TXT_HUB_SAVED)
 
     def test_systemd_sync(self, selItem: c_menu_item) -> onSelReturn:

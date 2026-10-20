@@ -222,8 +222,9 @@ class HubDatabase:
                         f"INSERT INTO {hosts} "
                         "(machine_id, hostname, fqdn, service_host, operating_system, kernel, "
                         "architecture, hardware_vendor, hardware_model, "
-                        "sys_apps_version, jblibs_version, first_seen_at, last_seen_at) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                        "sys_apps_version, jblibs_version, auto_sync_enabled, "
+                        "first_seen_at, last_seen_at) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                         "ON DUPLICATE KEY UPDATE "
                         "hostname=VALUES(hostname), fqdn=VALUES(fqdn), "
                         "service_host=VALUES(service_host), "
@@ -233,6 +234,7 @@ class HubDatabase:
                         "hardware_model=VALUES(hardware_model), "
                         "sys_apps_version=VALUES(sys_apps_version), "
                         "jblibs_version=VALUES(jblibs_version), "
+                        "auto_sync_enabled=COALESCE(VALUES(auto_sync_enabled), auto_sync_enabled), "
                         "last_seen_at=VALUES(last_seen_at)",
                         (
                             snapshot.machine_id,
@@ -246,6 +248,7 @@ class HubDatabase:
                             snapshot.hardware_model,
                             snapshot.sys_apps_version,
                             snapshot.jblibs_version,
+                            _optional_bool(snapshot.auto_sync_enabled),
                             now,
                             now,
                         ),
