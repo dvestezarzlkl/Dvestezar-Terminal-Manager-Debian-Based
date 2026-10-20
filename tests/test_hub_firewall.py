@@ -63,9 +63,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertEqual(len(screen.menu), 4)
         text = " ".join(str(item) for item in screen.menu)
         self.assertNotIn("Apply", text)
-        self.assertNotIn("ufw reload", " ".join(
-            getattr(item, "label", "") for item in screen.menu if item is not None
-        ).lower())
+        self.assertFalse(hasattr(firewall_menu.menu, "apply_rules"))
 
     def test_menu_inspect_only_reads_before_rules(self):
         source = "\n".join([
