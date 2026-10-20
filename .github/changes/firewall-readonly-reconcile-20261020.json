@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): integrate read-only UFW app, hub collector and tested semantic dry-run",
+  "replacements": [
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "from tests.test_hub_bacula_collector import HubBaculaServiceTests\n",
+      "new": "from tests.test_hub_bacula_collector import HubBaculaServiceTests\nfrom tests.test_hub_firewall import HubFirewallCollectorTests\nfrom tests.test_hub_firewall_policy import HubFirewallPolicyTests\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "      - \"libs/app/menus/app_20_node_red/**\"\n",
+      "new": "      - \"libs/app/menus/app_20_node_red/**\"\n      - \"libs/app/menus/app_40_firewall/**\"\n",
+      "expected": 2
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.5.0\"",
+      "new": "VERSION = \"2.6.0\"",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.5.0\n",
+      "new": "# Changelog\n\n## v2.6.0\n\n- ADD samostatná vestavěná podaplikace `Firewall Manager (UFW)` s bezpečným **read-only** menu (kontrola instalace/stavu UFW a původních BOF/EOF bloků v `/etc/ufw/before.rules`).\n- ADD typovaný Hub `service` provider `ufw` do stávajícího `host_services`: `ufw status`/`ufw --version` bez `ufw reload`, zápisu firewall konfigurace či vlastní SQL migrace.\n- ADD čistý UFW/OpenVPN policy parser a dry-run diff: kontrola samostatných BAN/izolačních a Hard Source Allow bloků včetně jejich pořadí, selhání při duplicitních/nekompletních markerech, deterministický SHA-256 digest účinných pravidel bez časových/auditních komentářů.\n- ADD časová logika cooldown BAN: `banTo` platí do konce uvedeného dne, vypršení mění výsledný seznam pravidel bez změny zdrojového JSON; `NO_CHANGE` nepřipravuje žádné zásahy do služby.\n- ADD manuální **náhled** porovnání proti zadanému legacy JSON/JS souboru (`p`) bez spuštění skriptu; `MISSING` a změna identity bloku vyžadují pozdější explicitní převzetí.\n- TEST unit regresní testy BOF/EOF, pořadí, původních komentářů, expirace, validací, dry-run bez procesů/zápisů, Hub service a read-only menu; CI rozšířeno o novou podaplikaci.\n- SAFE skutečný centrální desired-state fetch, automatický UFW Apply/rollback a převzetí new21 **nejsou** v této verzi implementovány. Původní ruční generátor zůstává funkční a deprecated.\n- UPD SysApps verze 2.6.0.\n\n## v2.5.0\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.5.0\n",
+      "new": "v2.6.0\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "### Node-RED manager\n\n",
+      "new": "### Firewall Manager (UFW) — zatím read-only\n\n- detekce UFW (stav/verze) při běžném hodinovém sběru SysApps Hub\n- kontrola dvou existujících bloků v `/etc/ufw/before.rules`: OpenVPN BAN/izolace a důvěryhodné zdroje\n- dry-run porovnání proti legacy JSON/JS konfiguraci, účinný hash bez generovaného času, hlídání expirace BAN\n- žádný automatický přepis, reload ani změna firewallu (Apply a rollback se připravují samostatně)\n\n### Node-RED manager\n\n",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "v1.9.3\n",
+      "new": "v2.6.0\n",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "## Current Menu Plugins\n\n",
+      "new": "## Current Menu Plugins\n\n### Firewall Manager (UFW) — read-only pilot\n\n- Detect UFW status/version via existing hourly Hub service collector.\n- Inspect managed OpenVPN BAN/isolation and trusted source allow blocks without modifying files.\n- Preview a legacy JSON/JS policy against effective UFW rules including cooldown BAN expiry; timestamps are ignored in rule comparison.\n- This release does not enable firewall Apply, UFW reload, or remote policy updates.\n\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "První pilot `sys_hub_plg/bacula_fd.py` bezpečně detekuje Bacula FD pomocí systemd, instalované binárky a verze dpkg; neotevírá `bacula-fd.conf`, neukládá hesla ani nevymýšlí FD port (9102 není zaručené nastavení). Stav `active` neznamená, že funguje centrální zálohování.\n",
+      "new": "První pilot `sys_hub_plg/bacula_fd.py` bezpečně detekuje Bacula FD pomocí systemd, instalované binárky a verze dpkg; neotevírá `bacula-fd.conf`, neukládá hesla ani nevymýšlí FD port (9102 není zaručené nastavení). Stav `active` neznamená, že funguje centrální zálohování.\n\nOd v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s `hub_provider.py` vracejícím `HubService(service_key=\"ufw\")`: výhradně read-only dotazy `ufw status` a `ufw --version`. Headless discovery používá přímo tento provider bez importu `menu.py`. Lokální menu umí zobrazit počty pravidel v oddělených blocích UFW before.rules a provést náhled `NO_CHANGE`/`CHANGED` proti zadanému starému JS/JSON; detekce ani náhled **nikdy** nespouští Apply, zápis do /etc/ufw ani UFW reload. Vypršení cooldown BAN mění digest výsledných pravidel i při nezměněném zdrojovém JSON. Centrální firewall desired-state a write transport jsou další etapa.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "Status: **analysis and DB-only groundwork** (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.\n",
+      "new": "Status: **read-only UFW inspection + pure policy comparison implemented** as SysApps 2.6.0 (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "## Existing deployed behavior\n",
+      "new": "## Read-only phase (SysApps 2.6.0)\n\nThe built-in dynamic subapplication `libs/app/menus/app_40_firewall/` now has:\n\n- `menu.py` using standard `c_menu`/localization: show UFW state, inspect owned marker blocks in `/etc/ufw/before.rules`, and explicitly preview changes against a user-selected legacy JSON/JS file. No write or apply menu action exists.\n- `hub_provider.py` returning one typed `HubService(\"ufw\", detected, status, version)` through the existing `service` dataset in `host_services`. Reads only `ufw status` and `ufw --version`. No collector-owned SQL, no schema migration.\n- `policy.py` with exact BOF/EOF block matching, duplicate/unmatched/nested marker refusal, OpenVPN-before-Hard-Source ordering validation, rule-token normalization without variable timestamps or iptables `comment` match, and ordered deterministic SHA-256 of effective actions.\n- Pure `compile_legacy_openvpn` honoring permanent/temporary BAN and forward isolation, validating IP/CIDR and client types, treating `banTo` as valid **through** its calendar day. It returns the next expiry transition date, so future hourly checks can invalidate the result even when the JSON itself is unchanged.\n- Pure `plan_legacy_openvpn`: `NO_CHANGE` / `CHANGED` / `MISSING` / `REVIEW` with hashes, rule counts, expired BAN count; never writes/reloads anything. A changed BOF identity requires review before any future automated takeover.\n\nThe hourly Hub now collects **UFW presence/status**, not yet a centralized desired-policy fetch/reconcile with Apply. `NO_CHANGE` is a read-only decision; future persistent `last_checked_at`/`last_applied_at`, staging, applied hash and transactional rollback will be a separate implementation phase. These existing sections remain untouched until that phase is tested on a VM and explicitly enabled.\n\n## Existing deployed behavior\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- Service collectors report observed state only. Do not import Bacula passwords, SSH private keys, firewall policies, or arbitrary service config; absence of a service and unknown status are distinct. For multiple endpoints or desired-state policy use separately versioned typed schema in a future phase.\n",
+      "new": "- Service collectors report observed state only. Do not import Bacula passwords, SSH private keys, firewall policies, or arbitrary service config; absence of a service and unknown status are distinct. For multiple endpoints or desired-state policy use separately versioned typed schema in a future phase.\n- SysApps 2.6.0 includes built-in read-only `app_40_firewall/hub_provider.py` emitting `ufw` service status, with policy parsing and dry-run inside the firewall app. It is not an authorization to modify UFW: no reload, file writes, or automatic Apply on hourly Hub runs. Expiring bans and effective-rule hash handling must remain independent of generated timestamp comments; preserve BOF ownership and order.\n",
+      "expected": 1
+    }
+  ]
+}
