@@ -1,4 +1,4 @@
-"""Reconciliation never reloads UFW or changes successful Apply metadata."""
+"""Reconciliation never reloads UFW, writes rules or alters successful Apply metadata."""
 from __future__ import annotations
 
 from dataclasses import replace
