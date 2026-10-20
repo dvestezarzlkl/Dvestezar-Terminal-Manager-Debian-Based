@@ -65,6 +65,27 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertNotIn("Apply", text)
         self.assertFalse(hasattr(firewall_menu.menu, "apply_rules"))
 
+    def test_legacy_preview_exposes_no_change_without_apply(self):
+        from tests.test_hub_firewall_policy import before_rules, policy_config
+
+        screen = firewall_menu.menu()
+        with patch.object(
+            firewall_menu, "get_input", return_value="/tmp/old-vpn-policy.js"
+        ), patch.object(
+            firewall_menu, "read_legacy_config", return_value=policy_config()
+        ), patch.object(
+            firewall_menu._BEFORE_RULES.__class__, "read_text",
+            return_value=before_rules(),
+        ), patch.object(
+            firewall_menu, "anyKey"
+        ), patch.object(
+            hub_provider, "_call", side_effect=AssertionError("no UFW command")
+        ), redirect_stdout(io.StringIO()) as output:
+            screen.preview_legacy_config(None)
+
+        self.assertIn("NO_CHANGE", output.getvalue())
+        self.assertIn("0", output.getvalue())
+
     def test_menu_inspect_only_reads_before_rules(self):
         source = "\n".join([
             "*filter",
