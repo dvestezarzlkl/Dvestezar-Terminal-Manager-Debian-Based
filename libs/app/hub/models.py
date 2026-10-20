@@ -114,7 +114,7 @@ class HubDiskNameUpdate:
     updated_at: datetime
 
 
-HubProviderItem = HubNodeRedInstance | HubDisk
+HubProviderItem = HubNodeRedInstance | HubDisk | HubService
 HubRemoteUpdate = HubDiskNameUpdate
 
 

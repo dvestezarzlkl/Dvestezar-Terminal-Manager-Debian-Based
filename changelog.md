@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.4.0
+
+- ADD first drop-in Hub service collector `sys_hub_plg/bacula_fd.py`: reports Bacula File Daemon installation, systemd state and dpkg version without collecting credentials, raw config or assuming the configured FD port.
+- ADD fixed `service` provider dataset for one uniquely named read-only service per collector, stored in existing `host_services` and reported via `sync_sources`; no new SQL migration.
+- SAFE core host sync now replaces only the core-owned SSH/Webmin/ISPConfig service records; other service provider records remain intact across core inventory updates.
+- TEST verifies Bacula read-only status, key collision refusal, core isolation, collector single-item validation and preservation across repeated syncs.
+- COMPAT existing DB schema 004 remains unchanged; sys_apps/JBLibs/SFTP behavior remains unchanged outside Hub.
+- UPD main SysApps version 2.4.0.
+
 ## v2.3.4
 
 - ADD SysApps Hub schema 004: uživatelsky spravované `hosts.name` (volitelný UI název; NULL = FQDN/hostname) a `hosts.description` (Markdown TEXT). Obě pole mají SQL COMMENT zakazující změnu collectorem.

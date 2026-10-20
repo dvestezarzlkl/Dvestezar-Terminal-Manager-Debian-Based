@@ -10,6 +10,7 @@ from libs.app.hub.models import (
     HubDisk,
     HubHostSnapshot,
     HubProviderSnapshot,
+    HubService,
 )
 from libs.app.hub.schema import HubSchemaManager, table_identifier
 from libs.app.hub.settings import HubSettings
@@ -268,6 +269,90 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                         "host-second.example.test",
                     ),
                 )
+
+    def test_single_service_provider_survives_core_and_cleans_own_key_only(self) -> None:
+        host = replace(
+            self._host("machine-service-inventory", "host-services"),
+            services=(HubService("ssh", True, port=2222, status="active"),),
+        )
+        self.database.sync_core(host)
+        first = self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "bacula_fd", "service",
+                (HubService("bacula_fd", True, status="active", version="13.0"),),
+            ),
+        )
+        self.assertEqual(first.item_count, 1)
+        # A second core inventory must not delete third-party service records.
+        self.database.sync_core(host)
+        table = table_identifier(self.settings, "host_services")
+        hosts = table_identifier(self.settings, "hosts")
+        sources = table_identifier(self.settings, "sync_sources")
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT s.service_key, s.port, s.detected, s.status "
+                    f"FROM {table} s JOIN {hosts} h ON s.host_id=h.id "
+                    "WHERE h.machine_id=%s ORDER BY s.service_key",
+                    (host.machine_id,),
+                )
+                self.assertEqual(
+                    cursor.fetchall(),
+                    (("bacula_fd", None, 1, "active"), ("ssh", 2222, 1, "active")),
+                )
+        # Reject provider attempts to take over a core-owned service.
+        with self.assertRaises(ValueError):
+            self.database.sync_provider(
+                host.machine_id,
+                HubProviderSnapshot("ssh", "service", (HubService("ssh", True),)),
+            )
+        with self.assertRaises(ValueError):
+            self.database.sync_provider(
+                host.machine_id,
+                HubProviderSnapshot(
+                    "bacula_fd", "service",
+                    (HubService("other", True),),
+                ),
+            )
+        # An absent service remains visible as detected=False.
+        self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "bacula_fd", "service",
+                (HubService("bacula_fd", False, status="absent"),),
+            ),
+        )
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT s.detected, s.status FROM {table} s "
+                    f"JOIN {hosts} h ON s.host_id=h.id "
+                    "WHERE h.machine_id=%s AND s.service_key=%s",
+                    (host.machine_id, "bacula_fd"),
+                )
+                self.assertEqual(cursor.fetchone(), (0, "absent"))
+        # A complete successful empty collector snapshot deletes only its row.
+        self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot("bacula_fd", "service", ()),
+        )
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT s.service_key FROM {table} s "
+                    f"JOIN {hosts} h ON s.host_id=h.id "
+                    "WHERE h.machine_id=%s",
+                    (host.machine_id,),
+                )
+                self.assertEqual(cursor.fetchall(), (("ssh",),))
+                cursor.execute(
+                    f"SELECT source_key, status, item_count FROM {sources} s "
+                    f"JOIN {hosts} h ON s.host_id=h.id "
+                    "WHERE h.machine_id=%s AND source_key=%s",
+                    (host.machine_id, "bacula_fd"),
+                )
+                self.assertEqual(cursor.fetchone(), ("bacula_fd", "ok", 0))
 
     def test_disconnected_catalog_names_sync_without_fake_attachment(self) -> None:
         first_time = datetime.now(timezone.utc).replace(microsecond=200000)

@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 # The existing Hub CI workflow invokes this test module explicitly.
 # Re-export independent headless and scheduling test cases for that runner.
 from tests.test_hub_headless import HubHeadlessTests
+from tests.test_hub_bacula_collector import HubBaculaServiceTests
 from tests.test_hub_scheduling import HubScheduleTests
 from tests.test_hub_host_metadata import HubHostMetadataTests
 from tests.test_hub_last_service_run import HubLastServiceRunTests

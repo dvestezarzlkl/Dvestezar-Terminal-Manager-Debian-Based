@@ -12,6 +12,7 @@ from .models import (
     HubNodeRedInstance,
     HubProviderSnapshot,
     HubProviderSyncResult,
+    HubService,
     HubState,
     HubStatus,
 )
@@ -21,6 +22,8 @@ from .settings import HubSettings
 
 _PTUUID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _DEVICE_NAME_RE = re.compile(r"^[A-Za-z0-9._:+-]{1,128}$")
+_SERVICE_SOURCE_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+_CORE_SERVICE_KEYS = ("ssh", "webmin", "ispconfig")
 
 
 def _utc_now() -> datetime:
@@ -278,8 +281,17 @@ class HubDatabase:
                             ],
                         )
 
-                    cursor.execute(f"DELETE FROM {services} WHERE host_id=%s", (host_id,))
+                    # Only core-owned service keys may be replaced here.
+                    # Drop-in Hub collectors own their own keys and must survive
+                    # the next core host inventory synchronization.
+                    cursor.execute(
+                        f"DELETE FROM {services} "
+                        "WHERE host_id=%s AND service_key IN (%s, %s, %s)",
+                        (host_id, *_CORE_SERVICE_KEYS),
+                    )
                     if snapshot.services:
+                        if any(item.service_key not in _CORE_SERVICE_KEYS for item in snapshot.services):
+                            raise ValueError("Core host snapshot contains a non-core service key.")
                         cursor.executemany(
                             f"INSERT INTO {services} "
                             "(host_id, service_key, detected, port, url, status, "
@@ -322,7 +334,73 @@ class HubDatabase:
             return self._sync_node_red_provider(machine_id, snapshot)
         if snapshot.dataset == "disks":
             return self._sync_disk_provider(machine_id, snapshot)
+        if snapshot.dataset == "service":
+            return self._sync_service_provider(machine_id, snapshot)
         raise ValueError(f"Unsupported Hub dataset: {snapshot.dataset}")
+
+    def _sync_service_provider(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+    ) -> HubProviderSyncResult:
+        """Synchronize one service per trusted, stable collector key.
+
+        Schema 004 remains unchanged. The single-service contract lets a new
+        sys_hub_plg/*.py report presence/version/state without any SQL changes.
+        Unlike core sync, this writer touches only its own service_key.
+        """
+        key = str(snapshot.source_key or "")
+        if not _SERVICE_SOURCE_KEY_RE.fullmatch(key) or key in _CORE_SERVICE_KEYS:
+            raise ValueError("Invalid or reserved Hub service collector key.")
+        if len(snapshot.items) > 1:
+            raise ValueError("A Hub service collector must return at most one item.")
+        record = snapshot.items[0] if snapshot.items else None
+        if record is not None:
+            if not isinstance(record, HubService) or record.service_key != key:
+                raise ValueError("Hub service item must match its collector key.")
+            if record.port is not None and (
+                isinstance(record.port, bool)
+                or not isinstance(record.port, int)
+                or not 1 <= record.port <= 65535
+            ):
+                raise ValueError("Invalid Hub service port.")
+            if any((
+                len(str(record.status)) > 64,
+                len(str(record.version)) > 128,
+                len(str(record.url)) > 512,
+            )):
+                raise ValueError("Hub service metadata exceeds column limits.")
+
+        services = table_identifier(self.settings, "host_services")
+        now = _utc_now()
+        with self.connect() as connection:
+            try:
+                with connection.cursor() as cursor:
+                    host_id = self._host_id(cursor, machine_id)
+                    cursor.execute(
+                        f"DELETE FROM {services} WHERE host_id=%s AND service_key=%s",
+                        (host_id, key),
+                    )
+                    if record is not None:
+                        cursor.execute(
+                            f"INSERT INTO {services} "
+                            "(host_id, service_key, detected, port, url, status, "
+                            "version, last_seen_at) VALUES (%s, %s, %s, %s, "
+                            "%s, %s, %s, %s)",
+                            (
+                                host_id, key, 1 if record.detected else 0,
+                                record.port, record.url, record.status,
+                                record.version, now,
+                            ),
+                        )
+                    self._upsert_source(
+                        cursor, host_id, key, "ok", 1 if record is not None else 0
+                    )
+                connection.commit()
+                return HubProviderSyncResult(1 if record is not None else 0)
+            except Exception:
+                connection.rollback()
+                raise
 
     def _sync_node_red_provider(
         self,
