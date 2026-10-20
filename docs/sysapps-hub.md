@@ -43,6 +43,7 @@ Aktuální migrace:
 - `002_disk_inventory.sql`: globální registr disků a vazby disk-host-device,
 - `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.
 - `004_host_metadata_timer.sql`: centrálně editovatelná metadata hostu a hlášené zapnutí hodinového timeru.
+- `005_host_groups.sql`: centrální skupiny serverů a volitelné přiřazení právě jedné skupiny hostu; `group_id NULL` = nepřiřazeno.
 
 ## Datové sady
 
@@ -58,6 +59,14 @@ Aktuální migrace:
 Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrálním UI editovatelná, ale lokální SysApps je nikdy neposílá ani nepřepisuje. `name = NULL` znamená zobrazit `COALESCE(NULLIF(name,''),NULLIF(fqdn,''),hostname)`; FQDN se tedy nekopíruje do uživatelského názvu. `description` ukládá surový Markdown jako `TEXT`, při převodu do HTML jej UI musí bezpečně sanitizovat. Pole `auto_sync_enabled` hlásí skutečný stav `systemctl is-enabled jb-sysapps-hub.timer`, nikoli legacy `HUB_AUTO_SYNC`, a samo neprokazuje úspěšný hodinový běh. Při chybě detekce je hodnota neznámá (`NULL`) a dříve známá hodnota v DB se nemaže. Při změně režimu přes menu proběhne best-effort synchronizace core inventáře, aby vypnutí timeru nezůstalo bez zpětné aktualizace.
 
 **Koordinace migrace 004:** starší SysApps 2.3.3 předpokládá přesnou verzi schématu 003; po globální migraci 004 začne hlásit `SCHEMA OUTDATED` a neprovede synchronizaci. Rozšíření tabulky je aditivní, ale kvůli klientské kontrole verze je nutné před migrací připravit sjednocenou aktualizaci ostatních sběrných klientů a zálohu DB. Akce `Inicializovat/aktualizovat schéma Hubu` spustí migraci až explicitně; samotný Update me ji nespouští.
+
+### Skupiny serverů (schema 005)
+
+`host_groups` je centrální, uživatelsky editovaný katalog `id INT UNSIGNED`, unikátní `code` (stabilní klíč pro policy), `name` a Markdown `description`. V `hosts` je jeden `group_id INT UNSIGNED NULL DEFAULT NULL`, s indexem a FK do `host_groups.id`. Nový i existující host je standardně bez skupiny, žádný default group se automaticky nevytváří. V případě vědomého smazání skupiny FK nastaví `hosts.group_id` na NULL. Stejně jako `hosts.name` a `hosts.description` je i `hosts.group_id` **USER-OWNED**: žádný lokální collector jej nesmí poslat ani změnit při core upsertu.
+
+Skupiny hostů slouží pro budoucí cílení pravidel `host` / `group` / `all`. **Nejsou** to skupiny zdrojových IP adres (`home`/`office`/`vpn_admin`); ty mají budoucí samostatný katalog. Tato migrace zatím neobsahuje firewall pravidla ani nespouští UFW. Viz [firewall-manager-design.md](firewall-manager-design.md).
+
+**Koordinovaný rollout 005:** SysApps 2.5.0 toleruje známou aditivní migraci 005 ještě neaplikovanou, takže může synchronizovat proti v004 a zobrazuje READY s poznámkou o dostupné migraci. Před jejím spuštěním nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.5.0 a zazálohuj DB. Starší 2.4.0 se po spuštění 005 odpojí hláškou `SCHEMA OUTDATED`. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me.
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 

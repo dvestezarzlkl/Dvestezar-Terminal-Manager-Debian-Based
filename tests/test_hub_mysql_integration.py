@@ -11,6 +11,7 @@ from libs.app.hub.models import (
     HubHostSnapshot,
     HubProviderSnapshot,
     HubService,
+    HubState,
 )
 from libs.app.hub.schema import HubSchemaManager, table_identifier
 from libs.app.hub.settings import HubSettings
@@ -40,8 +41,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 4:
-            raise AssertionError(f"Expected schema version 4, got {version}")
+        if version != 5:
+            raise AssertionError(f"Expected schema version 5, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -175,7 +176,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 4)
+                self.assertEqual(cursor.fetchone()[0], 5)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -201,6 +202,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     )
                 connection.commit()
                 new_schema = HubSchemaManager(old_settings)
+                new_schema.migrations = new_schema.migrations[:4]
                 self.assertEqual(new_schema.apply(connection), 4)
                 with connection.cursor() as cursor:
                     cursor.execute(
@@ -212,6 +214,128 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                         cursor.fetchone(),
                         ("old-host", "old-host.example.test", None, None, None),
                     )
+        finally:
+            with db.connect(include_database=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"DROP DATABASE IF EXISTS `{old_settings.database}`"
+                    )
+                connection.commit()
+
+
+    def test_optional_005_group_migration_and_user_owned_membership(self) -> None:
+        # A separate fixture database protects unrelated Hub installation data.
+        old_settings = replace(
+            self.settings, database=f"{self.settings.database}_groups"
+        )
+        db = HubDatabase(old_settings)
+        with db.connect(include_database=False) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP DATABASE IF EXISTS `{old_settings.database}`")
+                cursor.execute(f"CREATE DATABASE `{old_settings.database}`")
+            connection.commit()
+        try:
+            with db.connect() as connection:
+                old_schema = HubSchemaManager(old_settings)
+                old_schema.migrations = old_schema.migrations[:4]
+                self.assertEqual(old_schema.apply(connection), 4)
+
+            # The 2.5.0 writer must remain usable while shared DB stays at 004.
+            before = db.check_status()
+            self.assertEqual(before.state, HubState.READY)
+            self.assertEqual(before.schema_version, 4)
+            self.assertIn("optional schema upgrade", before.message)
+            db.sync_core(self._host("new-host", "new-host"))
+
+            with db.connect() as connection:
+                manager = HubSchemaManager(old_settings)
+                self.assertEqual(manager.apply(connection), 5)
+                self.assertTrue(manager.check(connection).current)
+
+            hosts = table_identifier(old_settings, "hosts")
+            groups = table_identifier(old_settings, "host_groups")
+            with db.connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT group_id FROM {hosts} WHERE machine_id=%s",
+                        ("new-host",),
+                    )
+                    self.assertEqual(cursor.fetchone(), (None,))
+                    cursor.execute(
+                        f"INSERT INTO {groups} (code, name, description) "
+                        "VALUES (%s,%s,%s)",
+                        ("production", "Production", "# Server fleet"),
+                    )
+                    group_id = cursor.lastrowid
+                    cursor.execute(
+                        f"UPDATE {hosts} SET group_id=%s WHERE machine_id=%s",
+                        (group_id, "new-host"),
+                    )
+                connection.commit()
+
+            # Neither core sync nor a later hostname change may reset group_id.
+            db.sync_core(self._host("new-host", "renamed-host"))
+            db.sync_core(self._host("fresh-host", "fresh-host"))
+            with db.connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT machine_id, group_id FROM {hosts} "
+                        "ORDER BY machine_id"
+                    )
+                    self.assertEqual(
+                        cursor.fetchall(),
+                        (("fresh-host", None), ("new-host", group_id)),
+                    )
+                    # Renaming or removing a group is a central user operation.
+                    cursor.execute(f"DELETE FROM {groups} WHERE id=%s", (group_id,))
+                connection.commit()
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT group_id FROM {hosts} WHERE machine_id=%s",
+                        ("new-host",),
+                    )
+                    self.assertEqual(cursor.fetchone(), (None,))
+        finally:
+            with db.connect(include_database=False) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"DROP DATABASE IF EXISTS `{old_settings.database}`"
+                    )
+                connection.commit()
+
+    def test_schema_004_mandatory_and_005_checksum_guard(self) -> None:
+        # Do not tolerate missing mandatory 004 or an altered known migration.
+        old_settings = replace(
+            self.settings, database=f"{self.settings.database}_integrity"
+        )
+        db = HubDatabase(old_settings)
+        with db.connect(include_database=False) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP DATABASE IF EXISTS `{old_settings.database}`")
+                cursor.execute(f"CREATE DATABASE `{old_settings.database}`")
+            connection.commit()
+        try:
+            with db.connect() as connection:
+                old_schema = HubSchemaManager(old_settings)
+                old_schema.migrations = old_schema.migrations[:3]
+                self.assertEqual(old_schema.apply(connection), 3)
+                check = HubSchemaManager(old_settings).check(connection)
+                self.assertFalse(check.current)
+                self.assertEqual(check.current_version, 3)
+                self.assertEqual(check.latest_version, 5)
+            db.initialize_or_upgrade_schema()
+            migrations = table_identifier(old_settings, "schema_migrations")
+            with db.connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"UPDATE {migrations} SET checksum_sha256=%s "
+                        "WHERE version=5",
+                        ("0" * 64,),
+                    )
+                connection.commit()
+                check = HubSchemaManager(old_settings).check(connection)
+                self.assertFalse(check.current)
+                self.assertIn("Checksum mismatch", check.error)
         finally:
             with db.connect(include_database=False) as connection:
                 with connection.cursor() as cursor:

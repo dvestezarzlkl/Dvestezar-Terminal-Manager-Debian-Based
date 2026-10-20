@@ -24,15 +24,23 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4])
+        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5])
         initial = migrations[0].render(self.settings.prefix)
         disks = migrations[1].render(self.settings.prefix)
         service_host = migrations[2].render(self.settings.prefix)
         metadata = migrations[3].render(self.settings.prefix)
+        groups = migrations[4].render(self.settings.prefix)
         self.assertEqual(len(initial), 7)
         self.assertEqual(len(disks), 2)
         self.assertEqual(len(service_host), 1)
         self.assertEqual(len(metadata), 1)
+        self.assertEqual(len(groups), 2)
+        self.assertIn("CREATE TABLE IF NOT EXISTS `hub_host_groups`", groups[0])
+        self.assertIn("`id` INT UNSIGNED", groups[0])
+        self.assertIn("UNIQUE KEY `uq_host_groups_code`", groups[0])
+        self.assertIn("ADD COLUMN `group_id` INT UNSIGNED NULL DEFAULT NULL", groups[1])
+        self.assertIn("ON DELETE SET NULL", groups[1])
+        self.assertIn("USER-OWNED", groups[1])
         self.assertIn("`name` VARCHAR(255) NULL", metadata[0])
         self.assertIn("`description` TEXT NULL", metadata[0])
         self.assertIn("`auto_sync_enabled` TINYINT(1) NULL", metadata[0])
@@ -59,6 +67,7 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_table_identifier_accepts_only_fixed_suffixes(self):
         self.assertEqual(table_identifier(self.settings, "hosts"), "`hub_hosts`")
+        self.assertEqual(table_identifier(self.settings, "host_groups"), "`hub_host_groups`")
         self.assertEqual(table_identifier(self.settings, "disks"), "`hub_disks`")
         self.assertEqual(
             table_identifier(self.settings, "host_disks"), "`hub_host_disks`"
