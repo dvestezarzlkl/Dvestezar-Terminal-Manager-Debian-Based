@@ -62,6 +62,15 @@ class HubBaculaServiceTests(unittest.TestCase):
         self.assertTrue(report.items[0].detected)
         self.assertEqual(report.items[0].status, "unknown")
 
+    def test_package_version_is_bounded_and_never_reads_bacula_config(self):
+        package = SimpleNamespace(returncode=0, stdout="1" * 200)
+        with patch.object(bacula_fd, "_run", return_value=package) as execute:
+            version = bacula_fd._package_version()
+        self.assertEqual(len(version), 128)
+        execute.assert_called_once_with([
+            "dpkg-query", "-W", "-f=${Version}", "bacula-fd"
+        ])
+
     def test_collection_does_not_run_bacula_or_read_config(self):
         calls = []
         def fake_run(args):
