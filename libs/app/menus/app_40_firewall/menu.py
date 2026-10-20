@@ -10,11 +10,12 @@ loadLng()
 from libs.JBLibs.c_menu import (
     c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn,
 )
-from libs.JBLibs.input import anyKey
+from libs.JBLibs.input import anyKey, get_input
 from libs.JBLibs.term import en_color, text_color
 
 from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
-from .policy import FirewallPolicyError, inspect_before_rules
+from .policy import (FirewallPolicyError, inspect_before_rules,
+                     plan_legacy_openvpn, read_legacy_config)
 
 _MENU_NAME_ = TXT_FW_MENU
 _HUB_PROVIDER_KEY_ = HUB_PROVIDER_KEY
@@ -37,7 +38,36 @@ class menu(c_menu):
             c_menu_title_label(text_color(TXT_FW_READ_ONLY, en_color.BRIGHT_YELLOW)),
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
             c_menu_item(TXT_FW_STATUS, "s", self.inspect_status),
+            c_menu_item(TXT_FW_PREVIEW, "p", self.preview_legacy_config),
         ]
+
+    def preview_legacy_config(self, selItem: c_menu_item) -> onSelReturn:
+        """Read-only comparison against an explicitly selected old JSON/JS config."""
+        selected = get_input(TXT_FW_PROMPT_PATH, minMessageWidth=self.minMenuWidth)
+        if not selected:
+            return onSelReturn().errRet(TXT_FW_CANCELLED)
+        path = Path(str(selected).strip())
+        if not path.is_absolute():
+            return onSelReturn().errRet(TXT_FW_REQUIRE_ABSOLUTE)
+        try:
+            source = read_legacy_config(path)
+            current = _BEFORE_RULES.read_text(encoding="utf-8")
+            result = plan_legacy_openvpn(current, source)
+        except (OSError, UnicodeError, FirewallPolicyError) as exc:
+            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
+        print(TXT_FW_PREVIEW_STATUS.format(status=result.status))
+        print(TXT_FW_PREVIEW_RULES.format(
+            current=result.current_rules,
+            desired=result.effective_rules,
+            expired=result.expired_bans,
+        ))
+        if result.next_expiry:
+            print(TXT_FW_NEXT_EXPIRY.format(day=result.next_expiry.isoformat()))
+        if result.reason:
+            print(result.reason)
+        print(TXT_FW_NO_RELOAD)
+        anyKey()
+        return onSelReturn(ok=TXT_FW_PREVIEW_STATUS.format(status=result.status))
 
     def inspect_status(self, selItem: c_menu_item) -> onSelReturn:
         status = inspect_ufw_service()
