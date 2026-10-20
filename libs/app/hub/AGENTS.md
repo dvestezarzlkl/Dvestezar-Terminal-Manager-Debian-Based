@@ -13,6 +13,8 @@
 - Dynamic `app_*` providers register through module-level `_HUB_PROVIDER_KEY_` and `hub_collect(context)`. Provider keys must be stable, unique, lowercase identifiers.
 - A bidirectional provider may additionally expose `hub_apply_remote(updates)`. The central writer returns typed updates only after its transaction commits; a provider must never read the database directly.
 - The central runtime maps a fixed dataset name to a fixed writer. A provider cannot select or construct a table name.
+- From SysApps 2.4.0, fixed dataset `service` supports a single HubService per drop-in collector (`HubProviderSnapshot(source_key, "service", items)` with zero or one item, stable `service_key=source_key`). Reserve core keys ssh/webmin/ispconfig; the writer only changes its own service key and the core writer must delete only those three core rows, never other providers. This reuses schema 004, no plugin SQL is executed.
+- Service collectors report observed state only. Do not import Bacula passwords, SSH private keys, firewall policies, or arbitrary service config; absence of a service and unknown status are distinct. For multiple endpoints or desired-state policy use separately versioned typed schema in a future phase.
 - Table identifiers are built only from a strictly validated global prefix and a hard-coded suffix allowlist. All values use parameterized SQL.
 - Schema changes belong in ordered `migrations/NNN_name.sql` files. The only supported template placeholder is `{{PREFIX}}`; statements are separated by a line containing exactly `-- statement`.
 - Applied migrations are recorded with version and SHA-256. A checksum mismatch is an error and must never be silently accepted.

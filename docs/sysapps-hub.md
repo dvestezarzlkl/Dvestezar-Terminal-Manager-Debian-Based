@@ -87,7 +87,13 @@ def hub_collect(context):
     return HubProviderSnapshot("bacula_fd", "inventory_items", items)
 ```
 
-**Důležitá hranice:** obecný dataset `inventory_items` ani plugin-local schema migrace v této etapě ještě nejsou implementovány. Současný DB writer přijímá pouze existující typované datasety. Nový plugin nesmí sám provádět SQL; rozšíření tabulek bude v další etapě řešit centrální migrátor s verzemi, SHA-256 a kontrolou namespace. Záměr je zachovat možnost přidat nový jednoduchý collector jediným souborem, aniž by získal přístup k DB.
+### Samostatný jednoduchý service collector bez SQL migrace
+
+Od verze 2.4.0 lze v `sys_hub_plg` přidat jediný Python modul, který deklaruje `HUB_PROVIDER_KEY` a `hub_collect(context)`, vracející `HubProviderSnapshot(HUB_PROVIDER_KEY, "service", (HubService(HUB_PROVIDER_KEY, detected=..., status=..., version=...),))`. Tento kontrakt je záměrně úzký: nejvýše jedna služba na plugin, stabilní unikátní klíč shodný s `service_key`, bez rezervovaných klíčů `ssh`, `webmin` a `ispconfig`. Typované údaje zapíše jen pevný centrální writer do stávající `host_services`, a to výhradně pod klíčem příslušného pluginu. Prázdný úspěšný snapshot smaže pouze vlastní záznam, výjimka/selhání ponechá poslední úspěšná data. Core synchronizace nyní maže jen své tři pevné služby, takže nemůže odstranit výsledek sběrného pluginu.
+
+První pilot `sys_hub_plg/bacula_fd.py` bezpečně detekuje Bacula FD pomocí systemd, instalované binárky a verze dpkg; neotevírá `bacula-fd.conf`, neukládá hesla ani nevymýšlí FD port (9102 není zaručené nastavení). Stav `active` neznamená, že funguje centrální zálohování.
+
+**Důležitá hranice:** obecný dataset `inventory_items`, více služeb/endpointů na jeden collector, plugin-local SQL migrace ani správa firewall/SSH desired-state zatím nejsou implementovány. Pro tyto složitější případy bude v další etapě potřeba samostatný typovaný dataset a centrální kontrola SQL schématu. Plugin nemá SQL spojení ani libovolný writer.
 
 ## Provider kontrakt
 
