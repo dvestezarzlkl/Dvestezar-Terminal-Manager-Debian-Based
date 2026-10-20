@@ -21,7 +21,13 @@ _ALLOWED_TABLES = frozenset({
     "node_red_editor_users",
     "disks",
     "host_disks",
+    "host_groups",
 })
+
+# Migration 005 is additive and its host group data is USER-OWNED.
+# Clients on 2.5.0 can continue syncing with existing schema 004 while the
+# fleet is upgraded. Do not apply 005 until old (2.4.0) clients are upgraded.
+_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5})
 
 
 @dataclass(frozen=True)
@@ -130,12 +136,21 @@ class HubSchemaManager:
             applied = {int(row[0]): str(row[1]) for row in cursor.fetchall()}
 
         current_version = max(applied, default=0)
+        known_versions = {migration.version for migration in self.migrations}
+        unknown_versions = sorted(set(applied) - known_versions)
+        if unknown_versions:
+            return SchemaCheck(
+                True, False, current_version, self.latest_version,
+                f"Unsupported schema migrations: {unknown_versions}. "
+                "Update SysApps before using this database.",
+            )
+
+        missing_versions: list[int] = []
         for migration in self.migrations:
             applied_checksum = applied.get(migration.version)
             if applied_checksum is None:
-                return SchemaCheck(
-                    True, False, current_version, self.latest_version
-                )
+                missing_versions.append(migration.version)
+                continue
             if applied_checksum != migration.checksum:
                 return SchemaCheck(
                     True,
@@ -144,9 +159,17 @@ class HubSchemaManager:
                     self.latest_version,
                     f"Checksum mismatch for migration {migration.filename}.",
                 )
+
+        # The previous schema can still serve existing inventory writers if
+        # every missing migration is explicitly marked additive/optional.
+        # Never silently tolerate a missing structural/required migration.
+        compatible = not missing_versions or all(
+            version in _OPTIONAL_ADDITIVE_MIGRATIONS
+            for version in missing_versions
+        )
         return SchemaCheck(
             True,
-            current_version == self.latest_version,
+            compatible,
             current_version,
             self.latest_version,
         )

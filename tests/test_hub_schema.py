@@ -24,15 +24,23 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4])
+        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5])
         initial = migrations[0].render(self.settings.prefix)
         disks = migrations[1].render(self.settings.prefix)
         service_host = migrations[2].render(self.settings.prefix)
         metadata = migrations[3].render(self.settings.prefix)
+        groups = migrations[4].render(self.settings.prefix)
         self.assertEqual(len(initial), 7)
         self.assertEqual(len(disks), 2)
         self.assertEqual(len(service_host), 1)
         self.assertEqual(len(metadata), 1)
+        self.assertEqual(len(groups), 2)
+        self.assertIn("CREATE TABLE IF NOT EXISTS `hub_host_groups`", groups[0])
+        self.assertIn("`id` INT UNSIGNED", groups[0])
+        self.assertIn("UNIQUE KEY `uq_host_groups_code`", groups[0])
+        self.assertIn("ADD COLUMN `group_id` INT UNSIGNED NULL DEFAULT NULL", groups[1])
+        self.assertIn("ON DELETE SET NULL", groups[1])
+        self.assertIn("USER-OWNED", groups[1])
         self.assertIn("`name` VARCHAR(255) NULL", metadata[0])
         self.assertIn("`description` TEXT NULL", metadata[0])
         self.assertIn("`auto_sync_enabled` TINYINT(1) NULL", metadata[0])
@@ -51,6 +59,94 @@ class HubSchemaTests(unittest.TestCase):
             )
         )
 
+    def test_only_additive_migration_005_may_be_pending(self):
+        from libs.app.hub.schema import HubSchemaManager
+
+        class Cursor:
+            def __init__(self, checksums):
+                self.checksums = checksums
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def execute(self, sql, params=None):
+                self.sql = sql
+
+            def fetchone(self):
+                return (1,)
+
+            def fetchall(self):
+                return sorted(self.checksums.items())
+
+        class Connection:
+            def __init__(self, checksums):
+                self.checksums = checksums
+
+            def cursor(self):
+                return Cursor(self.checksums)
+
+        manager = HubSchemaManager(self.settings)
+        known = {m.version: m.checksum for m in manager.migrations}
+        pending_005 = manager.check(Connection({
+            k: v for k, v in known.items() if k <= 4
+        }))
+        self.assertTrue(pending_005.current)
+        self.assertEqual((pending_005.current_version, pending_005.latest_version), (4, 5))
+
+        missing_mandatory_004 = manager.check(Connection({
+            k: v for k, v in known.items() if k <= 3
+        }))
+        self.assertFalse(missing_mandatory_004.current)
+
+        unexpected_future = manager.check(Connection({
+            **known, 6: "0" * 64
+        }))
+        self.assertFalse(unexpected_future.current)
+        self.assertIn("Unsupported schema migrations", unexpected_future.error)
+
+        corrupted_checksum = manager.check(Connection({
+            **known, 5: "0" * 64
+        }))
+        self.assertFalse(corrupted_checksum.current)
+        self.assertIn("Checksum mismatch", corrupted_checksum.error)
+
+    def test_manual_schema_upgrade_warns_before_breaking_legacy_clients(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from libs.app.hub.menu import HubSettingsMenu
+
+        status = SimpleNamespace(schema_version=4)
+        with patch("libs.app.hub.menu.confirm", side_effect=[True, False]) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch("libs.app.hub.menu.hub_runtime.initialize_schema") as apply:
+            HubSettingsMenu.initialize_schema(None, None)
+            self.assertEqual(ask.call_count, 2)
+            apply.assert_not_called()
+
+        with patch("libs.app.hub.menu.confirm", side_effect=[True, True]) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch(
+            "libs.app.hub.menu.hub_runtime.initialize_schema",
+            return_value=(True, "schema ready"),
+        ) as apply:
+            HubSettingsMenu.initialize_schema(None, None)
+            self.assertEqual(ask.call_count, 2)
+            apply.assert_called_once_with()
+
+        # Fresh installations have no older fleet to coordinate.
+        status = SimpleNamespace(schema_version=0)
+        with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch(
+            "libs.app.hub.menu.hub_runtime.initialize_schema",
+            return_value=(True, "schema ready"),
+        ):
+            HubSettingsMenu.initialize_schema(None, None)
+            ask.assert_called_once()
+
     def test_statement_marker_is_explicit(self):
         statements = split_migration_statements(
             "-- heading\n-- statement\nSELECT 1\n-- statement\nSELECT 2"
@@ -59,6 +155,7 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_table_identifier_accepts_only_fixed_suffixes(self):
         self.assertEqual(table_identifier(self.settings, "hosts"), "`hub_hosts`")
+        self.assertEqual(table_identifier(self.settings, "host_groups"), "`hub_host_groups`")
         self.assertEqual(table_identifier(self.settings, "disks"), "`hub_disks`")
         self.assertEqual(
             table_identifier(self.settings, "host_disks"), "`hub_host_disks`"

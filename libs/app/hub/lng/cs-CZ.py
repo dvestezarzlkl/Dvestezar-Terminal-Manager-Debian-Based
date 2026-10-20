@@ -63,6 +63,7 @@ TXT_HUB_PACKAGE_OUTPUT = "Šifrovaný balík nastavení SysApps Hub (jeden řád
 TXT_HUB_PACKAGE_INPUT = "Vložte šifrovaný balík nastavení SysApps Hub:"
 TXT_HUB_IMPORT_CONFIRM = "Importovat a nahradit současné databázové nastavení SysApps Hub?"
 TXT_HUB_SCHEMA_CONFIRM = "Vytvořit nakonfigurovanou databázi podle potřeby a aplikovat důvěryhodné migrace SysApps Hub?"
+TXT_HUB_SCHEMA005_FLEET_CONFIRM = "POZOR: Migrace Hub schématu 005 zastaví synchronizaci na starších klientech SysApps 2.4.0 a nižších. Jsou VŠICHNI klienti Hubu aktualizovaní na 2.5.0 a je vytvořená záloha sdílené databáze?"
 TXT_HUB_SYNC_CONFIRM = "Synchronizovat nyní toto zařízení a všechny registrované poskytovatele?"
 TXT_HUB_SYNC_CORE = "Základní inventář byl synchronizován."
 TXT_HUB_WARNING = "Upozornění"

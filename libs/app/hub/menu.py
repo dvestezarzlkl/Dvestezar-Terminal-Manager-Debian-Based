@@ -331,6 +331,13 @@ class HubSettingsMenu(c_menu):
     def initialize_schema(self, selItem: c_menu_item) -> onSelReturn:
         if not confirm(TXT_HUB_SCHEMA_CONFIRM):
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
+        # Schema 005 is additive, but legacy 2.4.0 clients refuse the newer
+        # shared DB. This additional approval is never automatic and only
+        # appears when a migration is pending for an existing installation.
+        status = hub_runtime.refresh_status()
+        if 0 < status.schema_version < 5:
+            if not confirm(TXT_HUB_SCHEMA005_FLEET_CONFIRM):
+                return onSelReturn().errRet(TXT_HUB_CANCELLED)
         print("SysApps Hub: applying database migrations...")
         ok, message = hub_runtime.initialize_schema()
         if not ok:
