@@ -59,6 +59,60 @@ class HubSchemaTests(unittest.TestCase):
             )
         )
 
+    def test_only_additive_migration_005_may_be_pending(self):
+        from libs.app.hub.schema import HubSchemaManager
+
+        class Cursor:
+            def __init__(self, checksums):
+                self.checksums = checksums
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def execute(self, sql, params=None):
+                self.sql = sql
+
+            def fetchone(self):
+                return (1,)
+
+            def fetchall(self):
+                return sorted(self.checksums.items())
+
+        class Connection:
+            def __init__(self, checksums):
+                self.checksums = checksums
+
+            def cursor(self):
+                return Cursor(self.checksums)
+
+        manager = HubSchemaManager(self.settings)
+        known = {m.version: m.checksum for m in manager.migrations}
+        pending_005 = manager.check(Connection({
+            k: v for k, v in known.items() if k <= 4
+        }))
+        self.assertTrue(pending_005.current)
+        self.assertEqual((pending_005.current_version, pending_005.latest_version), (4, 5))
+
+        missing_mandatory_004 = manager.check(Connection({
+            k: v for k, v in known.items() if k <= 3
+        }))
+        self.assertFalse(missing_mandatory_004.current)
+
+        unexpected_future = manager.check(Connection({
+            **known, 6: "0" * 64
+        }))
+        self.assertFalse(unexpected_future.current)
+        self.assertIn("Unsupported schema migrations", unexpected_future.error)
+
+        corrupted_checksum = manager.check(Connection({
+            **known, 5: "0" * 64
+        }))
+        self.assertFalse(corrupted_checksum.current)
+        self.assertIn("Checksum mismatch", corrupted_checksum.error)
+
     def test_statement_marker_is_explicit(self):
         statements = split_migration_statements(
             "-- heading\n-- statement\nSELECT 1\n-- statement\nSELECT 2"
