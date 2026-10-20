@@ -66,7 +66,7 @@ Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrá
 
 Skupiny hostů slouží pro budoucí cílení pravidel `host` / `group` / `all`. **Nejsou** to skupiny zdrojových IP adres (`home`/`office`/`vpn_admin`); ty mají budoucí samostatný katalog. Tato migrace zatím neobsahuje firewall pravidla ani nespouští UFW. Viz [firewall-manager-design.md](firewall-manager-design.md).
 
-**Koordinovaný rollout 005:** SysApps 2.5.0 toleruje známou aditivní migraci 005 ještě neaplikovanou, takže může synchronizovat proti v004 a zobrazuje READY s poznámkou o dostupné migraci. Před jejím spuštěním nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.5.0 a zazálohuj DB. Starší 2.4.0 se po spuštění 005 odpojí hláškou `SCHEMA OUTDATED`. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me.
+**Koordinovaný rollout 005:** SysApps 2.5.0 toleruje známou aditivní migraci 005 ještě neaplikovanou, takže může synchronizovat proti v004 a zobrazuje READY s poznámkou o dostupné migraci. Před jejím spuštěním nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.5.0 a zazálohuj DB. Starší 2.4.0 se po spuštění 005 odpojí hláškou `SCHEMA OUTDATED`. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me. Při upgradu již existující DB se v menu zobrazí dodatečné výslovné potvrzení koordinace celé flotily a zálohy. Samotné potvrzení neověřuje živý stav všech ostatních strojů, proto musí jejich aktuálnost administrátor předem zkontrolovat.
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 

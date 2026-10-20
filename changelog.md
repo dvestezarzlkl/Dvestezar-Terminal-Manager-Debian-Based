@@ -5,7 +5,7 @@
 - ADD SysApps Hub schema 005: centrálně USER-OWNED `host_groups(id, code, name, description)` a volitelný `hosts.group_id INT UNSIGNED NULL DEFAULT NULL` (FK ON DELETE SET NULL); každý host patří nejvýše do jedné skupiny.
 - SAFE nový i existující host zůstává ve výchozím stavu bez skupiny a opakovaný Core/Plugin sync nikdy nemění `group_id` ani definici skupin.
 - COMPAT klient SysApps 2.5.0 může synchronizovat proti sdílenému schématu 004; stav READY ukáže dostupnou volitelnou migraci 005. Chybějící povinné migrace nebo nesouhlas checksumu zůstávají blokující.
-- DEPLOY migraci 005 spustit explicitně v menu **až po aktualizaci všech Hub klientů** na 2.5.0. Klient 2.4.0 s novým schématem 005 hlásí SCHEMA OUTDATED; nic se nemigruje při Update me.
+- DEPLOY migraci 005 spustit explicitně v menu **až po aktualizaci všech Hub klientů** na 2.5.0. Klient 2.4.0 s novým schématem 005 hlásí SCHEMA OUTDATED; nic se nemigruje při Update me. Menu vyžaduje navíc zvláštní potvrzení aktualizace flotily a zálohy DB.
 - DOC analýza existujícího UFW/OpenVPN skriptu a návrh náhrady ve Firewall Manageru včetně samostatných pravidel pro VPN BAN a důvěryhodné zdroje; žádné změny firewallu.
 - TEST migrace 004->005, nulová skupina, ochrana user-owned membership, FK ON DELETE SET NULL, schema READY na 004 a checksum/required-migration guard.
 - UPD verze 2.5.0.
