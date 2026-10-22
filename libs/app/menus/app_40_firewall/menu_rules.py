@@ -102,12 +102,17 @@ def _rule_label(rule: FirewallRule) -> str:
             f"{_color_protocol(rule.protocol)} {source} -> {destination}{ports}")
 
 
-def _confirm_rule(rule: FirewallRule) -> bool:
+def _confirm_rule(rule: FirewallRule, config: FirewallConfig | None = None) -> bool:
     summary = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
     summary.append((TXT_FW_EDITOR_NAME.rstrip(":"), rule.name))
     summary.append((TXT_FW_EDITOR_ADD_TYPE, rule.kind))
     summary.append((TXT_FW_EDITOR_ENABLED if rule.enabled else TXT_FW_EDITOR_DISABLED, ""))
     if rule.kind == "vpn_ban":
+        if config is not None:
+            summary.append((TXT_FW_EDITOR_VPN_NAME.rstrip(":"), config.openvpn_server_name))
+            summary.append((TXT_FW_EDITOR_VPN_IP.rstrip(":"), config.openvpn_server_ip))
+            summary.append((TXT_FW_EDITOR_VPN_MASK.rstrip(":"), str(config.openvpn_server_mask)))
+            summary.append((TXT_FW_EDITOR_INTERFACE.rstrip(":"), config.openvpn_interface))
         summary.append((TXT_FW_EDITOR_SOURCE.rstrip(":"), rule.source))
         summary.append((TXT_FW_EDITOR_BAN_TO.rstrip(":"), rule.ban_to or "-"))
     else:
@@ -229,7 +234,7 @@ class FirewallRulesMenu(c_menu):
             rule = self._edit_standard(None)
         if rule is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
-        if not _confirm_rule(rule):
+        if not _confirm_rule(rule, cfg):
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         try:
             return self._save(append_rule(cfg, rule))
@@ -275,7 +280,7 @@ class FirewallRulesMenu(c_menu):
         )
         if edited is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
-        if not _confirm_rule(edited):
+        if not _confirm_rule(edited, cfg):
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         try:
             return self._save(replace_rule(cfg, edited))
