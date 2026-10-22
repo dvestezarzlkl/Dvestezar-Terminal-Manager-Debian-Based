@@ -115,6 +115,8 @@ def normalize_port_spec(value: object, label: str) -> str:
     if not isinstance(value, str):
         raise FirewallConfigError(f"{label} must be a string.")
     text = value.strip()
+    if len(text) > 1024:
+        raise FirewallConfigError(f"{label} exceeds 1024 characters.")
     if not _PORT_LIST_RE.fullmatch(text):
         raise FirewallConfigError(f"Invalid {label}: expected 80,443,3000-3010.")
     ranges = []
