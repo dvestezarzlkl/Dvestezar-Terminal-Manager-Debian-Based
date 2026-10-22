@@ -81,3 +81,7 @@ TXT_FW_EDITOR_CONFIRM_SAVE = "Save this rule to local firewall.json and synchron
 TXT_FW_EDITOR_IFACE_ANY = "Any interface"
 TXT_FW_EDITOR_IFACE_MANUAL = "Enter interface manually / pattern (e.g. tun+)"
 TXT_FW_EDITOR_IFACE_OLD = "Previously configured: {name} (not detected)"
+
+TXT_FW_NOT_INSTALLED = "UFW is not available on this system."
+TXT_FW_INACTIVE = "UFW is inactive. Activation may disconnect the remote session; protected activation is not implemented."
+TXT_FW_UNKNOWN_STATUS = "UFW status is unknown; firewall management is unavailable."
