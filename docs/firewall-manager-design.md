@@ -111,3 +111,29 @@ the new manager against the same managed block concurrently.
 5. VM adopt/import of both marker blocks, test rollback and repeated idempotent Apply, then gradual opt-in fleet migration. Only after verified takeover disable legacy script/cron.
 
 This design intentionally avoids replacing the existing working new21 rules with unverified code.
+
+## SysApps 2.8.0 / Firewall Manager 0.3.0: port-scoped local rules
+
+The canonical local file remains `/etc/jb_sys_apps/firewall.json` with distinct
+`kind=vpn_ban` (legacy OpenVPN BAN) and `kind=standard` (ordinary firewall
+desired-state rules). The latter has independent `src_ports` and `dst_ports`
+string expressions: `22,80,443,3000-3010`. An empty expression means all
+ports; expressions are valid only for TCP/UDP and are canonicalized in ascending
+order. Port numbers must be 1..65535; overlapping/duplicate ranges are invalid.
+Previously saved `port_from/port_to` are interpreted as destination ports and
+normalized on read/save without losing the original rule ID.
+
+The editor is exclusively JBLibs `c_menu`, `select()`, `get_input(rgx=...)`,
+`printBlock()`, terminal text-coloring and `confirm()`. Both Add and Edit display
+full destination/source, direction, action, protocol, interfaces, ports and
+wildcard values before any save; a rejected confirmation has no write or Hub
+side effect. The UFW runtime is still read-only.
+
+Hub schema migration `007_firewall_port_specs.sql` adds the two port columns to
+the immutable `006_firewall_rules` schema. The collector requires schema >=007
+to avoid dropping port expressions when syncing older schema 006. Only
+`origin=host_local,target_kind=host` rows on the current machine are replaced;
+`central` rows and other hosts/groups are never touched. Update all
+Hub-enabled clients and take a central DB backup before applying migration 007
+manually from the Hub schema menu. This step is distinct from UFW Apply, which
+is not implemented.
