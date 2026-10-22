@@ -8,7 +8,7 @@ from .lng.default import *
 from libs.JBLibs.helper import loadLng
 loadLng()
 
-from libs.JBLibs.c_menu import c_menu, c_menu_item, c_menu_title_label, onSelReturn
+from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn
 from libs.JBLibs.input import confirm, get_input, select, select_item
 
 from .config import (
@@ -42,7 +42,7 @@ def _prompt(
         note = TXT_FW_EDITOR_CURRENT.format(value=current)
     value = get_input(
         message,
-        accept_empty=not required,
+        accept_empty=(not required or current not in (None, "")),
         maxLen=max_len,
         titleNote=note,
         minMessageWidth=width,
@@ -81,13 +81,15 @@ class FirewallRulesMenu(c_menu):
     def onShowMenu(self) -> None:
         try:
             cfg = load_config()
-            self.subTitle = [
+            self.subTitle = c_menu_block_items([
                 (TXT_FW_EDITOR_CONFIG, str(config_path(create_dir=False))),
                 (TXT_FW_EDITOR_COUNT, str(len(cfg.rules))),
-            ]
+            ])
             rules = list(cfg.rules)
         except FirewallConfigError as exc:
-            self.subTitle = [(TXT_FW_EDITOR_CONFIG, str(config_path(create_dir=False)))]
+            self.subTitle = c_menu_block_items([
+                (TXT_FW_EDITOR_CONFIG, str(config_path(create_dir=False))),
+            ])
             rules = []
             self.msg = TXT_FW_FAIL.format(reason=str(exc))
         self.menu = [
