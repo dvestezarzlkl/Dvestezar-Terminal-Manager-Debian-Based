@@ -54,25 +54,33 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertTrue(result.detected)
         self.assertEqual(result.status, "unknown")
 
-    def test_menu_is_readonly_and_has_hub_provider_contract(self):
+    def test_menu_edits_only_local_desired_state_and_has_hub_provider_contract(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.1.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.2.0")
         screen = firewall_menu.menu()
         screen.onShowMenu()
-        self.assertEqual(len(screen.menu), 4)
-        text = " ".join(str(item) for item in screen.menu)
-        self.assertNotIn("Apply", text)
+        self.assertEqual(len(screen.menu), 6)
         self.assertFalse(hasattr(firewall_menu.menu, "apply_rules"))
 
-    def test_legacy_preview_exposes_no_change_without_apply(self):
-        from tests.test_hub_firewall_policy import before_rules, policy_config
+    def test_local_preview_exposes_no_change_without_apply(self):
+        from libs.app.menus.app_40_firewall.config import FirewallConfig, FirewallRule
+        from tests.test_hub_firewall_policy import before_rules
 
+        cfg = FirewallConfig(
+            openvpn_server_name="vpn-jb",
+            openvpn_server_ip="10.8.88.1",
+            openvpn_server_mask=23,
+            rules=(
+                FirewallRule(
+                    "a" * 32, "vpn_ban", True, "Alice",
+                    source="10.8.89.12/32", ban_to="2099-12-31",
+                ),
+            ),
+        )
         screen = firewall_menu.menu()
         with patch.object(
-            firewall_menu, "get_input", return_value="/tmp/old-vpn-policy.js"
-        ), patch.object(
-            firewall_menu, "read_legacy_config", return_value=policy_config()
+            firewall_menu, "load_config", return_value=cfg
         ), patch.object(
             firewall_menu._BEFORE_RULES.__class__, "read_text",
             return_value=before_rules(),
@@ -81,7 +89,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ), patch.object(
             hub_provider, "_call", side_effect=AssertionError("no UFW command")
         ), redirect_stdout(io.StringIO()) as output:
-            screen.preview_legacy_config(None)
+            screen.preview_local_config(None)
 
         self.assertIn("NO_CHANGE", output.getvalue())
         self.assertIn("0", output.getvalue())
