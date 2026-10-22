@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.8.0
+
+- ADD Firewall Manager 0.3.0: standardní firewall pravidla mají samostatné seznamy zdrojových/cílových TCP/UDP portů (`n,n-n,n`) se striktní validací a detekcí překryvů. Prázdný seznam znamená libovolný port.
+- UX barevné směry/akce/protokoly, sekce menu a kompletní náhled pro nové/editované pravidlo před potvrzením přes JBLibs `confirm()`. Odmítnutí neukládá ani nesynchronizuje.
+- COMPAT původní `vpn_ban` a legacy `port_from/port_to` zůstávají čitelné; starý rozsah se převádí na `dst_ports`. Pravidla s porty nejsou nesprávně považována za původní trusted-source all-port blok.
+- ADD Hub migrace 007 (`src_ports`, `dst_ports`); provider používá schema >= 007, host-only `origin=host_local,target_kind=host`; při 004/005/006 se pravidla nesynchronizují, aby nedošlo k tiché ztrátě portových polí. Migrace vyžaduje ruční spuštění až po aktualizaci všech Hub klientů a záloze databáze.
+- SAFETY bez automatického zápisu do UFW, reloadu či Apply; uložený JSON zůstává pouze požadovaný stav.
+
 ## v2.7.0
 
 - ADD Firewall Manager používá kanonickou lokální požadovanou konfiguraci `/etc/jb_sys_apps/firewall.json`; soubor vzniká až při prvním uložení/importu, zapisuje se atomicky s mode 0600 a nesmí být symlink.
