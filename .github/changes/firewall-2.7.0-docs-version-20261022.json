@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): document local host editor and Hub schema 006 ownership",
+  "replacements": [
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.6.1\"",
+      "new": "VERSION = \"2.7.0\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.6.1\n",
+      "new": "v2.7.0\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.6.1\n",
+      "new": "# Changelog\n\n## v2.7.0\n\n- ADD Firewall Manager používá kanonickou lokální požadovanou konfiguraci `/etc/jb_sys_apps/firewall.json`; soubor vzniká až při prvním uložení/importu, zapisuje se atomicky s mode 0600 a nesmí být symlink.\n- ADD lokální editor pravidel přes existující JBLibs/c_menu framework: `Přidat` používá `select()` pro typ **VPN BAN** nebo **standardní firewall pravidlo**, existující pravidla lze editovat, povolit/zakázat a smazat.\n- FIX import starého JSON/JS již nechce ručně napsanou absolutní cestu; používá standardní frameworkový `selectFile()` s výběrem souboru. Import umí převzít legacy VPN BAN/izolaci a známý Hard Source Allow blok do lokálního modelu.\n- ADD `Porovnat pravidla` používá lokální `firewall.json`; OpenVPN BAN/izolaci a trusted-source pravidla porovnává semanticky s existujícími managed bloky. Obecná standardní pravidla zůstávají pouze v lokálním desired-state do implementace bezpečného Apply.\n- ADD Hub migration 006 `firewall_rules`: scope `host/group/all` + ownership `host_local/central`; lokální collector synchronizuje výhradně `origin=host_local,target_kind=host` a nikdy nesmí smazat centrální/group/all pravidla.\n- COMPAT klient 2.7.0 je READY i proti schématu 004/005; provider `firewall_rules` deklaruje `min_schema_version=6` a do aplikace 006 se bezpečně přeskočí. Migrace 005/006 zůstávají explicitně ruční a menu upozorňuje na nutnost aktualizovat celou flotilu a zazálohovat DB.\n- SAFE stále není implementován žádný zápis do `/etc/ufw`, UFW reload ani remote Apply. Editace mění pouze lokální desired JSON; fyzický firewall zůstává nedotčený.\n- TEST lokální config/normalizace/import/file picker, provider schema gate, migrace 006 a MariaDB ownership ochrana host-local vs central.\n- UPD Firewall Manager 0.2.0; SysApps 2.7.0.\n\n## v2.6.1\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "- `005_host_groups.sql`: centrální skupiny serverů a volitelné přiřazení právě jedné skupiny hostu; `group_id NULL` = nepřiřazeno.\n",
+      "new": "- `005_host_groups.sql`: centrální skupiny serverů a volitelné přiřazení právě jedné skupiny hostu; `group_id NULL` = nepřiřazeno.\n- `006_firewall_rules.sql`: typovaný katalog firewall pravidel s cílem `host/group/all` a odděleným vlastnictvím `host_local/central`.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "**Koordinovaný rollout 005:** SysApps 2.5.0 toleruje známou aditivní migraci 005 ještě neaplikovanou, takže může synchronizovat proti v004 a zobrazuje READY s poznámkou o dostupné migraci. Před jejím spuštěním nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.5.0 a zazálohuj DB. Starší 2.4.0 se po spuštění 005 odpojí hláškou `SCHEMA OUTDATED`. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me. Při upgradu již existující DB se v menu zobrazí dodatečné výslovné potvrzení koordinace celé flotily a zálohy. Samotné potvrzení neověřuje živý stav všech ostatních strojů, proto musí jejich aktuálnost administrátor předem zkontrolovat.\n",
+      "new": "**Koordinovaný rollout 005/006:** SysApps 2.7.0 toleruje známé aditivní migrace 005 a 006 ještě neaplikované, takže může dál synchronizovat core a starší datasety proti v004/v005. Každý provider deklaruje minimální potřebné schéma; lokální `firewall_rules` se před schema 006 pouze přeskočí bez zápisu. Před ručním spuštěním čekajících migrací nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.7.0 a zazálohuj DB. Starší klient, který nezná 006, vyšší schéma odmítne. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me; menu vyžaduje dodatečné potvrzení koordinace flotily a zálohy.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/sysapps-hub.md",
+      "old": "Od v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s `hub_provider.py` vracejícím `HubService(service_key=\"ufw\")`: výhradně read-only dotazy `ufw status` a `ufw --version`. Headless discovery používá přímo tento provider bez importu `menu.py`. Lokální menu umí zobrazit počty pravidel v oddělených blocích UFW before.rules a provést náhled `NO_CHANGE`/`CHANGED` proti zadanému starému JS/JSON; detekce ani náhled **nikdy** nespouští Apply, zápis do /etc/ufw ani UFW reload. Vypršení cooldown BAN mění digest výsledných pravidel i při nezměněném zdrojovém JSON. Centrální firewall desired-state a write transport jsou další etapa.\n",
+      "new": "Od v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s read-only UFW providerem. Od v2.7.0 vlastní lokální desired-state soubor `/etc/jb_sys_apps/firewall.json` a editor přes standardní `c_menu`/JBLibs input framework. Import starého JSON/JS používá `selectFile()`; běžné porovnání již nevyžaduje cestu a pracuje s kanonickým lokálním souborem. Lokální editor smí vytvořit jen pravidla tohoto hostu. Samostatný headless collector `firewall_rules` je v schema 006 ukládá jako `origin=host_local,target_kind=host`; nikdy nemaže ani nepřepisuje budoucí centrální `host/group/all` záznamy. Provider deklaruje `min_schema_version=6`, takže před migrací 006 je bezpečně přeskočen. Editace a synchronizace desired-state **stále nikdy** neprovádějí Apply, zápis do /etc/ufw ani UFW reload.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "## Reconciliation decision foundation (SysApps 2.6.1)\n",
+      "new": "## Canonical local host policy and Hub ownership (SysApps 2.7.0)\n\nThe local desired file is `/etc/jb_sys_apps/firewall.json` (versioned JSON, atomic 0600 write, symlinks rejected). Opening the menu does not create it; first Save or legacy Import does. The interactive editor is built on the existing JBLibs `c_menu`, `select()`, `get_input()` and `selectFile()` primitives. `Add rule` explicitly selects **VPN BAN** or **standard firewall rule**. Legacy JSON/JS is a one-time import source, not the normal runtime configuration path.\n\nLocal rule ownership is strictly host-scoped. Hub migration 006 stores a generic future target model (`host/group/all`) and origin model (`host_local/central`), but the host collector is hard-coded to replace only `origin=host_local,target_kind=host` rows for its own machine ID. Central host overrides, group rules and all-host rules are future Hub/UI ownership and must survive every local sync. Until schema 006 exists, the provider declares `min_schema_version=6` and is skipped; core/other inventory continues against schema 004/005.\n\nThe current editor does **not** imply UFW ownership or Apply. VPN BAN/isolation and trusted-source semantics can be compared with the two already-managed legacy blocks. Other generic standard rules are stored/synchronized as desired policy but reported as pending until a separately tested generic managed block + transactional Apply/rollback exists.\n\n## Reconciliation decision foundation (SysApps 2.6.1)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/AGENTS.md",
+      "old": "- Schema 005 adds centrally USER-OWNED `host_groups` and single `hosts.group_id INT UNSIGNED NULL` with FK ON DELETE SET NULL. Never collect, auto-assign, reset, or modify group_id or group catalog from host sync. A host with no group remains NULL. Group targeting and source IP aliases are different model domains.\n- The compatibility list in schema.py explicitly allows only missing additive migration 005. Clients 2.5.0 may sync to v004 before rollout, but legacy 2.4.0 clients reject v005 as SCHEMA OUTDATED. Upgrade all Hub clients first, then run migration 005 manually after DB backup. Do not broaden the compatibility exception to unknown schema versions.\n",
+      "new": "- Schema 005 adds centrally USER-OWNED `host_groups` and single `hosts.group_id INT UNSIGNED NULL` with FK ON DELETE SET NULL. Never collect, auto-assign, reset, or modify group_id or group catalog from host sync. A host with no group remains NULL. Group targeting and source IP aliases are different model domains.\n- Schema 006 adds `firewall_rules`. Local collector ownership is *only* `origin=host_local,target_kind=host` for its own machine ID. It may replace/delete only those rows. It must never modify future `central` rules or target `group/all`. Provider snapshots declare `min_schema_version=6`; runtime skips them while DB is older without blocking other datasets.\n- The compatibility list in schema.py explicitly allows only missing additive migrations 005/006. SysApps 2.7.0 may sync older supported datasets to v004/v005 before rollout, but legacy clients reject unknown v006. Upgrade all Hub clients first, then run pending migrations manually after DB backup. Do not broaden the compatibility exception to unknown schema versions.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- This first stage (module version 0.1.0) is intentionally **read-only**:\n  `policy.py` is pure, `hub_provider.py` calls only UFW `status` and\n  `--version`, and `menu.py` only reads existing UFW data. No UFW reload,\n  no write to `/etc/ufw`, no remote Apply, no local config migration.\n",
+      "new": "- Module 0.2.0 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Use standard JBLibs `c_menu`/`select()`/`get_input()` and `selectFile()`; never reintroduce typed filesystem paths. Opening the menu must not create the file; first Save/import may create it atomically with mode 0600 and symlink rejection.\n- Local editor rules belong only to the current host. Hub collector `firewall_rules` may publish them only as `origin=host_local,target_kind=host` when schema >=006; it must never touch future central host/group/all rules.\n- UFW runtime remains **read-only**: `policy.py` is pure, `hub_provider.py` calls only UFW status/version, comparison only reads `before.rules`. No UFW reload, no write to `/etc/ufw`, no remote Apply.\n",
+      "expected": 1
+    }
+  ]
+}
