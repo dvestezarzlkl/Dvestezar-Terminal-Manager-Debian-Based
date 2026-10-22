@@ -16,6 +16,7 @@ from .config import (
     delete_rule, load_config, new_rule_id, normalize_config, normalize_rule,
     replace_rule, save_config,
 )
+from .hub_sync import sync_local_rules_best_effort
 
 
 def _pick(message: str, options: list[tuple[str, str, Any]], width: int) -> Any | None:
@@ -113,6 +114,7 @@ class FirewallRulesMenu(c_menu):
             path = save_config(cfg)
         except (OSError, FirewallConfigError) as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
+        sync_local_rules_best_effort()
         self.menuRecycle = True
         return onSelReturn(ok=TXT_FW_EDITOR_SAVED.format(path=path))
 
