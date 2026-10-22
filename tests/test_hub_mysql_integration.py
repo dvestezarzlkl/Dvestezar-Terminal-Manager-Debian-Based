@@ -177,7 +177,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 5)
+                self.assertEqual(cursor.fetchone()[0], 6)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
