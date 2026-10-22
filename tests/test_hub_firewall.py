@@ -57,7 +57,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_menu_edits_only_local_desired_state_and_has_hub_provider_contract(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.2.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.3.0")
         screen = firewall_menu.menu()
         screen.onShowMenu()
         self.assertEqual(len(screen.menu), 6)

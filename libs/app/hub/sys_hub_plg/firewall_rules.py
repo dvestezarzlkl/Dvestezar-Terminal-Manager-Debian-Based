@@ -27,6 +27,8 @@ def hub_collect(context: HubContext) -> HubProviderSnapshot:
             destination_invert=rule.destination_invert,
             port_from=rule.port_from,
             port_to=rule.port_to,
+            src_ports=rule.src_ports,
+            dst_ports=rule.dst_ports,
             interface_name=rule.interface,
             ban_to=rule.ban_to or None,
         )
@@ -36,5 +38,5 @@ def hub_collect(context: HubContext) -> HubProviderSnapshot:
         source_key=HUB_PROVIDER_KEY,
         dataset="firewall_rules",
         items=items,
-        min_schema_version=6,
+        min_schema_version=7,
     )

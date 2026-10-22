@@ -51,6 +51,8 @@ class FirewallRule:
     protocol: str = "any"
     port_from: int | None = None
     port_to: int | None = None
+    src_ports: str = ""
+    dst_ports: str = ""
     interface: str = ""
     ban_to: str = ""
 
@@ -102,6 +104,32 @@ def _port(value: object, label: str) -> int | None:
     if not 1 <= result <= 65535:
         raise FirewallConfigError(f"{label} must be 1..65535.")
     return result
+
+
+_PORT_LIST_RE = re.compile(r"^[0-9]{1,5}(?:-[0-9]{1,5})?(?:,[0-9]{1,5}(?:-[0-9]{1,5})?)*$")
+
+
+def normalize_port_spec(value: object, label: str) -> str:
+    if value in (None, ""):
+        return ""
+    if not isinstance(value, str):
+        raise FirewallConfigError(f"{label} must be a string.")
+    text = value.strip()
+    if len(text) > 1024:
+        raise FirewallConfigError(f"{label} exceeds 1024 characters.")
+    if not _PORT_LIST_RE.fullmatch(text):
+        raise FirewallConfigError(f"Invalid {label}: expected 80,443,3000-3010.")
+    ranges = []
+    for token in text.split(","):
+        lo, sep, hi = token.partition("-")
+        a, b = int(lo), int(hi) if sep else int(lo)
+        if not 1 <= a <= b <= 65535:
+            raise FirewallConfigError(f"Invalid {label} range (1..65535).")
+        ranges.append((a, b))
+    ranges.sort()
+    if any(a <= prev_b for (_, prev_b), (a, _) in zip(ranges, ranges[1:])):
+        raise FirewallConfigError(f"Overlapping or duplicate {label} ranges.")
+    return ",".join(str(a) if a == b else f"{a}-{b}" for a, b in ranges)
 
 
 def normalize_rule(data: Mapping[str, Any] | FirewallRule) -> FirewallRule:
@@ -165,15 +193,23 @@ def normalize_rule(data: Mapping[str, Any] | FirewallRule) -> FirewallRule:
         raise FirewallConfigError("Both port_from and port_to must be set.")
     if port_from is not None and port_from > port_to:
         raise FirewallConfigError("port_from cannot exceed port_to.")
-    if protocol not in {"tcp", "udp"} and port_from is not None:
+    src_ports = normalize_port_spec(raw.get("src_ports"), "source ports")
+    dst_ports = normalize_port_spec(raw.get("dst_ports"), "destination ports")
+    # Legacy version 1: a single range was shown beside the destination.
+    if port_from is not None:
+        legacy = str(port_from) if port_from == port_to else f"{port_from}-{port_to}"
+        if dst_ports and dst_ports != legacy:
+            raise FirewallConfigError("Conflicting legacy and destination ports.")
+        dst_ports = legacy
+    if protocol not in {"tcp", "udp"} and (port_from is not None or src_ports or dst_ports):
         raise FirewallConfigError("Ports are supported only for TCP/UDP.")
 
     return FirewallRule(
         rule_id=rule_id, kind=kind, enabled=enabled, name=name,
         source=source, destination=destination,
         destination_invert=destination_invert, direction=direction,
-        action=action, protocol=protocol, port_from=port_from, port_to=port_to,
-        interface=interface,
+        action=action, protocol=protocol, port_from=None, port_to=None,
+        src_ports=src_ports, dst_ports=dst_ports, interface=interface,
     )
 
 
@@ -405,7 +441,7 @@ def hard_source_rules(config: FirewallConfig) -> tuple[tuple[str, ...], ...]:
             and rule.source
             and not rule.destination
             and not rule.destination_invert
-            and rule.port_from is None
+            and not rule.src_ports and not rule.dst_ports
             and not rule.interface
         ):
             source = rule.source
@@ -425,7 +461,7 @@ def managed_standard_rule_ids(config: FirewallConfig) -> set[str]:
             and rule.direction == "input" and rule.action == "allow"
             and rule.protocol == "any" and rule.source
             and not rule.destination and not rule.destination_invert
-            and rule.port_from is None and not rule.interface
+            and not rule.src_ports and not rule.dst_ports and not rule.interface
         ):
             managed.add(rule.rule_id)
         elif (

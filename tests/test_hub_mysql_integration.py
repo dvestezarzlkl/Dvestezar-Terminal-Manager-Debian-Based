@@ -42,8 +42,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 6:
-            raise AssertionError(f"Expected schema version 6, got {version}")
+        if version != 7:
+            raise AssertionError(f"Expected schema version 7, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -177,7 +177,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 6)
+                self.assertEqual(cursor.fetchone()[0], 7)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -324,7 +324,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 6)
+                self.assertEqual(check.latest_version, 7)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
@@ -435,10 +435,11 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     HubFirewallRule(
                         "b" * 32, "standard", True, "Office HTTPS",
                         direction="input", action="allow", protocol="tcp",
-                        source="203.0.113.0/24", port_from=443, port_to=443,
+                        source="203.0.113.0/24",
+                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=6,
+                min_schema_version=7,
             ),
         )
         self.assertEqual(result.item_count, 2)
@@ -451,24 +452,26 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     HubFirewallRule(
                         "b" * 32, "standard", False, "Office HTTPS",
                         direction="input", action="allow", protocol="tcp",
-                        source="203.0.113.0/24", port_from=443, port_to=443,
+                        source="203.0.113.0/24",
+                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=6,
+                min_schema_version=7,
             ),
         )
         with self.database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"SELECT rule_uid, origin, target_kind, enabled, name "
+                    f"SELECT rule_uid, origin, target_kind, enabled, name, src_ports, dst_ports "
                     f"FROM {table} WHERE host_id=%s ORDER BY origin, rule_uid",
                     (host_id,),
                 )
                 self.assertEqual(
                     cursor.fetchall(),
                     (
-                        ("d" * 32, "central", "host", 1, "Central SSH"),
-                        ("b" * 32, "host_local", "host", 0, "Office HTTPS"),
+                        ("d" * 32, "central", "host", 1, "Central SSH", "", ""),
+                        ("b" * 32, "host_local", "host", 0, "Office HTTPS",
+                         "40000-40100", "80,443,8080-8090"),
                     ),
                 )
 
@@ -483,7 +486,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                             source="203.0.113.4/32",
                         ),
                     ),
-                    min_schema_version=6,
+                    min_schema_version=7,
                 ),
             )
 

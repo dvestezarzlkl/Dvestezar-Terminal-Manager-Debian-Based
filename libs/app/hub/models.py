@@ -65,6 +65,8 @@ class HubFirewallRule:
     destination_invert: bool = False
     port_from: Optional[int] = None
     port_to: Optional[int] = None
+    src_ports: str = ""
+    dst_ports: str = ""
     interface_name: str = ""
     ban_to: Optional[str] = None
 

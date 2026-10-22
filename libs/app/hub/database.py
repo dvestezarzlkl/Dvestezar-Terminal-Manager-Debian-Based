@@ -399,6 +399,13 @@ class HubDatabase:
                     or item.protocol not in {"tcp", "udp"}
                 ):
                     raise ValueError("Invalid firewall port range.")
+            from libs.app.menus.app_40_firewall.config import normalize_port_spec
+            if item.src_ports != normalize_port_spec(item.src_ports, "source ports"):
+                raise ValueError("Source ports must be normalized.")
+            if item.dst_ports != normalize_port_spec(item.dst_ports, "destination ports"):
+                raise ValueError("Destination ports must be normalized.")
+            if item.protocol not in {"tcp", "udp"} and (item.src_ports or item.dst_ports):
+                raise ValueError("Firewall ports require TCP or UDP.")
             if item.ban_to:
                 try:
                     parsed = date.fromisoformat(item.ban_to)
@@ -425,8 +432,8 @@ class HubDatabase:
                             "(rule_uid, origin, target_kind, host_id, group_id, "
                             "rule_type, enabled, name, direction, action, protocol, "
                             "source, destination, destination_invert, port_from, "
-                            "port_to, interface_name, ban_to, last_seen_at) "
-                            "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            "port_to, src_ports, dst_ports, interface_name, ban_to, last_seen_at) "
+                            "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                             [
                                 (
                                     item.rule_uid, "host_local", "host", host_id,
@@ -434,7 +441,8 @@ class HubDatabase:
                                     item.name, item.direction, item.action,
                                     item.protocol, item.source, item.destination,
                                     1 if item.destination_invert else 0,
-                                    item.port_from, item.port_to, item.interface_name,
+                                    item.port_from, item.port_to, item.src_ports, item.dst_ports,
+                                    item.interface_name,
                                     item.ban_to, now,
                                 )
                                 for item in normalized
