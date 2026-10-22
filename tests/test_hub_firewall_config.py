@@ -145,11 +145,13 @@ class HubFirewallConfigTests(unittest.TestCase):
             legacy_file(legacy)
             saved = Path(tmp) / "firewall.json"
             fake = SimpleNamespace(minMenuWidth=72, menuRecycle=False)
+            before_file = SimpleNamespace(
+                read_text=lambda encoding="utf-8": before_rules()
+            )
             with patch.object(
                 firewall_menu, "selectFile", return_value=legacy
             ) as picker, patch.object(
-                firewall_menu._BEFORE_RULES,
-                "read_text", return_value=before_rules()
+                firewall_menu, "_BEFORE_RULES", before_file
             ), patch.object(
                 firewall_menu, "config_path", return_value=saved
             ), patch.object(
