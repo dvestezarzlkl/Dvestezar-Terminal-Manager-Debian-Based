@@ -18,7 +18,7 @@ from libs.app.menus.app_40_firewall import menu_rules as firewall_menu_rules
 from libs.app.menus.app_40_firewall.config import (
     FirewallConfig, FirewallConfigError, FirewallRule, append_rule,
     hard_source_rules, import_legacy, legacy_openvpn_mapping, load_config,
-    managed_standard_rule_ids, normalize_config, save_config,
+    managed_standard_rule_ids, normalize_config, normalize_port_spec, save_config,
 )
 from libs.app.menus.app_40_firewall.policy import inspect_before_rules
 from tests.test_hub_firewall_policy import before_rules
@@ -133,7 +133,7 @@ class HubFirewallConfigTests(unittest.TestCase):
         cfg = append_rule(cfg, rule)
         self.assertEqual(cfg.rules[0].rule_id, "f" * 32)
 
-    def test_hub_collector_is_host_local_dataset_requiring_schema_006(self):
+    def test_hub_collector_is_host_local_dataset_requiring_schema_007(self):
         cfg = FirewallConfig(
             rules=(
                 FirewallRule(
@@ -152,9 +152,56 @@ class HubFirewallConfigTests(unittest.TestCase):
             )
         self.assertEqual(snapshot.source_key, "firewall_rules")
         self.assertEqual(snapshot.dataset, "firewall_rules")
-        self.assertEqual(snapshot.min_schema_version, 6)
+        self.assertEqual(snapshot.min_schema_version, 7)
         self.assertEqual(snapshot.items[0].rule_uid, "c" * 32)
         self.assertEqual(snapshot.items[0].port_from, 22)
+
+    def test_port_specs_preserve_both_directions_and_reject_overlap(self):
+        cfg = normalize_config({"version": 1, "rules": [{
+            "rule_id": "f" * 32, "kind": "standard", "name": "web",
+            "direction": "input", "action": "allow", "protocol": "tcp",
+            "src_ports": "40000-40100,22",
+            "dst_ports": "8080-8090,443,80",
+        }]})
+        rule = cfg.rules[0]
+        self.assertEqual(rule.src_ports, "22,40000-40100")
+        self.assertEqual(rule.dst_ports, "80,443,8080-8090")
+        self.assertEqual((rule.port_from, rule.port_to), (None, None))
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "firewall.json"
+            save_config(cfg, dest)
+            loaded = load_config(dest)
+            self.assertEqual(loaded.rules[0].dst_ports, rule.dst_ports)
+        for invalid in ("0", "65536", "4-3", "80,80", "80-90,90-100", "80,,443"):
+            with self.subTest(invalid=invalid), self.assertRaises(FirewallConfigError):
+                normalize_port_spec(invalid, "port")
+        self.assertEqual(normalize_port_spec("", "ports"), "")
+
+    def test_legacy_range_becomes_destination_ports(self):
+        cfg = normalize_config({"rules": [{
+            "rule_id": "d" * 32, "kind": "standard", "name": "legacy",
+            "direction": "input", "action": "allow", "protocol": "tcp",
+            "port_from": 3000, "port_to": 3010,
+        }]})
+        self.assertEqual(cfg.rules[0].dst_ports, "3000-3010")
+        self.assertIsNone(cfg.rules[0].port_from)
+
+    def test_scoped_port_rules_cannot_become_legacy_hard_source(self):
+        cfg = normalize_config({"rules": [{
+            "rule_id": "c" * 32, "kind": "standard", "name": "ssh",
+            "direction": "input", "action": "allow", "protocol": "tcp",
+            "source": "203.0.113.4", "dst_ports": "22",
+        }]})
+        self.assertEqual(hard_source_rules(cfg), ())
+        self.assertEqual(managed_standard_rule_ids(cfg), set())
+
+    def test_reject_save_before_confirmation(self):
+        rule = FirewallRule("f" * 32, "standard", name="test")
+        with patch.object(firewall_menu_rules, "printBlock") as block, patch.object(
+            firewall_menu_rules, "confirm", return_value=False
+        ):
+            self.assertFalse(firewall_menu_rules._confirm_rule(rule))
+        block.assert_called_once()
 
     def test_optional_editor_value_can_be_cleared_explicitly(self):
         with patch.object(firewall_menu_rules, "get_input", return_value="-"):
