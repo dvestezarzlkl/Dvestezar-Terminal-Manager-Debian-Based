@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, replace
 from typing import Any
+import re
 
 from .lng.default import *
 from libs.JBLibs.helper import loadLng
@@ -10,11 +11,12 @@ loadLng()
 
 from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn
 from libs.JBLibs.input import confirm, get_input, select, select_item
+from libs.JBLibs.term import en_color, text_color
 
 from .config import (
     FirewallConfig, FirewallConfigError, FirewallRule, append_rule, config_path,
     delete_rule, load_config, new_rule_id, normalize_config, normalize_rule,
-    replace_rule, save_config,
+    replace_rule, save_config, normalize_port_spec,
 )
 from .hub_sync import sync_local_rules_best_effort
 
@@ -37,6 +39,7 @@ def _prompt(
     current: str | int | None = None,
     required: bool = False,
     max_len: int = 255,
+    rgx: Any = None,
 ) -> str | None:
     note = ""
     if current not in (None, ""):
@@ -47,6 +50,7 @@ def _prompt(
         message,
         accept_empty=(not required or current not in (None, "")),
         maxLen=max_len,
+        rgx=rgx,
         titleNote=note,
         minMessageWidth=width,
     )
@@ -59,24 +63,67 @@ def _prompt(
     return value
 
 
+def _color_direction(value: str) -> str:
+    return text_color(value.upper(), {
+        "input": en_color.RED, "output": en_color.GREEN,
+        "forward": en_color.YELLOW,
+    }.get(value, en_color.WHITE))
+
+
+def _color_action(value: str) -> str:
+    return text_color(("DROP" if value == "deny" else value.upper()), {
+        "allow": en_color.GREEN, "deny": en_color.YELLOW,
+        "reject": en_color.RED,
+    }.get(value, en_color.WHITE))
+
+
+def _color_protocol(value: str) -> str:
+    return text_color(value.upper(), {
+        "tcp": en_color.GREEN, "udp": en_color.BLUE,
+    }.get(value, en_color.WHITE))
+
+
 def _rule_label(rule: FirewallRule) -> str:
     state = TXT_FW_EDITOR_ENABLED if rule.enabled else TXT_FW_EDITOR_DISABLED
     if rule.kind == "vpn_ban":
         until = f" -> {rule.ban_to}" if rule.ban_to else ""
         return f"[{state}] VPN BAN: {rule.name or rule.source} ({rule.source}{until})"
-    port = ""
-    if rule.port_from is not None:
-        port = f":{rule.port_from}" if rule.port_from == rule.port_to else (
-            f":{rule.port_from}-{rule.port_to}"
-        )
     source = rule.source or "*"
     destination = rule.destination or "*"
     if rule.destination_invert:
         destination = "!" + destination
-    return (
-        f"[{state}] {rule.name or 'rule'}: {rule.action.upper()} "
-        f"{rule.direction} {rule.protocol} {source} -> {destination}{port}"
-    )
+    ports = ""
+    if rule.src_ports:
+        ports += f" src:{rule.src_ports}"
+    if rule.dst_ports:
+        ports += f" dst:{rule.dst_ports}"
+    return (f"[{state}] {rule.name or 'rule'}: "
+            f"{_color_action(rule.action)} {_color_direction(rule.direction)} "
+            f"{_color_protocol(rule.protocol)} {source} -> {destination}{ports}")
+
+
+def _confirm_rule(rule: FirewallRule) -> bool:
+    summary = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+    summary.append((TXT_FW_EDITOR_NAME.rstrip(":"), rule.name))
+    summary.append((TXT_FW_EDITOR_ADD_TYPE, rule.kind))
+    summary.append((TXT_FW_EDITOR_ENABLED if rule.enabled else TXT_FW_EDITOR_DISABLED, ""))
+    if rule.kind == "vpn_ban":
+        summary.append((TXT_FW_EDITOR_SOURCE.rstrip(":"), rule.source))
+        summary.append((TXT_FW_EDITOR_BAN_TO.rstrip(":"), rule.ban_to or "-"))
+    else:
+        summary.append((TXT_FW_EDITOR_DIRECTION, _color_direction(rule.direction)))
+        summary.append((TXT_FW_EDITOR_ACTION, _color_action(rule.action)))
+        summary.append((TXT_FW_EDITOR_PROTOCOL, _color_protocol(rule.protocol)))
+        summary.append((TXT_FW_EDITOR_SOURCE_OPTIONAL.rstrip(":"), rule.source or "*"))
+        summary.append((TXT_FW_EDITOR_DEST_OPTIONAL.rstrip(":"), ("!" if rule.destination_invert else "") + (rule.destination or "*")))
+        summary.append((TXT_FW_EDITOR_SRC_PORTS, rule.src_ports or "*"))
+        summary.append((TXT_FW_EDITOR_DST_PORTS, rule.dst_ports or "*"))
+        summary.append((TXT_FW_EDITOR_INTERFACE_OPTIONAL.rstrip(":"), rule.interface or "*"))
+    print(summary)
+    return confirm(TXT_FW_EDITOR_CONFIRM_SAVE)
+
+
+_PORT_INPUT_RE = re.compile(r"^$|^[0-9]{1,5}(?:-[0-9]{1,5})?(?:,[0-9]{1,5}(?:-[0-9]{1,5})?)*$")
 
 
 class FirewallRulesMenu(c_menu):
@@ -99,7 +146,9 @@ class FirewallRulesMenu(c_menu):
             self.msg = TXT_FW_FAIL.format(reason=str(exc))
         self.menu = [
             c_menu_title_label(TXT_FW_EDITOR_TITLE),
+            c_menu_title_label("-" * 30),
             c_menu_item(TXT_FW_EDITOR_ADD, "a", self.add_rule),
+            c_menu_title_label("-" * 30),
         ]
         for idx, rule in enumerate(rules, 1):
             self.menu.append(
@@ -180,6 +229,8 @@ class FirewallRulesMenu(c_menu):
             rule = self._edit_standard(None)
         if rule is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
+        if not _confirm_rule(rule):
+            return onSelReturn().errRet(TXT_FW_CANCELLED)
         try:
             return self._save(append_rule(cfg, rule))
         except FirewallConfigError as exc:
@@ -223,6 +274,8 @@ class FirewallRulesMenu(c_menu):
             else self._edit_standard(rule)
         )
         if edited is None:
+            return onSelReturn().errRet(TXT_FW_CANCELLED)
+        if not _confirm_rule(edited):
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         try:
             return self._save(replace_rule(cfg, edited))
@@ -327,26 +380,28 @@ class FirewallRulesMenu(c_menu):
                 return None
             invert = bool(choice)
 
-        port_from = port_to = None
+        src_ports = dst_ports = ""
         if protocol in {"tcp", "udp"}:
-            p_from = _prompt(
-                TXT_FW_EDITOR_PORT_FROM, width=self.minMenuWidth,
-                current=current.port_from if current else "", required=False, max_len=5,
+            src_ports = _prompt(
+                TXT_FW_EDITOR_SRC_PORTS, width=self.minMenuWidth,
+                current=current.src_ports if current else "",
+                rgx=_PORT_INPUT_RE, max_len=1024,
             )
-            if p_from is None:
+            if src_ports is None:
                 return None
-            if p_from:
-                p_to = _prompt(
-                    TXT_FW_EDITOR_PORT_TO, width=self.minMenuWidth,
-                    current=current.port_to if current else p_from, required=True, max_len=5,
-                )
-                if p_to is None:
-                    return None
-                try:
-                    port_from, port_to = int(p_from), int(p_to)
-                except ValueError:
-                    self.msg = TXT_FW_FAIL.format(reason=TXT_FW_EDITOR_INVALID_PORT)
-                    return None
+            dst_ports = _prompt(
+                TXT_FW_EDITOR_DST_PORTS, width=self.minMenuWidth,
+                current=current.dst_ports if current else "",
+                rgx=_PORT_INPUT_RE, max_len=1024,
+            )
+            if dst_ports is None:
+                return None
+            try:
+                src_ports = normalize_port_spec(src_ports, "source ports")
+                dst_ports = normalize_port_spec(dst_ports, "destination ports")
+            except FirewallConfigError as exc:
+                self.msg = TXT_FW_FAIL.format(reason=str(exc))
+                return None
 
         interface = _prompt(
             TXT_FW_EDITOR_INTERFACE_OPTIONAL, width=self.minMenuWidth,
@@ -361,7 +416,7 @@ class FirewallRulesMenu(c_menu):
             enabled=current.enabled if current else True,
             name=name, source=source, destination=destination,
             destination_invert=invert, direction=direction, action=action,
-            protocol=protocol, port_from=port_from, port_to=port_to,
+            protocol=protocol, src_ports=src_ports, dst_ports=dst_ports,
             interface=interface,
         )
         try:
