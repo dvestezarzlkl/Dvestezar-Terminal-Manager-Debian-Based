@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "commit_message": "docs(firewall): record immediate best-effort host rule sync",
+  "replacements": [
+    {
+      "path": "changelog.md",
+      "old": "- ADD Hub migration 006 `firewall_rules`: scope `host/group/all` + ownership `host_local/central`; lokální collector synchronizuje výhradně `origin=host_local,target_kind=host` a nikdy nesmí smazat centrální/group/all pravidla.\n",
+      "new": "- ADD Hub migration 006 `firewall_rules`: scope `host/group/all` + ownership `host_local/central`; lokální collector synchronizuje výhradně `origin=host_local,target_kind=host` a nikdy nesmí smazat centrální/group/all pravidla. Po úspěšném lokálním Save/Importu se spustí best-effort sync tohoto provideru; nedostupný Hub nezneplatní lokální změnu a hodinový sync ji později dorovná.\n",
+      "expected": 1
+    }
+  ]
+}
