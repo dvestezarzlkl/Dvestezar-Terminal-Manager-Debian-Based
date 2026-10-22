@@ -435,10 +435,11 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     HubFirewallRule(
                         "b" * 32, "standard", True, "Office HTTPS",
                         direction="input", action="allow", protocol="tcp",
-                        source="203.0.113.0/24", port_from=443, port_to=443,
+                        source="203.0.113.0/24",
+                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=6,
+                min_schema_version=7,
             ),
         )
         self.assertEqual(result.item_count, 2)
@@ -451,24 +452,26 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     HubFirewallRule(
                         "b" * 32, "standard", False, "Office HTTPS",
                         direction="input", action="allow", protocol="tcp",
-                        source="203.0.113.0/24", port_from=443, port_to=443,
+                        source="203.0.113.0/24",
+                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=6,
+                min_schema_version=7,
             ),
         )
         with self.database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"SELECT rule_uid, origin, target_kind, enabled, name "
+                    f"SELECT rule_uid, origin, target_kind, enabled, name, src_ports, dst_ports "
                     f"FROM {table} WHERE host_id=%s ORDER BY origin, rule_uid",
                     (host_id,),
                 )
                 self.assertEqual(
                     cursor.fetchall(),
                     (
-                        ("d" * 32, "central", "host", 1, "Central SSH"),
-                        ("b" * 32, "host_local", "host", 0, "Office HTTPS"),
+                        ("d" * 32, "central", "host", 1, "Central SSH", "", ""),
+                        ("b" * 32, "host_local", "host", 0, "Office HTTPS",
+                         "40000-40100", "80,443,8080-8090"),
                     ),
                 )
 
@@ -483,7 +486,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                             source="203.0.113.4/32",
                         ),
                     ),
-                    min_schema_version=6,
+                    min_schema_version=7,
                 ),
             )
 
