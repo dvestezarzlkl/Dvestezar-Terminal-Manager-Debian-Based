@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import date
-from ipaddress import ip_network
+from ipaddress import IPv4Address, ip_address, ip_network
 import json
 import os
 from pathlib import Path
@@ -195,7 +195,13 @@ def normalize_config(data: Mapping[str, Any] | FirewallConfig) -> FirewallConfig
             raise FirewallConfigError("OpenVPN server name is required for VPN BAN rules.")
         if not ip:
             raise FirewallConfigError("OpenVPN server IP is required for VPN BAN rules.")
-        _network(ip, "OpenVPN server", required=True)
+        try:
+            parsed_openvpn_ip = ip_address(ip)
+        except ValueError as exc:
+            raise FirewallConfigError("Invalid OpenVPN server IP.") from exc
+        if not isinstance(parsed_openvpn_ip, IPv4Address):
+            raise FirewallConfigError("OpenVPN server IP must be IPv4.")
+        ip = str(parsed_openvpn_ip)
         if type(mask) is not int or not 0 <= mask <= 32:
             raise FirewallConfigError("OpenVPN server mask must be 0..32.")
         if not _IFACE_RE.fullmatch(interface):
