@@ -163,6 +163,21 @@ class HubFirewallConfigTests(unittest.TestCase):
             )
         self.assertEqual(value, "")
 
+    def test_editor_save_publishes_host_rules_best_effort(self):
+        fake = SimpleNamespace(menuRecycle=False)
+        cfg = FirewallConfig()
+        saved = Path("/etc/jb_sys_apps/firewall.json")
+        with patch.object(
+            firewall_menu_rules, "save_config", return_value=saved
+        ) as save, patch.object(
+            firewall_menu_rules, "sync_local_rules_best_effort"
+        ) as sync:
+            result = firewall_menu_rules.FirewallRulesMenu._save(fake, cfg)
+        save.assert_called_once_with(cfg)
+        sync.assert_called_once_with()
+        self.assertTrue(fake.menuRecycle)
+        self.assertTrue(bool(getattr(result, "ok", None)))
+
     def test_legacy_import_menu_uses_framework_file_picker_not_typed_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             legacy = Path(tmp) / "old.js"
