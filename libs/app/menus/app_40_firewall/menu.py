@@ -43,6 +43,20 @@ class menu(c_menu):
         title.append((TXT_FW_FILE, str(_BEFORE_RULES)))
         title.append((TXT_FW_LOCAL_CONFIG, str(config_path(create_dir=False))))
         self.title = title
+        service = inspect_ufw_service()
+        if not service.detected:
+            self.menu = [
+                c_menu_item(text_color(TXT_FW_NOT_INSTALLED, en_color.BRIGHT_BLACK),
+                            enabled=False),
+            ]
+            return
+        if service.status != "active":
+            label = (TXT_FW_INACTIVE if service.status == "inactive"
+                     else TXT_FW_UNKNOWN_STATUS)
+            self.menu = [
+                c_menu_item(text_color(label, en_color.BRIGHT_RED), enabled=False),
+            ]
+            return
         self.menu = [
             c_menu_title_label(text_color(TXT_FW_READ_ONLY, en_color.BRIGHT_YELLOW)),
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
@@ -131,7 +145,15 @@ class menu(c_menu):
     def inspect_status(self, selItem: c_menu_item) -> onSelReturn:
         status = inspect_ufw_service()
         detail = status.status if status.detected else TXT_FW_UNAVAILABLE
-        return onSelReturn(ok=f"{TXT_FW_SERVICE}: {detail} {status.version}")
+        if not status.detected:
+            return onSelReturn(ok=text_color(
+                f"{TXT_FW_SERVICE}: {TXT_FW_NOT_INSTALLED}", en_color.BRIGHT_BLACK))
+        if status.status == "active":
+            color = en_color.BRIGHT_GREEN
+        else:
+            color = en_color.BRIGHT_RED
+        return onSelReturn(ok=text_color(
+            f"{TXT_FW_SERVICE}: {detail} {status.version}", color))
 
     def inspect_rules(self, selItem: c_menu_item) -> onSelReturn:
         try:
