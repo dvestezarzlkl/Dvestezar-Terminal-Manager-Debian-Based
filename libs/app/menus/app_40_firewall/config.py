@@ -121,8 +121,11 @@ def normalize_rule(data: Mapping[str, Any] | FirewallRule) -> FirewallRule:
 
     if kind == "vpn_ban":
         source = _network(raw.get("source"), "VPN BAN source", required=True)
-        if "/" in source and not source.endswith("/32") and not source.endswith("/128"):
+        source_network = ip_network(source, strict=False)
+        if source_network.prefixlen != source_network.max_prefixlen:
             raise FirewallConfigError("VPN BAN source must identify one IP.")
+        if not isinstance(source_network.network_address, IPv4Address):
+            raise FirewallConfigError("Legacy OpenVPN VPN BAN source must be IPv4.")
         ban_to = str(raw.get("ban_to") or "").strip()
         if ban_to:
             try:
