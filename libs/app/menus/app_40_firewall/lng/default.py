@@ -77,3 +77,7 @@ TXT_FW_EDITOR_INVALID_PORT = "Invalid port."
 TXT_FW_EDITOR_SRC_PORTS = "Source ports (empty = any, e.g. 22,80,3000-3010):"
 TXT_FW_EDITOR_DST_PORTS = "Destination ports (empty = any, e.g. 80,443,8000-8010):"
 TXT_FW_EDITOR_CONFIRM_SAVE = "Save this rule to local firewall.json and synchronize with Hub?"
+
+TXT_FW_EDITOR_IFACE_ANY = "Any interface"
+TXT_FW_EDITOR_IFACE_MANUAL = "Enter interface manually / pattern (e.g. tun+)"
+TXT_FW_EDITOR_IFACE_OLD = "Previously configured: {name} (not detected)"
