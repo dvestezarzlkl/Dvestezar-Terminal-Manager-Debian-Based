@@ -19,6 +19,7 @@ from .config import (
     legacy_openvpn_mapping, load_config, managed_standard_rule_ids, save_config,
 )
 from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
+from .hub_sync import sync_local_rules_best_effort
 from .menu_rules import FirewallRulesMenu
 from .policy import (
     FirewallPolicyError, inspect_before_rules, plan_legacy_openvpn, rules_digest,
@@ -74,6 +75,7 @@ class menu(c_menu):
                 if existing.rules and not confirm(TXT_FW_IMPORT_REPLACE):
                     return onSelReturn().errRet(TXT_FW_CANCELLED)
             saved = save_config(imported)
+            sync_local_rules_best_effort()
         except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
         self.menuRecycle = True
