@@ -40,6 +40,8 @@ def _prompt(
     note = ""
     if current not in (None, ""):
         note = TXT_FW_EDITOR_CURRENT.format(value=current)
+        if not required:
+            note += "\n" + TXT_FW_EDITOR_CLEAR
     value = get_input(
         message,
         accept_empty=(not required or current not in (None, "")),
@@ -49,6 +51,8 @@ def _prompt(
     )
     if value is None:
         return None
+    if not required and value == "-":
+        return ""
     if value == "" and current not in (None, ""):
         return str(current)
     return value
