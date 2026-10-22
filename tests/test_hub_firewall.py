@@ -57,7 +57,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_menu_edits_only_local_desired_state_and_has_hub_provider_contract(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.3.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.3.1")
         screen = firewall_menu.menu()
         with patch.object(firewall_menu, "inspect_ufw_service", return_value=SimpleNamespace(detected=True, status="active", version="0.36")):
             screen.onShowMenu()
