@@ -8,6 +8,7 @@ import unittest
 from libs.app.hub.database import HubDatabase
 from libs.app.hub.models import (
     HubDisk,
+    HubFirewallRule,
     HubHostSnapshot,
     HubProviderSnapshot,
     HubService,
@@ -41,8 +42,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 5:
-            raise AssertionError(f"Expected schema version 5, got {version}")
+        if version != 6:
+            raise AssertionError(f"Expected schema version 6, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -249,8 +250,9 @@ class HubMySqlIntegrationTests(unittest.TestCase):
 
             with db.connect() as connection:
                 manager = HubSchemaManager(old_settings)
+                manager.migrations = manager.migrations[:5]
                 self.assertEqual(manager.apply(connection), 5)
-                self.assertTrue(manager.check(connection).current)
+                self.assertTrue(HubSchemaManager(old_settings).check(connection).current)
 
             hosts = table_identifier(old_settings, "hosts")
             groups = table_identifier(old_settings, "host_groups")
@@ -322,14 +324,14 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 5)
+                self.assertEqual(check.latest_version, 6)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
                 with connection.cursor() as cursor:
                     cursor.execute(
                         f"UPDATE {migrations} SET checksum_sha256=%s "
-                        "WHERE version=5",
+                        "WHERE version=6",
                         ("0" * 64,),
                     )
                 connection.commit()
@@ -393,6 +395,97 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                         "host-second.example.test",
                     ),
                 )
+
+    def test_host_local_firewall_sync_never_overwrites_central_rules(self) -> None:
+        host = self._host("machine-firewall", "host-firewall")
+        self.database.sync_core(host)
+        table = table_identifier(self.settings, "firewall_rules")
+        hosts = table_identifier(self.settings, "hosts")
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT id FROM {hosts} WHERE machine_id=%s",
+                    (host.machine_id,),
+                )
+                host_id = cursor.fetchone()[0]
+                cursor.execute(
+                    f"INSERT INTO {table} "
+                    "(rule_uid, origin, target_kind, host_id, group_id, rule_type, "
+                    "enabled, name, direction, action, protocol, source, destination, "
+                    "destination_invert, port_from, port_to, interface_name, ban_to, "
+                    "last_seen_at) VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,UTC_TIMESTAMP(6))",
+                    (
+                        "d" * 32, "central", "host", host_id, "standard", 1,
+                        "Central SSH", "input", "allow", "tcp", "198.51.100.10/32",
+                        "", 0, 22, 22, "", None,
+                    ),
+                )
+            connection.commit()
+
+        result = self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_rules", "firewall_rules",
+                (
+                    HubFirewallRule(
+                        "a" * 32, "vpn_ban", True, "Alice",
+                        direction="input", action="deny", protocol="any",
+                        source="10.8.89.12/32", ban_to="2026-12-31",
+                    ),
+                    HubFirewallRule(
+                        "b" * 32, "standard", True, "Office HTTPS",
+                        direction="input", action="allow", protocol="tcp",
+                        source="203.0.113.0/24", port_from=443, port_to=443,
+                    ),
+                ),
+                min_schema_version=6,
+            ),
+        )
+        self.assertEqual(result.item_count, 2)
+        # A second local snapshot replaces only host_local rows.
+        self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_rules", "firewall_rules",
+                (
+                    HubFirewallRule(
+                        "b" * 32, "standard", False, "Office HTTPS",
+                        direction="input", action="allow", protocol="tcp",
+                        source="203.0.113.0/24", port_from=443, port_to=443,
+                    ),
+                ),
+                min_schema_version=6,
+            ),
+        )
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT rule_uid, origin, target_kind, enabled, name "
+                    f"FROM {table} WHERE host_id=%s ORDER BY origin, rule_uid",
+                    (host_id,),
+                )
+                self.assertEqual(
+                    cursor.fetchall(),
+                    (
+                        ("d" * 32, "central", "host", 1, "Central SSH"),
+                        ("b" * 32, "host_local", "host", 0, "Office HTTPS"),
+                    ),
+                )
+
+        with self.assertRaises(ValueError):
+            self.database.sync_provider(
+                host.machine_id,
+                HubProviderSnapshot(
+                    "firewall_rules", "firewall_rules",
+                    (
+                        HubFirewallRule(
+                            "z" * 32, "standard", True,
+                            source="203.0.113.4/32",
+                        ),
+                    ),
+                    min_schema_version=6,
+                ),
+            )
 
     def test_single_service_provider_survives_core_and_cleans_own_key_only(self) -> None:
         host = replace(

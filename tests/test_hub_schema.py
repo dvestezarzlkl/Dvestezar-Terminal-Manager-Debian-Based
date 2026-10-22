@@ -24,17 +24,24 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5])
+        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6])
         initial = migrations[0].render(self.settings.prefix)
         disks = migrations[1].render(self.settings.prefix)
         service_host = migrations[2].render(self.settings.prefix)
         metadata = migrations[3].render(self.settings.prefix)
         groups = migrations[4].render(self.settings.prefix)
+        firewall = migrations[5].render(self.settings.prefix)
         self.assertEqual(len(initial), 7)
         self.assertEqual(len(disks), 2)
         self.assertEqual(len(service_host), 1)
         self.assertEqual(len(metadata), 1)
         self.assertEqual(len(groups), 2)
+        self.assertEqual(len(firewall), 1)
+        self.assertIn("CREATE TABLE IF NOT EXISTS `hub_firewall_rules`", firewall[0])
+        self.assertIn("`target_kind` VARCHAR(16) NOT NULL", firewall[0])
+        self.assertIn("`origin` VARCHAR(16) NOT NULL", firewall[0])
+        self.assertIn("FOREIGN KEY (`host_id`) REFERENCES `hub_hosts`", firewall[0])
+        self.assertIn("FOREIGN KEY (`group_id`) REFERENCES `hub_host_groups`", firewall[0])
         self.assertIn("CREATE TABLE IF NOT EXISTS `hub_host_groups`", groups[0])
         self.assertIn("`id` INT UNSIGNED", groups[0])
         self.assertIn("UNIQUE KEY `uq_host_groups_code`", groups[0])
@@ -59,7 +66,7 @@ class HubSchemaTests(unittest.TestCase):
             )
         )
 
-    def test_only_additive_migration_005_may_be_pending(self):
+    def test_only_known_additive_migrations_005_006_may_be_pending(self):
         from libs.app.hub.schema import HubSchemaManager
 
         class Cursor:
@@ -90,11 +97,19 @@ class HubSchemaTests(unittest.TestCase):
 
         manager = HubSchemaManager(self.settings)
         known = {m.version: m.checksum for m in manager.migrations}
-        pending_005 = manager.check(Connection({
+        pending_005_006 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 4
         }))
-        self.assertTrue(pending_005.current)
-        self.assertEqual((pending_005.current_version, pending_005.latest_version), (4, 5))
+        self.assertTrue(pending_005_006.current)
+        self.assertEqual(
+            (pending_005_006.current_version, pending_005_006.latest_version),
+            (4, 6),
+        )
+        pending_006 = manager.check(Connection({
+            k: v for k, v in known.items() if k <= 5
+        }))
+        self.assertTrue(pending_006.current)
+        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 6))
 
         missing_mandatory_004 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 3
@@ -102,13 +117,13 @@ class HubSchemaTests(unittest.TestCase):
         self.assertFalse(missing_mandatory_004.current)
 
         unexpected_future = manager.check(Connection({
-            **known, 6: "0" * 64
+            **known, 7: "0" * 64
         }))
         self.assertFalse(unexpected_future.current)
         self.assertIn("Unsupported schema migrations", unexpected_future.error)
 
         corrupted_checksum = manager.check(Connection({
-            **known, 5: "0" * 64
+            **known, 6: "0" * 64
         }))
         self.assertFalse(corrupted_checksum.current)
         self.assertIn("Checksum mismatch", corrupted_checksum.error)
@@ -156,6 +171,7 @@ class HubSchemaTests(unittest.TestCase):
     def test_table_identifier_accepts_only_fixed_suffixes(self):
         self.assertEqual(table_identifier(self.settings, "hosts"), "`hub_hosts`")
         self.assertEqual(table_identifier(self.settings, "host_groups"), "`hub_host_groups`")
+        self.assertEqual(table_identifier(self.settings, "firewall_rules"), "`hub_firewall_rules`")
         self.assertEqual(table_identifier(self.settings, "disks"), "`hub_disks`")
         self.assertEqual(
             table_identifier(self.settings, "host_disks"), "`hub_host_disks`"

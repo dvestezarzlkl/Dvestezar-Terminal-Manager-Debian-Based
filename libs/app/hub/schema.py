@@ -22,12 +22,13 @@ _ALLOWED_TABLES = frozenset({
     "disks",
     "host_disks",
     "host_groups",
+    "firewall_rules",
 })
 
-# Migration 005 is additive and its host group data is USER-OWNED.
-# Clients on 2.5.0 can continue syncing with existing schema 004 while the
-# fleet is upgraded. Do not apply 005 until old (2.4.0) clients are upgraded.
-_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5})
+# Migrations 005/006 are additive. New clients can continue syncing core and
+# older datasets while these tables are pending; providers declare the minimum
+# schema they require. Never accept unknown future migrations.
+_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6})
 
 
 @dataclass(frozen=True)

@@ -8,6 +8,7 @@ from tests.test_hub_bacula_collector import HubBaculaServiceTests
 from tests.test_hub_firewall import HubFirewallCollectorTests
 from tests.test_hub_firewall_policy import HubFirewallPolicyTests
 from tests.test_hub_firewall_reconcile import HubFirewallReconcileTests
+from tests.test_hub_firewall_config import HubFirewallConfigTests
 from tests.test_hub_scheduling import HubScheduleTests
 from tests.test_hub_host_metadata import HubHostMetadataTests
 from tests.test_hub_last_service_run import HubLastServiceRunTests
@@ -152,6 +153,25 @@ class HubRuntimeTests(unittest.TestCase):
         error_database = next(db for db in FakeDatabase.instances if db.errors)
         self.assertEqual(len(sync_database.providers), 1)
         self.assertEqual(error_database.errors[0][1], "broken")
+
+    def test_provider_waits_for_declared_optional_schema_without_db_write(self):
+        runtime = HubRuntime()
+        runtime.register_provider(
+            "firewall_rules",
+            lambda context: HubProviderSnapshot(
+                "firewall_rules", "firewall_rules", (), min_schema_version=6
+            ),
+        )
+        with patch("libs.app.hub.runtime.HubDatabase", FakeDatabase), patch(
+            "libs.app.hub.runtime.collect_host_snapshot", return_value=self.host
+        ), patch(
+            "libs.app.hub.runtime.configured_service_host", return_value="host.example"
+        ):
+            report = runtime.sync_all()
+        self.assertTrue(report.core_synced)
+        self.assertEqual(report.provider_counts, {"firewall_rules": 0})
+        sync_database = next(db for db in FakeDatabase.instances if db.core)
+        self.assertEqual(sync_database.providers, [])
 
     def test_sync_all_logs_phase_boundaries(self):
         runtime = HubRuntime()

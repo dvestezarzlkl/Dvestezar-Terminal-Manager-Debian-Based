@@ -44,6 +44,7 @@ Aktuální migrace:
 - `003_service_host_identity.sql`: samostatná lokální service host/FQDN/IP identita hostu.
 - `004_host_metadata_timer.sql`: centrálně editovatelná metadata hostu a hlášené zapnutí hodinového timeru.
 - `005_host_groups.sql`: centrální skupiny serverů a volitelné přiřazení právě jedné skupiny hostu; `group_id NULL` = nepřiřazeno.
+- `006_firewall_rules.sql`: typovaný katalog firewall pravidel s cílem `host/group/all` a odděleným vlastnictvím `host_local/central`.
 
 ## Datové sady
 
@@ -66,7 +67,7 @@ Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrá
 
 Skupiny hostů slouží pro budoucí cílení pravidel `host` / `group` / `all`. **Nejsou** to skupiny zdrojových IP adres (`home`/`office`/`vpn_admin`); ty mají budoucí samostatný katalog. Tato migrace zatím neobsahuje firewall pravidla ani nespouští UFW. Viz [firewall-manager-design.md](firewall-manager-design.md).
 
-**Koordinovaný rollout 005:** SysApps 2.5.0 toleruje známou aditivní migraci 005 ještě neaplikovanou, takže může synchronizovat proti v004 a zobrazuje READY s poznámkou o dostupné migraci. Před jejím spuštěním nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.5.0 a zazálohuj DB. Starší 2.4.0 se po spuštění 005 odpojí hláškou `SCHEMA OUTDATED`. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me. Při upgradu již existující DB se v menu zobrazí dodatečné výslovné potvrzení koordinace celé flotily a zálohy. Samotné potvrzení neověřuje živý stav všech ostatních strojů, proto musí jejich aktuálnost administrátor předem zkontrolovat.
+**Koordinovaný rollout 005/006:** SysApps 2.7.0 toleruje známé aditivní migrace 005 a 006 ještě neaplikované, takže může dál synchronizovat core a starší datasety proti v004/v005. Každý provider deklaruje minimální potřebné schéma; lokální `firewall_rules` se před schema 006 pouze přeskočí bez zápisu. Před ručním spuštěním čekajících migrací nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.7.0 a zazálohuj DB. Starší klient, který nezná 006, vyšší schéma odmítne. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me; menu vyžaduje dodatečné potvrzení koordinace flotily a zálohy.
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 
@@ -102,7 +103,7 @@ Od verze 2.4.0 lze v `sys_hub_plg` přidat jediný Python modul, který deklaruj
 
 První pilot `sys_hub_plg/bacula_fd.py` bezpečně detekuje Bacula FD pomocí systemd, instalované binárky a verze dpkg; neotevírá `bacula-fd.conf`, neukládá hesla ani nevymýšlí FD port (9102 není zaručené nastavení). Stav `active` neznamená, že funguje centrální zálohování.
 
-Od v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s `hub_provider.py` vracejícím `HubService(service_key="ufw")`: výhradně read-only dotazy `ufw status` a `ufw --version`. Headless discovery používá přímo tento provider bez importu `menu.py`. Lokální menu umí zobrazit počty pravidel v oddělených blocích UFW before.rules a provést náhled `NO_CHANGE`/`CHANGED` proti zadanému starému JS/JSON; detekce ani náhled **nikdy** nespouští Apply, zápis do /etc/ufw ani UFW reload. Vypršení cooldown BAN mění digest výsledných pravidel i při nezměněném zdrojovém JSON. Centrální firewall desired-state a write transport jsou další etapa.
+Od v2.6.0 přibývá vestavěná podaplikace `app_40_firewall` s read-only UFW providerem. Od v2.7.0 vlastní lokální desired-state soubor `/etc/jb_sys_apps/firewall.json` a editor přes standardní `c_menu`/JBLibs input framework. Import starého JSON/JS používá `selectFile()`; běžné porovnání již nevyžaduje cestu a pracuje s kanonickým lokálním souborem. Lokální editor smí vytvořit jen pravidla tohoto hostu. Samostatný headless collector `firewall_rules` je v schema 006 ukládá jako `origin=host_local,target_kind=host`; nikdy nemaže ani nepřepisuje budoucí centrální `host/group/all` záznamy. Provider deklaruje `min_schema_version=6`, takže před migrací 006 je bezpečně přeskočen. Editace a synchronizace desired-state **stále nikdy** neprovádějí Apply, zápis do /etc/ufw ani UFW reload.
 
 **Důležitá hranice:** obecný dataset `inventory_items`, více služeb/endpointů na jeden collector, plugin-local SQL migrace ani správa firewall/SSH desired-state zatím nejsou implementovány. Pro tyto složitější případy bude v další etapě potřeba samostatný typovaný dataset a centrální kontrola SQL schématu. Plugin nemá SQL spojení ani libovolný writer.
 
