@@ -164,10 +164,13 @@ class HubFirewallConfigTests(unittest.TestCase):
                 firewall_menu, "config_path", return_value=saved
             ), patch.object(
                 firewall_menu, "save_config", return_value=saved
-            ) as save:
+            ) as save, patch.object(
+                firewall_menu, "sync_local_rules_best_effort"
+            ) as sync:
                 result = firewall_menu.menu.import_legacy_config(fake, None)
             picker.assert_called_once()
             save.assert_called_once()
+            sync.assert_called_once_with()
             self.assertTrue(bool(getattr(result, "ok", None)))
             self.assertTrue(fake.menuRecycle)
 
