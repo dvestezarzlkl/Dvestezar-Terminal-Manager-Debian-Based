@@ -336,3 +336,98 @@ def import_legacy(path: Path, inspection: UfwInspection | None = None) -> Firewa
         "openvpn_interface": "tun+",
         "rules": [asdict(rule) for rule in rules],
     })
+
+
+def legacy_openvpn_mapping(config: FirewallConfig) -> dict[str, Any]:
+    """Build the old semantic OpenVPN policy shape from canonical local rules."""
+    cfg = normalize_config(config)
+    clients: list[dict[str, Any]] = []
+    for rule in cfg.rules:
+        if not rule.enabled:
+            continue
+        if rule.kind == "vpn_ban":
+            source = str(ip_network(rule.source, strict=False).network_address)
+            clients.append({
+                "clientName": rule.name,
+                "clientIP": source,
+                "type": 1,
+                "banTo": rule.ban_to or None,
+            })
+            continue
+        # Preserve the legacy "may reach VPN server but not forward elsewhere"
+        # semantic imported from type=2 as a standard rule.
+        if (
+            rule.kind == "standard"
+            and rule.direction == "forward"
+            and rule.action == "deny"
+            and rule.protocol == "any"
+            and rule.destination_invert
+            and rule.destination
+            and cfg.openvpn_server_ip
+            and str(ip_network(rule.destination, strict=False).network_address)
+                == str(ip_network(cfg.openvpn_server_ip, strict=False).network_address)
+            and (not rule.interface or rule.interface == cfg.openvpn_interface)
+        ):
+            source = str(ip_network(rule.source, strict=False).network_address)
+            clients.append({
+                "clientName": rule.name,
+                "clientIP": source,
+                "type": 2,
+            })
+    return {
+        "server_name": cfg.openvpn_server_name,
+        "server_ip": cfg.openvpn_server_ip,
+        "server_mask": cfg.openvpn_server_mask,
+        "clients": clients,
+    }
+
+
+def hard_source_rules(config: FirewallConfig) -> tuple[tuple[str, ...], ...]:
+    """Compile standard all-port trusted INPUT rules matching legacy hard-source semantics."""
+    cfg = normalize_config(config)
+    result: list[tuple[str, ...]] = []
+    for rule in cfg.rules:
+        if not rule.enabled or rule.kind != "standard":
+            continue
+        if (
+            rule.direction == "input"
+            and rule.action == "allow"
+            and rule.protocol == "any"
+            and rule.source
+            and not rule.destination
+            and not rule.destination_invert
+            and rule.port_from is None
+            and not rule.interface
+        ):
+            source = rule.source
+            if source.endswith("/32") or source.endswith("/128"):
+                source = str(ip_network(source, strict=False).network_address)
+            result.append(("-A", "ufw-before-input", "-s", source, "-j", "ACCEPT"))
+    return tuple(result)
+
+
+def managed_standard_rule_ids(config: FirewallConfig) -> set[str]:
+    """IDs currently representable by the legacy hard-source block."""
+    cfg = normalize_config(config)
+    managed: set[str] = set()
+    for rule in cfg.rules:
+        if (
+            rule.enabled and rule.kind == "standard"
+            and rule.direction == "input" and rule.action == "allow"
+            and rule.protocol == "any" and rule.source
+            and not rule.destination and not rule.destination_invert
+            and rule.port_from is None and not rule.interface
+        ):
+            managed.add(rule.rule_id)
+        elif (
+            rule.enabled and rule.kind == "standard"
+            and rule.direction == "forward" and rule.action == "deny"
+            and rule.protocol == "any" and rule.destination_invert
+            and rule.destination and rule.source
+            and config.openvpn_server_ip
+            and str(ip_network(rule.destination, strict=False).network_address)
+                == str(ip_network(config.openvpn_server_ip, strict=False).network_address)
+            and (not rule.interface or rule.interface == config.openvpn_interface)
+        ):
+            managed.add(rule.rule_id)
+    return managed
