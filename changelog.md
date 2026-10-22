@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.8.1
+
+- UX Firewall Manager 0.3.1: barevné volby směru, akce a protokolu přímo ve frameworkovém `select()`, dynamický kontext dosud vyplněných hodnot.
+- UX Rozhraní hostu přes JBLibs `getInterfaces()`, `select()` s IP adresami, možnost libovolného rozhraní nebo ručního vzoru `tun+`; původní neznámý interface při editaci zůstává dostupný.
+- SAFETY Stav UFW je rozlišen jako aktivní / neaktivní / nedostupný / neznámý; při neaktivním a neznámém UFW se blokuje běžné menu, absent se vypisuje šedě. Aktivace UFW není povolena bez budoucího bezpečného rollback mechanismu; žádný nový UFW mutátor.
+
 ## v2.8.0
 
 - ADD Firewall Manager 0.3.0: standardní firewall pravidla mají samostatné seznamy zdrojových/cílových TCP/UDP portů (`n,n-n,n`) se striktní validací a detekcí překryvů. Prázdný seznam znamená libovolný port.
