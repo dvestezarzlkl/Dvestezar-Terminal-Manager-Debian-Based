@@ -137,3 +137,18 @@ to avoid dropping port expressions when syncing older schema 006. Only
 Hub-enabled clients and take a central DB backup before applying migration 007
 manually from the Hub schema menu. This step is distinct from UFW Apply, which
 is not implemented.
+
+## Menu availability and interface discovery (2.8.1)
+
+Firewall menu status is inspected read-only. When UFW is absent the sole disabled
+entry is grey. When inactive or status unknown, normal editing/actions are
+hidden and an explicit red warning is displayed. This change does not enable
+UFW. Enabling a remote host firewall needs a separately reviewed, pre-armed,
+time-limited rollback and verified admin/rescue access before any `ufw enable`.
+
+The local standard rule editor discovers interfaces through the existing JBLibs
+`helper.getInterfaces(noLoop=False)`. It shows IPs in the picker; user may choose
+any interface, a detected interface, a previously configured name that is now
+absent, or explicitly enter a pattern like `tun+`. The selection list and
+incremental form context use the existing JBLibs `select` title/subTitle
+contract, not raw terminal widgets.
