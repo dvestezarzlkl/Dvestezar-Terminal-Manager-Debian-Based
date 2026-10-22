@@ -9,7 +9,7 @@ from .lng.default import *
 from libs.JBLibs.helper import loadLng
 loadLng()
 
-from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn
+from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn, printBlock
 from libs.JBLibs.input import confirm, get_input, select, select_item
 from libs.JBLibs.term import en_color, text_color
 
@@ -119,7 +119,7 @@ def _confirm_rule(rule: FirewallRule) -> bool:
         summary.append((TXT_FW_EDITOR_SRC_PORTS, rule.src_ports or "*"))
         summary.append((TXT_FW_EDITOR_DST_PORTS, rule.dst_ports or "*"))
         summary.append((TXT_FW_EDITOR_INTERFACE_OPTIONAL.rstrip(":"), rule.interface or "*"))
-    print(summary)
+    printBlock(summary, c_menu_block_items(), min_width=78)
     return confirm(TXT_FW_EDITOR_CONFIRM_SAVE)
 
 
