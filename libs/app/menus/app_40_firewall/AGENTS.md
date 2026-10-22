@@ -1,7 +1,7 @@
 # Firewall Manager / UFW scoped agent instructions
 
-- Module 0.2.0 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Use standard JBLibs `c_menu`/`select()`/`get_input()` and `selectFile()`; never reintroduce typed filesystem paths. Opening the menu must not create the file; first Save/import may create it atomically with mode 0600 and symlink rejection.
-- Local editor rules belong only to the current host. Hub collector `firewall_rules` may publish them only as `origin=host_local,target_kind=host` when schema >=006; it must never touch future central host/group/all rules.
+- Module 0.3.0 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Use standard JBLibs `c_menu`/`select()`/`get_input()` and `selectFile()`; never reintroduce typed filesystem paths. Opening the menu must not create the file; first Save/import may create it atomically with mode 0600 and symlink rejection.
+- Local editor rules belong only to the current host. Hub collector `firewall_rules` may publish them only as `origin=host_local,target_kind=host` when schema >=007; it must never touch future central host/group/all rules.
 - UFW runtime remains **read-only**: `policy.py` is pure, `hub_provider.py` calls only UFW status/version, comparison only reads `before.rules`. No UFW reload, no write to `/etc/ufw`, no remote Apply.
 - Pure `reconcile.py` only classifies plan against verified prior `applied_hash`; never mutates prior state or advances `last_applied_at`. Missing prior hash needs review; unexpected drift blocks automatic Apply. This release has NO persistent state and NO UFW Apply.
 - Future Apply belongs to a separate guarded and tested implementation.
