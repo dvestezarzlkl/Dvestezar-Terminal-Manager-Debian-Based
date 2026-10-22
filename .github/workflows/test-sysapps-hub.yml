@@ -16,6 +16,7 @@ on:
       - "libs/app/menus/app_10_disk/**"
       - "libs/app/menus/app_12_swap/**"
       - "libs/app/menus/app_20_node_red/**"
+      - "libs/app/menus/app_40_firewall/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
       - "tests/test_service_host.py"
@@ -48,6 +49,7 @@ on:
       - "libs/app/menus/app_10_disk/**"
       - "libs/app/menus/app_12_swap/**"
       - "libs/app/menus/app_20_node_red/**"
+      - "libs/app/menus/app_40_firewall/**"
       - "tests/test_hub_*.py"
       - "tests/test_settings_package.py"
       - "tests/test_service_host.py"
@@ -110,6 +112,7 @@ jobs:
           python -m py_compile \
             venv_run.py \
             libs/app/hub/*.py \
+            libs/app/hub/sys_hub_plg/*.py \
             libs/app/settings_package.py \
             libs/app/settings_menu.py \
             libs/app/runtime_flags.py \
@@ -122,6 +125,13 @@ jobs:
             libs/app/menus/app_12_swap/menu.py \
             libs/app/menus/app_20_node_red/hub_provider.py \
             libs/app/menus/app_20_node_red/menu.py \
+            libs/app/menus/app_40_firewall/config.py \
+            libs/app/menus/app_40_firewall/hub_provider.py \
+            libs/app/menus/app_40_firewall/hub_sync.py \
+            libs/app/menus/app_40_firewall/policy.py \
+            libs/app/menus/app_40_firewall/reconcile.py \
+            libs/app/menus/app_40_firewall/menu_rules.py \
+            libs/app/menus/app_40_firewall/menu.py \
             libs/app/menus/menuBoss.py \
             libs/app/c_cfg.py \
             tests/test_hub_config_package.py \

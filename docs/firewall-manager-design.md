@@ -14,6 +14,14 @@ The built-in dynamic subapplication `libs/app/menus/app_40_firewall/` now has:
 
 The hourly Hub now collects **UFW presence/status**, not yet a centralized desired-policy fetch/reconcile with Apply. `NO_CHANGE` is a read-only decision; future persistent `last_checked_at`/`last_applied_at`, staging, applied hash and transactional rollback will be a separate implementation phase. These existing sections remain untouched until that phase is tested on a VM and explicitly enabled.
 
+## Canonical local host policy and Hub ownership (SysApps 2.7.0)
+
+The local desired file is `/etc/jb_sys_apps/firewall.json` (versioned JSON, atomic 0600 write, symlinks rejected). Opening the menu does not create it; first Save or legacy Import does. The interactive editor is built on the existing JBLibs `c_menu`, `select()`, `get_input()` and `selectFile()` primitives. `Add rule` explicitly selects **VPN BAN** or **standard firewall rule**. Legacy JSON/JS is a one-time import source, not the normal runtime configuration path.
+
+Local rule ownership is strictly host-scoped. Hub migration 006 stores a generic future target model (`host/group/all`) and origin model (`host_local/central`), but the host collector is hard-coded to replace only `origin=host_local,target_kind=host` rows for its own machine ID. Central host overrides, group rules and all-host rules are future Hub/UI ownership and must survive every local sync. Until schema 006 exists, the provider declares `min_schema_version=6` and is skipped; core/other inventory continues against schema 004/005.
+
+The current editor does **not** imply UFW ownership or Apply. VPN BAN/isolation and trusted-source semantics can be compared with the two already-managed legacy blocks. Other generic standard rules are stored/synchronized as desired policy but reported as pending until a separately tested generic managed block + transactional Apply/rollback exists.
+
 ## Reconciliation decision foundation (SysApps 2.6.1)
 
 Pure `app_40_firewall/reconcile.py` provides `reconcile(plan, previous, checked_at)`. It accepts the established `FirewallPlan` and previously verified `ReconcileState`; **no local state is saved or mutated**, no UFW command or file write exists in this layer. A known, matching `applied_hash` and `NO_CHANGE` produce `NO_CHANGE`, while a changed effective rule set (including a cooldown BAN expiry) produces `PENDING_REVIEW`. Missing/ambiguous markers return `BLOCKED`, and a changed observed hash against last-verified `applied_hash` returns `DRIFT`. No prior applied hash means explicit manual adoption is mandatory, even when observed state matches desired.

@@ -149,6 +149,12 @@ class HubRuntime:
             raise ValueError(
                 f"Provider {key} returned source key {snapshot.source_key}."
             )
+        if snapshot.min_schema_version > self.status.schema_version:
+            log.info(
+                "SysApps Hub provider %s skipped: schema %d required, current %d",
+                key, snapshot.min_schema_version, self.status.schema_version,
+            )
+            return 0
         sync_started = perf_counter()
         log.info("SysApps Hub provider %s database sync: start", key)
         result = database.sync_provider(machine_id, snapshot)

@@ -52,6 +52,24 @@ class HubService:
 
 
 @dataclass(frozen=True)
+class HubFirewallRule:
+    rule_uid: str
+    rule_type: str
+    enabled: bool
+    name: str = ""
+    direction: str = "input"
+    action: str = "allow"
+    protocol: str = "any"
+    source: str = ""
+    destination: str = ""
+    destination_invert: bool = False
+    port_from: Optional[int] = None
+    port_to: Optional[int] = None
+    interface_name: str = ""
+    ban_to: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class HubHostSnapshot:
     machine_id: str
     hostname: str
@@ -114,7 +132,7 @@ class HubDiskNameUpdate:
     updated_at: datetime
 
 
-HubProviderItem = HubNodeRedInstance | HubDisk | HubService
+HubProviderItem = HubNodeRedInstance | HubDisk | HubService | HubFirewallRule
 HubRemoteUpdate = HubDiskNameUpdate
 
 
@@ -123,6 +141,7 @@ class HubProviderSnapshot:
     source_key: str
     dataset: str
     items: tuple[HubProviderItem, ...]
+    min_schema_version: int = 1
 
 
 @dataclass(frozen=True)

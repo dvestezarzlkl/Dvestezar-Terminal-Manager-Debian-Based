@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from ipaddress import ip_network
 import re
 from typing import Any, Iterator
 
 from .models import (
     HubDisk,
     HubDiskNameUpdate,
+    HubFirewallRule,
     HubHostSnapshot,
     HubNodeRedInstance,
     HubProviderSnapshot,
@@ -23,6 +25,8 @@ from .settings import HubSettings
 _PTUUID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _DEVICE_NAME_RE = re.compile(r"^[A-Za-z0-9._:+-]{1,128}$")
 _SERVICE_SOURCE_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+_FIREWALL_RULE_UID_RE = re.compile(r"^[0-9a-f]{32}$")
+_FIREWALL_INTERFACE_RE = re.compile(r"^[a-zA-Z0-9_.+-]{0,15}$")
 _CORE_SERVICE_KEYS = ("ssh", "webmin", "ispconfig")
 
 
@@ -342,7 +346,108 @@ class HubDatabase:
             return self._sync_disk_provider(machine_id, snapshot)
         if snapshot.dataset == "service":
             return self._sync_service_provider(machine_id, snapshot)
+        if snapshot.dataset == "firewall_rules":
+            return self._sync_firewall_rules_provider(machine_id, snapshot)
         raise ValueError(f"Unsupported Hub dataset: {snapshot.dataset}")
+
+    def _sync_firewall_rules_provider(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+    ) -> HubProviderSyncResult:
+        """Replace only this host's locally-owned firewall rules.
+
+        Central host/group/all rules use a different origin and are never
+        deleted or overwritten by a host collector.
+        """
+        if snapshot.source_key != "firewall_rules":
+            raise ValueError("Invalid firewall rule provider key.")
+        normalized: list[HubFirewallRule] = []
+        seen: set[str] = set()
+        for item in snapshot.items:
+            if not isinstance(item, HubFirewallRule):
+                raise TypeError("Invalid firewall Hub provider item.")
+            if not _FIREWALL_RULE_UID_RE.fullmatch(item.rule_uid) or item.rule_uid in seen:
+                raise ValueError("Invalid or duplicate firewall rule UID.")
+            seen.add(item.rule_uid)
+            if item.rule_type not in {"vpn_ban", "standard"}:
+                raise ValueError("Unsupported firewall rule type.")
+            if item.direction not in {"input", "forward", "output"}:
+                raise ValueError("Unsupported firewall rule direction.")
+            if item.action not in {"allow", "deny", "reject"}:
+                raise ValueError("Unsupported firewall rule action.")
+            if item.protocol not in {"any", "tcp", "udp", "icmp"}:
+                raise ValueError("Unsupported firewall protocol.")
+            if len(item.name) > 255 or len(item.source) > 128 or len(item.destination) > 128:
+                raise ValueError("Firewall rule text exceeds column limits.")
+            if not _FIREWALL_INTERFACE_RE.fullmatch(item.interface_name):
+                raise ValueError("Invalid firewall interface.")
+            for address in (item.source, item.destination):
+                if address:
+                    try:
+                        ip_network(address, strict=False)
+                    except ValueError as exc:
+                        raise ValueError("Invalid firewall IP/network.") from exc
+            if item.destination_invert and not item.destination:
+                raise ValueError("Inverted firewall destination requires a destination.")
+            if (item.port_from is None) != (item.port_to is None):
+                raise ValueError("Firewall port range is incomplete.")
+            if item.port_from is not None:
+                if (
+                    isinstance(item.port_from, bool) or isinstance(item.port_to, bool)
+                    or not 1 <= int(item.port_from) <= int(item.port_to) <= 65535
+                    or item.protocol not in {"tcp", "udp"}
+                ):
+                    raise ValueError("Invalid firewall port range.")
+            if item.ban_to:
+                try:
+                    parsed = date.fromisoformat(item.ban_to)
+                except ValueError as exc:
+                    raise ValueError("Invalid firewall BAN date.") from exc
+                if parsed.isoformat() != item.ban_to:
+                    raise ValueError("Invalid firewall BAN date.")
+            normalized.append(item)
+
+        table = table_identifier(self.settings, "firewall_rules")
+        now = _utc_now()
+        with self.connect() as connection:
+            try:
+                with connection.cursor() as cursor:
+                    host_id = self._host_id(cursor, machine_id)
+                    cursor.execute(
+                        f"DELETE FROM {table} "
+                        "WHERE host_id=%s AND origin=%s AND target_kind=%s",
+                        (host_id, "host_local", "host"),
+                    )
+                    if normalized:
+                        cursor.executemany(
+                            f"INSERT INTO {table} "
+                            "(rule_uid, origin, target_kind, host_id, group_id, "
+                            "rule_type, enabled, name, direction, action, protocol, "
+                            "source, destination, destination_invert, port_from, "
+                            "port_to, interface_name, ban_to, last_seen_at) "
+                            "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            [
+                                (
+                                    item.rule_uid, "host_local", "host", host_id,
+                                    item.rule_type, 1 if item.enabled else 0,
+                                    item.name, item.direction, item.action,
+                                    item.protocol, item.source, item.destination,
+                                    1 if item.destination_invert else 0,
+                                    item.port_from, item.port_to, item.interface_name,
+                                    item.ban_to, now,
+                                )
+                                for item in normalized
+                            ],
+                        )
+                    self._upsert_source(
+                        cursor, host_id, snapshot.source_key, "ok", len(normalized)
+                    )
+                connection.commit()
+                return HubProviderSyncResult(len(normalized))
+            except Exception:
+                connection.rollback()
+                raise
 
     def _sync_service_provider(
         self,
