@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager – Debian-Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.8.0
+v2.8.1
 
 [CZ](readme.md)
 

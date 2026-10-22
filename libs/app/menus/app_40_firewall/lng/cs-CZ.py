@@ -77,3 +77,11 @@ TXT_FW_EDITOR_INVALID_PORT = "Neplatný port."
 TXT_FW_EDITOR_SRC_PORTS = "Zdrojové porty (prázdné = všechny, např. 22,80,3000-3010):"
 TXT_FW_EDITOR_DST_PORTS = "Cílové porty (prázdné = všechny, např. 80,443,8000-8010):"
 TXT_FW_EDITOR_CONFIRM_SAVE = "Uložit toto pravidlo do lokálního firewall.json a synchronizovat do Hubu?"
+
+TXT_FW_EDITOR_IFACE_ANY = "Libovolné rozhraní"
+TXT_FW_EDITOR_IFACE_MANUAL = "Zadat rozhraní ručně / vzor (např. tun+)"
+TXT_FW_EDITOR_IFACE_OLD = "Dříve nastavené: {name} (nenalezeno)"
+
+TXT_FW_NOT_INSTALLED = "Na tomto systému není UFW dostupné."
+TXT_FW_INACTIVE = "UFW není aktivní. Aktivace může přerušit připojení; zabezpečené zapnutí zatím není implementováno."
+TXT_FW_UNKNOWN_STATUS = "Stav UFW není známý; správa firewallu není dostupná."

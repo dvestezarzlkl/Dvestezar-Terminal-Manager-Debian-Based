@@ -6,7 +6,7 @@ from typing import Any
 import re
 
 from .lng.default import *
-from libs.JBLibs.helper import loadLng
+from libs.JBLibs.helper import loadLng, getInterfaces
 loadLng()
 
 from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn, printBlock
@@ -21,11 +21,16 @@ from .config import (
 from .hub_sync import sync_local_rules_best_effort
 
 
-def _pick(message: str, options: list[tuple[str, str, Any]], width: int) -> Any | None:
+def _pick(message: str, options: list[tuple[str, str, Any]], width: int,
+          context: dict[str, str] | None = None) -> Any | None:
+    header = c_menu_block_items()
+    if context:
+        for name, value in context.items():
+            header.append((name, value or "*"))
     result = select(
         message,
         [select_item(label, key, data) for key, label, data in options],
-        width,
+        width, subTitle=header,
     )
     if not result or result.item is None:
         return None
@@ -61,6 +66,17 @@ def _prompt(
     if value == "" and current not in (None, ""):
         return str(current)
     return value
+
+
+def _host_interfaces() -> list[tuple[str, str, str]]:
+    """Use JBLibs inventory; never infer that a missing NIC is safe to replace."""
+    items = []
+    for iface in getInterfaces(noLoop=False):
+        name = iface.name
+        if name and re.fullmatch(r"[a-zA-Z0-9_.+-]{1,15}", name):
+            details = ", ".join(ip for ip in (iface.ipv4, iface.ipv6) if ip)
+            items.append((name, f"{name} ({details})" if details else name, name))
+    return sorted(items, key=lambda item: item[0])
 
 
 def _color_direction(value: str) -> str:
@@ -256,7 +272,7 @@ class FirewallRulesMenu(c_menu):
                 ("t", TXT_FW_EDITOR_TOGGLE, "toggle"),
                 ("d", TXT_FW_EDITOR_DELETE, "delete"),
             ],
-            self.minMenuWidth,
+            self.minMenuWidth, context,
         )
         if action is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
@@ -325,40 +341,44 @@ class FirewallRulesMenu(c_menu):
         )
         if name is None:
             return None
+        context = {TXT_FW_EDITOR_NAME.rstrip(":"): name}
         direction = _pick(
             TXT_FW_EDITOR_DIRECTION,
             [
-                ("i", TXT_FW_EDITOR_DIR_INPUT, "input"),
-                ("f", TXT_FW_EDITOR_DIR_FORWARD, "forward"),
-                ("o", TXT_FW_EDITOR_DIR_OUTPUT, "output"),
+                ("i", text_color(TXT_FW_EDITOR_DIR_INPUT, en_color.RED), "input"),
+                ("f", text_color(TXT_FW_EDITOR_DIR_FORWARD, en_color.YELLOW), "forward"),
+                ("o", text_color(TXT_FW_EDITOR_DIR_OUTPUT, en_color.GREEN), "output"),
             ],
-            self.minMenuWidth,
+            self.minMenuWidth, context,
         )
         if direction is None:
             return None
+        context[TXT_FW_EDITOR_DIRECTION] = _color_direction(direction)
         action = _pick(
             TXT_FW_EDITOR_ACTION,
             [
-                ("a", TXT_FW_EDITOR_ACTION_ALLOW, "allow"),
-                ("d", TXT_FW_EDITOR_ACTION_DENY, "deny"),
-                ("r", TXT_FW_EDITOR_ACTION_REJECT, "reject"),
+                ("a", text_color(TXT_FW_EDITOR_ACTION_ALLOW, en_color.GREEN), "allow"),
+                ("d", text_color(TXT_FW_EDITOR_ACTION_DENY, en_color.YELLOW), "deny"),
+                ("r", text_color(TXT_FW_EDITOR_ACTION_REJECT, en_color.RED), "reject"),
             ],
             self.minMenuWidth,
         )
         if action is None:
             return None
+        context[TXT_FW_EDITOR_ACTION] = _color_action(action)
         protocol = _pick(
             TXT_FW_EDITOR_PROTOCOL,
             [
                 ("a", TXT_FW_EDITOR_PROTO_ANY, "any"),
-                ("t", "TCP", "tcp"),
-                ("u", "UDP", "udp"),
+                ("t", text_color("TCP", en_color.GREEN), "tcp"),
+                ("u", text_color("UDP", en_color.BLUE), "udp"),
                 ("i", "ICMP", "icmp"),
             ],
-            self.minMenuWidth,
+            self.minMenuWidth, context,
         )
         if protocol is None:
             return None
+        context[TXT_FW_EDITOR_PROTOCOL] = _color_protocol(protocol)
         source = _prompt(
             TXT_FW_EDITOR_SOURCE_OPTIONAL, width=self.minMenuWidth,
             current=current.source if current else "", required=False, max_len=64,
@@ -408,12 +428,32 @@ class FirewallRulesMenu(c_menu):
                 self.msg = TXT_FW_FAIL.format(reason=str(exc))
                 return None
 
-        interface = _prompt(
-            TXT_FW_EDITOR_INTERFACE_OPTIONAL, width=self.minMenuWidth,
-            current=current.interface if current else "", required=False, max_len=15,
-        )
+        context[TXT_FW_EDITOR_SOURCE_OPTIONAL.rstrip(":")] = source or "*"
+        context[TXT_FW_EDITOR_DEST_OPTIONAL.rstrip(":")] = destination or "*"
+        if protocol in {"tcp", "udp"}:
+            context[TXT_FW_EDITOR_SRC_PORTS] = src_ports or "*"
+            context[TXT_FW_EDITOR_DST_PORTS] = dst_ports or "*"
+        interface_options = [("a", TXT_FW_EDITOR_IFACE_ANY, "")]
+        try:
+            interface_options.extend(_host_interfaces())
+        except (OSError, ValueError):
+            pass
+        current_iface = current.interface if current else ""
+        if current_iface and current_iface not in {entry[2] for entry in interface_options}:
+            interface_options.append(("old", TXT_FW_EDITOR_IFACE_OLD.format(name=current_iface), current_iface))
+        interface_options.append(("m", TXT_FW_EDITOR_IFACE_MANUAL, "__manual__"))
+        interface = _pick(TXT_FW_EDITOR_INTERFACE_OPTIONAL, interface_options,
+                          self.minMenuWidth, context)
         if interface is None:
             return None
+        if interface == "__manual__":
+            interface = _prompt(
+                TXT_FW_EDITOR_INTERFACE_OPTIONAL, width=self.minMenuWidth,
+                current=current_iface, required=True, max_len=15,
+                rgx=re.compile(r"^[a-zA-Z0-9_.+-]{1,15}$"),
+            )
+            if interface is None:
+                return None
 
         rule = FirewallRule(
             rule_id=current.rule_id if current else new_rule_id(),
