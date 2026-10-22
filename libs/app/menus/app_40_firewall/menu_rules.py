@@ -123,7 +123,7 @@ def _confirm_rule(rule: FirewallRule) -> bool:
     return confirm(TXT_FW_EDITOR_CONFIRM_SAVE)
 
 
-_PORT_INPUT_RE = re.compile(r"^$|^[0-9]{1,5}(?:-[0-9]{1,5})?(?:,[0-9]{1,5}(?:-[0-9]{1,5})?)*$")
+_PORT_INPUT_RE = re.compile(r"^-$|^$|^[0-9]{1,5}(?:-[0-9]{1,5})?(?:,[0-9]{1,5}(?:-[0-9]{1,5})?)*$")
 
 
 class FirewallRulesMenu(c_menu):
