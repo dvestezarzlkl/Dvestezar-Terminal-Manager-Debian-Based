@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "test(firewall): keep Hub CI watching and compiling Firewall Manager paths",
+  "replacements": [
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "      - \"libs/app/menus/app_20_node_red/**\"\n",
+      "new": "      - \"libs/app/menus/app_20_node_red/**\"\n      - \"libs/app/menus/app_40_firewall/**\"\n",
+      "expected": 2
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            libs/app/hub/*.py \\\n            libs/app/settings_package.py \\\n",
+      "new": "            libs/app/hub/*.py \\\n            libs/app/hub/sys_hub_plg/*.py \\\n            libs/app/settings_package.py \\\n",
+      "expected": 1
+    },
+    {
+      "path": ".github/workflows/test-sysapps-hub.yml",
+      "old": "            libs/app/menus/app_20_node_red/menu.py \\\n            libs/app/menus/menuBoss.py \\\n",
+      "new": "            libs/app/menus/app_20_node_red/menu.py \\\n            libs/app/menus/app_40_firewall/config.py \\\n            libs/app/menus/app_40_firewall/hub_provider.py \\\n            libs/app/menus/app_40_firewall/hub_sync.py \\\n            libs/app/menus/app_40_firewall/policy.py \\\n            libs/app/menus/app_40_firewall/reconcile.py \\\n            libs/app/menus/app_40_firewall/menu_rules.py \\\n            libs/app/menus/app_40_firewall/menu.py \\\n            libs/app/menus/menuBoss.py \\\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "- ADD Hub migration 006 `firewall_rules`: scope `host/group/all` + ownership `host_local/central`; lokální collector synchronizuje výhradně `origin=host_local,target_kind=host` a nikdy nesmí smazat centrální/group/all pravidla.\n",
+      "new": "- ADD Hub migration 006 `firewall_rules`: scope `host/group/all` + ownership `host_local/central`; lokální collector synchronizuje výhradně `origin=host_local,target_kind=host` a nikdy nesmí smazat centrální/group/all pravidla. Po úspěšném lokálním Save/Importu se spustí best-effort sync tohoto provideru; nedostupný Hub nezneplatní lokální změnu a hodinový sync ji později dorovná.\n",
+      "expected": 1
+    }
+  ]
+}
