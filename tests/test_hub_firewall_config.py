@@ -90,6 +90,22 @@ class HubFirewallConfigTests(unittest.TestCase):
                 }],
             })
 
+    def test_legacy_vpn_ban_rejects_ipv6_source(self):
+        with self.assertRaises(FirewallConfigError):
+            normalize_config({
+                "version": 1,
+                "openvpn_server_name": "vpn",
+                "openvpn_server_ip": "10.8.88.1",
+                "openvpn_server_mask": 23,
+                "rules": [{
+                    "rule_id": "e" * 32,
+                    "kind": "vpn_ban",
+                    "enabled": True,
+                    "name": "IPv6 not supported by legacy block",
+                    "source": "2001:db8::1/128",
+                }],
+            })
+
     def test_import_legacy_and_existing_hard_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "old.js"
