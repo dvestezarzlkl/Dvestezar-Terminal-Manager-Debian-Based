@@ -439,7 +439,7 @@ def hard_source_rules(config: FirewallConfig) -> tuple[tuple[str, ...], ...]:
             and rule.source
             and not rule.destination
             and not rule.destination_invert
-            and rule.port_from is None
+            and not rule.src_ports and not rule.dst_ports
             and not rule.interface
         ):
             source = rule.source
@@ -459,7 +459,7 @@ def managed_standard_rule_ids(config: FirewallConfig) -> set[str]:
             and rule.direction == "input" and rule.action == "allow"
             and rule.protocol == "any" and rule.source
             and not rule.destination and not rule.destination_invert
-            and rule.port_from is None and not rule.interface
+            and not rule.src_ports and not rule.dst_ports and not rule.interface
         ):
             managed.add(rule.rule_id)
         elif (
