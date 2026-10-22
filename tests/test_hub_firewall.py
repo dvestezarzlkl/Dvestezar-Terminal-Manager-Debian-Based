@@ -59,9 +59,26 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertTrue(callable(firewall_menu.hub_collect))
         self.assertEqual(firewall_menu.menu._VERSION_, "0.3.0")
         screen = firewall_menu.menu()
-        screen.onShowMenu()
+        with patch.object(firewall_menu, "inspect_ufw_service", return_value=SimpleNamespace(detected=True, status="active", version="0.36")):
+            screen.onShowMenu()
         self.assertEqual(len(screen.menu), 6)
         self.assertFalse(hasattr(firewall_menu.menu, "apply_rules"))
+
+    def test_menu_gates_inactive_unknown_and_absent_without_mutation(self):
+        for detected, status, fragment in (
+            (False, "absent", "UFW"),
+            (True, "inactive", "UFW"),
+            (True, "unknown", "UFW"),
+        ):
+            with self.subTest(status=status), patch.object(
+                firewall_menu, "inspect_ufw_service",
+                return_value=SimpleNamespace(detected=detected, status=status, version="")
+            ):
+                screen = firewall_menu.menu()
+                screen.onShowMenu()
+                self.assertEqual(len(screen.menu), 1)
+                self.assertFalse(screen.menu[0].enabled)
+                self.assertIn(fragment, screen.menu[0].label)
 
     def test_local_preview_exposes_no_change_without_apply(self):
         from libs.app.menus.app_40_firewall.config import FirewallConfig, FirewallRule
