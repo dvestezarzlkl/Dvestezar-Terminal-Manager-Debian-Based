@@ -14,6 +14,7 @@ from unittest.mock import patch
 from libs.app.hub.models import HubContext
 from libs.app.hub.sys_hub_plg import firewall_rules as hub_firewall_rules
 from libs.app.menus.app_40_firewall import menu as firewall_menu
+from libs.app.menus.app_40_firewall import menu_rules as firewall_menu_rules
 from libs.app.menus.app_40_firewall.config import (
     FirewallConfig, FirewallConfigError, FirewallRule, append_rule,
     hard_source_rules, import_legacy, legacy_openvpn_mapping, load_config,
@@ -138,6 +139,13 @@ class HubFirewallConfigTests(unittest.TestCase):
         self.assertEqual(snapshot.min_schema_version, 6)
         self.assertEqual(snapshot.items[0].rule_uid, "c" * 32)
         self.assertEqual(snapshot.items[0].port_from, 22)
+
+    def test_optional_editor_value_can_be_cleared_explicitly(self):
+        with patch.object(firewall_menu_rules, "get_input", return_value="-"):
+            value = firewall_menu_rules._prompt(
+                "Optional:", width=72, current="2026-12-31", required=False
+            )
+        self.assertEqual(value, "")
 
     def test_legacy_import_menu_uses_framework_file_picker_not_typed_path(self):
         with tempfile.TemporaryDirectory() as tmp:
