@@ -28,7 +28,7 @@ _ALLOWED_TABLES = frozenset({
 # Migrations 005/006 are additive. New clients can continue syncing core and
 # older datasets while these tables are pending; providers declare the minimum
 # schema they require. Never accept unknown future migrations.
-_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6})
+_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6, 7})
 
 
 @dataclass(frozen=True)
