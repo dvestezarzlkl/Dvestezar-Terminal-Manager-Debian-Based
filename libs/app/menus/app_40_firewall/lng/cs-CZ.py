@@ -81,3 +81,7 @@ TXT_FW_EDITOR_CONFIRM_SAVE = "Uložit toto pravidlo do lokálního firewall.json
 TXT_FW_EDITOR_IFACE_ANY = "Libovolné rozhraní"
 TXT_FW_EDITOR_IFACE_MANUAL = "Zadat rozhraní ručně / vzor (např. tun+)"
 TXT_FW_EDITOR_IFACE_OLD = "Dříve nastavené: {name} (nenalezeno)"
+
+TXT_FW_NOT_INSTALLED = "Na tomto systému není UFW dostupné."
+TXT_FW_INACTIVE = "UFW není aktivní. Aktivace může přerušit připojení; zabezpečené zapnutí zatím není implementováno."
+TXT_FW_UNKNOWN_STATUS = "Stav UFW není známý; správa firewallu není dostupná."
