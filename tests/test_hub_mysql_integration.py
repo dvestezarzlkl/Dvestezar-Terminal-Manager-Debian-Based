@@ -177,7 +177,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 6)
+                self.assertEqual(cursor.fetchone()[0], 7)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -324,7 +324,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 6)
+                self.assertEqual(check.latest_version, 7)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
