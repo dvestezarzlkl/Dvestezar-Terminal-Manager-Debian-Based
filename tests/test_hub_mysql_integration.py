@@ -42,8 +42,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 6:
-            raise AssertionError(f"Expected schema version 6, got {version}")
+        if version != 7:
+            raise AssertionError(f"Expected schema version 7, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
