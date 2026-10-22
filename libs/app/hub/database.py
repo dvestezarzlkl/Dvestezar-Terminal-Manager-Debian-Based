@@ -433,7 +433,7 @@ class HubDatabase:
                             "rule_type, enabled, name, direction, action, protocol, "
                             "source, destination, destination_invert, port_from, "
                             "port_to, src_ports, dst_ports, interface_name, ban_to, last_seen_at) "
-                            "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                            "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                             [
                                 (
                                     item.rule_uid, "host_local", "host", host_id,
