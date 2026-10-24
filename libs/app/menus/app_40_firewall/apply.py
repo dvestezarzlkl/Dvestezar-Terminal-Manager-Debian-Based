@@ -144,30 +144,29 @@ def _validation_payload(blocks: tuple[DesiredBlock, ...]) -> str:
 
 
 def _validate_managed_actions(
-    compiled: CompiledFirewall,
+    plan: ApplyPlan,
     *,
     runner: Runner,
 ) -> None:
     iptables_restore = _binary("iptables-restore")
     runner(
         [iptables_restore, "--test"],
-        input_text=_validation_payload(compiled.ipv4),
+        input_text=_validation_payload(plan.compiled.ipv4),
         check=True,
         timeout=20,
     )
-    if compiled.ipv6:
+    if plan.ipv6 is not None:
         ip6tables_restore = shutil.which("ip6tables-restore")
-        if ip6tables_restore:
-            runner(
-                [ip6tables_restore, "--test"],
-                input_text=_validation_payload(compiled.ipv6),
-                check=True,
-                timeout=20,
-            )
-        elif compiled.explicit_ipv6:
+        if not ip6tables_restore:
             raise FirewallApplyError(
-                "IPv6 rules require ip6tables-restore for validation."
+                "before6.rules is managed but ip6tables-restore is unavailable."
             )
+        runner(
+            [ip6tables_restore, "--test"],
+            input_text=_validation_payload(plan.compiled.ipv6),
+            check=True,
+            timeout=20,
+        )
 
 
 def _atomic_replace(path: Path, content: str) -> None:
@@ -235,6 +234,7 @@ def _rollback_script(
     paths: ApplyPaths,
     backup: Path,
     existed: dict[str, bool],
+    touched: dict[str, bool],
     *,
     ufw: str,
     was_active: bool,
@@ -245,6 +245,8 @@ def _rollback_script(
         ("before6", backup / "before6.rules", paths.before6),
     )
     for key, source, target in pairs:
+        if not touched[key]:
+            continue
         if existed[key]:
             commands.append(
                 "cp -p -- " + shlex.quote(str(source)) + " " + shlex.quote(str(target))
@@ -261,6 +263,7 @@ def _arm_rollback(
     paths: ApplyPaths,
     backup: Path,
     existed: dict[str, bool],
+    touched: dict[str, bool],
     *,
     ufw: str,
     was_active: bool,
@@ -277,9 +280,11 @@ def _arm_rollback(
             "--quiet",
             "--unit", unit,
             "--on-active", f"{seconds}s",
+            "--timer-property=AccuracySec=1s",
             "/bin/bash", "-c",
             _rollback_script(
-                paths, backup, existed, ufw=ufw, was_active=was_active
+                paths, backup, existed, touched,
+                ufw=ufw, was_active=was_active
             ),
         ],
         check=True,
@@ -306,6 +311,7 @@ def _restore_backup(
     paths: ApplyPaths,
     backup: Path,
     existed: dict[str, bool],
+    touched: dict[str, bool],
     *,
     ufw: str,
     was_active: bool,
@@ -316,6 +322,8 @@ def _restore_backup(
         ("before6", backup / "before6.rules", paths.before6),
     )
     for key, source, target in pairs:
+        if not touched[key]:
+            continue
         try:
             if existed[key]:
                 shutil.copy2(source, target)
@@ -424,13 +432,18 @@ def apply_local_config(
     if was_active and not plan.changed:
         return ApplyResult("NO_CHANGE", False, False)
 
-    _validate_managed_actions(plan.compiled, runner=runner)
+    _validate_managed_actions(plan, runner=runner)
     ufw = _binary("ufw")
     backup, existed = _create_backup(paths, was_active=was_active)
+    touched = {
+        "before4": plan.ipv4.changed,
+        "before6": bool(plan.ipv6 is not None and plan.ipv6.changed),
+    }
     unit = _arm_rollback(
         paths,
         backup,
         existed,
+        touched,
         ufw=ufw,
         was_active=was_active,
         seconds=rollback_seconds,
@@ -443,7 +456,13 @@ def apply_local_config(
         if plan.ipv6 is not None and plan.ipv6.changed:
             _atomic_replace(paths.before6, plan.ipv6.content)
 
-        runner([ufw, "--dry-run", "reload"], check=True, timeout=30)
+        runner(
+            [ufw, "--dry-run", "reload"]
+            if was_active
+            else [ufw, "--dry-run", "enable"],
+            check=True,
+            timeout=30,
+        )
         runner(
             [ufw, "reload"] if was_active else [ufw, "--force", "enable"],
             check=True,
@@ -459,6 +478,7 @@ def apply_local_config(
                 paths,
                 backup,
                 existed,
+                touched,
                 ufw=ufw,
                 was_active=was_active,
                 runner=runner,
@@ -471,6 +491,7 @@ def apply_local_config(
                 paths,
                 backup,
                 existed,
+                touched,
                 ufw=ufw,
                 was_active=was_active,
                 runner=runner,
@@ -488,6 +509,7 @@ def apply_local_config(
                 paths,
                 backup,
                 existed,
+                touched,
                 ufw=ufw,
                 was_active=was_active,
                 runner=runner,
