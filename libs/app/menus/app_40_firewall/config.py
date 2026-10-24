@@ -365,6 +365,17 @@ def normalize_config(data: Mapping[str, Any] | FirewallConfig) -> FirewallConfig
     server_ids = [item.server_id for item in servers]
     if len(server_ids) != len(set(server_ids)):
         raise FirewallConfigError("Duplicate VPN server ID.")
+    marker_ids = [
+        (
+            item.name,
+            str(ip_network(f"{item.ip}/{item.mask}", strict=False)),
+        )
+        for item in servers
+    ]
+    if len(marker_ids) != len(set(marker_ids)):
+        raise FirewallConfigError(
+            "Duplicate VPN server marker identity (name + network)."
+        )
     server_map = {item.server_id: item for item in servers}
 
     rules_raw = raw.get("rules", ())
@@ -681,6 +692,7 @@ def hard_source_rules(config: FirewallConfig) -> tuple[tuple[str, ...], ...]:
             and not rule.destination_invert
             and not rule.src_ports and not rule.dst_ports
             and not rule.interface
+            and not rule.vpn_server_id
         ):
             source = rule.source
             if source.endswith("/32") or source.endswith("/128"):
