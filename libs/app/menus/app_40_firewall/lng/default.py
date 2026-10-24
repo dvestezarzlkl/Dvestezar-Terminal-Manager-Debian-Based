@@ -110,3 +110,7 @@ TXT_FW_VPN_BAN_ADD = "Add BAN rule"
 TXT_FW_VPN_BAN_PERMANENT = "permanent"
 TXT_FW_VPN_SERVER_ITEM = "{name}: {ip}/{mask} ({interface}), BAN: {bans}"
 TXT_FW_VPN_BANS_TITLE = "VPN BAN rules"
+
+TXT_FW_IMPORT_MERGE = "Local firewall.json already contains data. Add this imported VPN server and its rules?"
+TXT_FW_PREVIEW_VPN_SERVER = "OpenVPN {name}: {status}"
+TXT_FW_BLOCK_COUNT = "blocks"
