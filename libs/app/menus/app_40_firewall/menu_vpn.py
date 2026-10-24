@@ -14,7 +14,6 @@ from libs.JBLibs.c_menu import (
     c_menu_item,
     c_menu_title_label,
     onSelReturn,
-    printBlock,
 )
 from libs.JBLibs.input import confirm
 from libs.JBLibs.term import en_color, text_color
