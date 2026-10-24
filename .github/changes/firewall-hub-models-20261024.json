@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): add typed VPN server and rule association models",
+  "replacements": [
+    {
+      "path": "libs/app/hub/models.py",
+      "old": "@dataclass(frozen=True)\nclass HubFirewallRule:\n    rule_uid: str\n    rule_type: str\n    enabled: bool",
+      "new": "@dataclass(frozen=True)\nclass HubFirewallVpnServer:\n    server_uid: str\n    name: str\n    server_ip: str\n    server_mask: int\n    interface_name: str = \"tun+\"\n\n\n@dataclass(frozen=True)\nclass HubFirewallRule:\n    rule_uid: str\n    rule_type: str\n    enabled: bool\n    vpn_server_uid: str = \"\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/models.py",
+      "old": "HubProviderItem = HubNodeRedInstance | HubDisk | HubService | HubFirewallRule",
+      "new": "HubProviderItem = (\n    HubNodeRedInstance\n    | HubDisk\n    | HubService\n    | HubFirewallVpnServer\n    | HubFirewallRule\n)",
+      "expected": 1
+    }
+  ]
+}
