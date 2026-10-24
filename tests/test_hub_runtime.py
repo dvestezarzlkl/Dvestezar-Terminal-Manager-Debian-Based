@@ -74,6 +74,34 @@ class HubRuntimeTests(unittest.TestCase):
             jblibs_version="1.2.17",
         )
 
+    def test_ready_status_keeps_optional_schema_warning_after_sync(self):
+        runtime = HubRuntime()
+        runtime.status = HubStatus(
+            HubState.READY,
+            "ready",
+            datetime.now().astimezone(),
+            "11.4",
+            7,
+            8,
+        )
+        runtime.last_sync_at = datetime(2026, 10, 24, 11, 22, 11)
+
+        self.assertTrue(runtime.optional_schema_upgrade_available())
+        status = runtime.status_text()
+        self.assertIn("sync 2026-10-24 11:22:11", status)
+        self.assertIn("optional schema upgrade available: 7 -> 8", status)
+
+        runtime.status = HubStatus(
+            HubState.READY,
+            "ready",
+            datetime.now().astimezone(),
+            "11.4",
+            8,
+            8,
+        )
+        self.assertFalse(runtime.optional_schema_upgrade_available())
+        self.assertNotIn("optional schema upgrade", runtime.status_text())
+
     def test_core_snapshot_keeps_service_host_separate_from_system_fqdn(self):
         machine = SimpleNamespace(
             machine_id="machine-1",

@@ -36,10 +36,30 @@ class HubSettingsMenu(c_menu):
 
     def _status_color(self) -> en_color:
         if hub_runtime.status.state is HubState.READY:
+            if hub_runtime.optional_schema_upgrade_available():
+                return en_color.BRIGHT_YELLOW
             return en_color.BRIGHT_GREEN
         if hub_runtime.status.state in {HubState.DISABLED, HubState.NOT_CONFIGURED}:
             return en_color.BRIGHT_BLACK
         return en_color.BRIGHT_RED
+
+    def _schema_status_text(self) -> str:
+        status = hub_runtime.status
+        if status.schema_version <= 0:
+            if status.latest_schema_version > 0:
+                return TXT_HUB_SCHEMA_NOT_INITIALIZED.format(
+                    latest=status.latest_schema_version
+                )
+            return TXT_HUB_SCHEMA_UNKNOWN
+        if hub_runtime.optional_schema_upgrade_available():
+            return text_color(
+                TXT_HUB_SCHEMA_OPTIONAL.format(
+                    current=status.schema_version,
+                    latest=status.latest_schema_version,
+                ),
+                en_color.BRIGHT_YELLOW,
+            )
+        return str(status.schema_version)
 
     def onShowMenu(self) -> None:
         settings = HubSettings.from_cfg()
@@ -51,6 +71,7 @@ class HubSettingsMenu(c_menu):
         self.subTitle.append((TXT_HUB_STATUS, text_color(hub_runtime.status_text(), self._status_color())))
         self.subTitle.append((TXT_HUB_TARGET, f"{settings.host}:{settings.port}/{settings.database}"))
         self.subTitle.append((TXT_HUB_PREFIX, settings.prefix))
+        self.subTitle.append((TXT_HUB_SCHEMA_VERSION, self._schema_status_text()))
         mode = effective_sync_mode(settings.auto_sync)
         if mode == "timer":
             self.subTitle.append((TXT_HUB_TIMER_STATUS, timer_status()))
@@ -148,7 +169,17 @@ class HubSettingsMenu(c_menu):
             ),
             None,
             c_menu_item(text_color(TXT_HUB_TEST, en_color.BRIGHT_CYAN), "t", self.test_connection),
-            c_menu_item(text_color(TXT_HUB_SCHEMA, en_color.BRIGHT_YELLOW), "i", self.initialize_schema),
+            c_menu_item(
+                text_color(
+                    TXT_HUB_SCHEMA,
+                    en_color.BRIGHT_YELLOW
+                    if hub_runtime.optional_schema_upgrade_available()
+                    else en_color.BRIGHT_CYAN,
+                ),
+                "i",
+                self.initialize_schema,
+                atRight=self._schema_status_text(),
+            ),
             c_menu_item(
                 text_color(TXT_HUB_SYNC, en_color.BRIGHT_GREEN),
                 "s",
@@ -331,12 +362,17 @@ class HubSettingsMenu(c_menu):
     def initialize_schema(self, selItem: c_menu_item) -> onSelReturn:
         if not confirm(TXT_HUB_SCHEMA_CONFIRM):
             return onSelReturn().errRet(TXT_HUB_CANCELLED)
-        # Schema 005 is additive, but legacy 2.4.0 clients refuse the newer
-        # shared DB. This additional approval is never automatic and only
-        # appears when a migration is pending for an existing installation.
+        # Any pending migration on an existing shared DB requires explicit
+        # fleet/backup confirmation. Never hard-code a historical schema cutoff.
         status = hub_runtime.refresh_status()
-        if 0 < status.schema_version < 6:
-            if not confirm(TXT_HUB_SCHEMA_FLEET_CONFIRM):
+        if (
+            status.schema_version > 0
+            and status.latest_schema_version > status.schema_version
+        ):
+            if not confirm(TXT_HUB_SCHEMA_FLEET_CONFIRM.format(
+                current=status.schema_version,
+                latest=status.latest_schema_version,
+            )):
                 return onSelReturn().errRet(TXT_HUB_CANCELLED)
         print("SysApps Hub: applying database migrations...")
         ok, message = hub_runtime.initialize_schema()

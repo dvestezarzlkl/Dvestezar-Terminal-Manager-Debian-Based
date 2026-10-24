@@ -61,6 +61,18 @@ def _format_menu_version(version: str) -> str:
     version = str(version).strip()
     return f"v. {version}" if version else "?"
 
+def _hub_status_color() -> en_color:
+    if hub_runtime.status.state is HubState.READY:
+        if hub_runtime.optional_schema_upgrade_available():
+            return en_color.BRIGHT_YELLOW
+        return en_color.BRIGHT_GREEN
+    if hub_runtime.status.state in {HubState.DISABLED, HubState.NOT_CONFIGURED}:
+        return en_color.BRIGHT_BLACK
+    return en_color.BRIGHT_RED
+
+def _hub_status_text_colored() -> str:
+    return text_color(hub_runtime.status_text(), _hub_status_color())
+
 class menuBoss(menu):
     """
     Main APPs menu
@@ -101,7 +113,7 @@ class menuBoss(menu):
                     text_color('Synchronize SysApps Hub', en_color.BRIGHT_GREEN),
                     'hs',
                     self.syncHub,
-                    atRight=hub_runtime.status_text(),
+                    atRight=_hub_status_text_colored(),
                     enabled=hub_runtime.status.state is HubState.READY,
                 )
             )
@@ -137,19 +149,13 @@ class menuBoss(menu):
                 c_menu_title_label(cfg.machineInfo.err)
             ]
         else:
-            if hub_runtime.status.state is HubState.READY:
-                hub_color = en_color.BRIGHT_GREEN
-            elif hub_runtime.status.state in {HubState.DISABLED, HubState.NOT_CONFIGURED}:
-                hub_color = en_color.BRIGHT_BLACK
-            else:
-                hub_color = en_color.BRIGHT_RED
             self.afterTitle=[
                 "Distro: "+cfg.machineInfo.operating_system,
                 "Kernel: "+cfg.machineInfo.kernel,
                 "FQDN: "+cfg.machineInfo.hostname_full,
                 "Service host: "+(configured_service_host() or "not set"),
                 "JBLibs: "+libsVersion,
-                "SysApps Hub: "+text_color(hub_runtime.status_text(), hub_color),
+                "SysApps Hub: "+_hub_status_text_colored(),
             ]
         
     def showSystemInfo(self,selItem:c_menu_item) -> onSelReturn:
@@ -217,7 +223,7 @@ class m_mail_settings(c_menu):
         self.subTitle.append(("Service host / FQDN", configured_service_host() or "not set"))
         self.subTitle.append(("SMTP", mail_hlp.get_status_text()))
         self.subTitle.append(("Fallback admin", mail_hlp.get_fallback_admin_mail() or "not set"))
-        self.subTitle.append(("SysApps Hub", hub_runtime.status_text()))
+        self.subTitle.append(("SysApps Hub", _hub_status_text_colored()))
         if local_override:
             self.subTitle.append(("Local settings override", "ACTIVE (--local-settings)"))
         elif managed_keys:
@@ -236,7 +242,7 @@ class m_mail_settings(c_menu):
                 text_color("SysApps Hub settings", en_color.BRIGHT_CYAN),
                 "b",
                 HubSettingsMenu(),
-                atRight=hub_runtime.status_text(),
+                atRight=_hub_status_text_colored(),
             ),
             c_menu_item(
                 text_color("Centralized settings", en_color.BRIGHT_GREEN),

@@ -146,7 +146,8 @@ class HubSchemaTests(unittest.TestCase):
         from unittest.mock import patch
         from libs.app.hub.menu import HubSettingsMenu
 
-        status = SimpleNamespace(schema_version=4)
+        # Existing schema 7 -> 8 must still require the fleet/backup warning.
+        status = SimpleNamespace(schema_version=7, latest_schema_version=8)
         with patch("libs.app.hub.menu.confirm", side_effect=[True, False]) as ask, patch(
             "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
         ), patch("libs.app.hub.menu.hub_runtime.initialize_schema") as apply:
@@ -162,10 +163,22 @@ class HubSchemaTests(unittest.TestCase):
         ) as apply:
             HubSettingsMenu.initialize_schema(None, None)
             self.assertEqual(ask.call_count, 2)
+            self.assertIn("7 -> 8", ask.call_args_list[1].args[0])
             apply.assert_called_once_with()
 
         # Fresh installations have no older fleet to coordinate.
-        status = SimpleNamespace(schema_version=0)
+        status = SimpleNamespace(schema_version=0, latest_schema_version=8)
+        with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
+            "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
+        ), patch(
+            "libs.app.hub.menu.hub_runtime.initialize_schema",
+            return_value=(True, "schema ready"),
+        ):
+            HubSettingsMenu.initialize_schema(None, None)
+            ask.assert_called_once()
+
+        # An already current DB also needs only the generic confirmation.
+        status = SimpleNamespace(schema_version=8, latest_schema_version=8)
         with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
             "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
         ), patch(

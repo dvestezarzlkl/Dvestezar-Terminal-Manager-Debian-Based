@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.9.1
+
+- FIX SysApps Hub status keeps a pending optional schema upgrade visible even after a successful inventory sync; structured Hub status now carries both current and latest known schema versions.
+- UX Hub settings shows the current database schema explicitly. A compatible pending additive upgrade such as `7 -> 8` is highlighted yellow while Hub remains operational/READY.
+- SAFETY `Initialize/upgrade Hub schema` requires the fleet-updated + shared-DB-backup confirmation for every pending migration on an existing database, instead of the obsolete hard-coded `schema < 6` condition.
+
 ## v2.9.0
 
 - FIX Firewall Manager 0.4.0: opraven pád editace existujícího pravidla kvůli nedefinovanému `context`; výběr síťových rozhraní používá krátké unikátní volby místo názvu interface, který JBLibs omezuje na 8 znaků.

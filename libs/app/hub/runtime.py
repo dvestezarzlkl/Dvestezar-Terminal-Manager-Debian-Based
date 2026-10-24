@@ -79,6 +79,14 @@ class HubRuntime:
             )
         return self.status
 
+    def optional_schema_upgrade_available(self) -> bool:
+        status = self.status
+        return (
+            status.state is HubState.READY
+            and status.schema_version > 0
+            and status.latest_schema_version > status.schema_version
+        )
+
     def status_text(self) -> str:
         state = self.status.state
         labels = {
@@ -92,8 +100,21 @@ class HubRuntime:
             HubState.ERROR: "ERROR",
         }
         label = labels.get(state, state.value.upper())
-        if state is HubState.READY and self.last_sync_at is not None:
-            return f"{label}, sync {self.last_sync_at.strftime('%Y-%m-%d %H:%M:%S')}"
+        if state is HubState.READY:
+            details: list[str] = []
+            if self.last_sync_at is not None:
+                details.append(
+                    f"sync {self.last_sync_at.strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+            if self.optional_schema_upgrade_available():
+                details.append(
+                    "optional schema upgrade available: "
+                    f"{self.status.schema_version} -> "
+                    f"{self.status.latest_schema_version}"
+                )
+            if details:
+                return f"{label}, " + "; ".join(details)
+            return f"{label}: ready"
         return f"{label}: {self.status.message}" if self.status.message else label
 
     def initialize_schema(self) -> tuple[bool, str]:
