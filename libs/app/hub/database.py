@@ -137,6 +137,7 @@ class HubDatabase:
                 checked_at,
                 server_version,
                 check.current_version,
+                check.latest_version,
             )
         if not check.exists:
             return HubStatus(
@@ -145,6 +146,7 @@ class HubDatabase:
                 checked_at,
                 server_version,
                 0,
+                check.latest_version,
             )
         if not check.current:
             return HubStatus(
@@ -153,19 +155,15 @@ class HubDatabase:
                 checked_at,
                 server_version,
                 check.current_version,
-            )
-        message = "ready"
-        if check.current_version < check.latest_version:
-            message = (
-                f"ready (optional schema upgrade available: "
-                f"{check.current_version} -> {check.latest_version})"
+                check.latest_version,
             )
         return HubStatus(
             HubState.READY,
-            message,
+            "ready",
             checked_at,
             server_version,
             check.current_version,
+            check.latest_version,
         )
 
     def initialize_or_upgrade_schema(self) -> int:

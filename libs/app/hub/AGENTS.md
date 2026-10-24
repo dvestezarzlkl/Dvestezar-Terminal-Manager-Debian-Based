@@ -19,6 +19,7 @@
 - Table identifiers are built only from a strictly validated global prefix and a hard-coded suffix allowlist. All values use parameterized SQL.
 - Schema changes belong in ordered `migrations/NNN_name.sql` files. The only supported template placeholder is `{{PREFIX}}`; statements are separated by a line containing exactly `-- statement`.
 - Applied migrations are recorded with version and SHA-256. A checksum mismatch is an error and must never be silently accepted.
+- Schema UI/safety logic must compare structured current/latest versions from Hub status; never hard-code a historical cutoff such as "schema < 6". Any pending migration on an existing shared DB requires the explicit fleet-updated + database-backup confirmation, while additive pending migrations may still leave Hub READY.
 - Each provider synchronizes in its own transaction. A provider failure records an error state and preserves its previous inventory; it must not roll back core host data or other providers.
 - Stale provider records may be deleted only after a complete successful snapshot from that provider.
 - Hub unavailability, missing schema, missing local service host/FQDN, or provider failure must never block ordinary local sys_apps functions or a successful local Save. Sync requires a normalized service host so inventory never publishes empty or placeholder service URLs.

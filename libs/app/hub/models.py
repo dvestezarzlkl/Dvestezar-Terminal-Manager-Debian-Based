@@ -24,6 +24,7 @@ class HubStatus:
     checked_at: Optional[datetime] = None
     server_version: str = ""
     schema_version: int = 0
+    latest_schema_version: int = 0
 
     @property
     def ready(self) -> bool:
