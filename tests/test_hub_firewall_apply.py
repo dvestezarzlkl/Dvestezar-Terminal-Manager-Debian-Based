@@ -148,6 +148,21 @@ class FirewallCompilerTests(unittest.TestCase):
         self.assertFalse(second.changed)
         self.assertEqual(second.content, first.content)
 
+    def test_unmanaged_executable_rule_between_owned_blocks_blocks_reorder(self):
+        desired = compile_firewall(config()).ipv4
+        candidate = build_candidate(base_before(), desired, allow_openvpn=True)
+        source = candidate.content.replace(
+            "# *** EOF OpenVPN JB Config - dvestezar 10.8.88.0/23\n"
+            "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps",
+            "# *** EOF OpenVPN JB Config - dvestezar 10.8.88.0/23\n"
+            "-A ufw-before-input -s 203.0.113.77 -j DROP\n"
+            "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps",
+        )
+        with self.assertRaisesRegex(
+            FirewallPolicyError, "change its precedence"
+        ):
+            build_candidate(source, desired, allow_openvpn=True)
+
     def test_unrepresented_existing_openvpn_block_blocks_takeover(self):
         source = base_before().replace(
             "# End required lines",
