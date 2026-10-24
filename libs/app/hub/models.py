@@ -65,7 +65,6 @@ class HubFirewallRule:
     rule_uid: str
     rule_type: str
     enabled: bool
-    vpn_server_uid: str = ""
     name: str = ""
     direction: str = "input"
     action: str = "allow"
@@ -79,6 +78,7 @@ class HubFirewallRule:
     dst_ports: str = ""
     interface_name: str = ""
     ban_to: Optional[str] = None
+    vpn_server_uid: str = ""
 
 
 @dataclass(frozen=True)
