@@ -1,4 +1,4 @@
-"""UFW legacy read-only reconcile regression tests, including cooldowns."""
+"""UFW legacy read-only reconcile regression tests, including multi-VPN."""
 from __future__ import annotations
 
 from datetime import date
@@ -10,58 +10,147 @@ import unittest
 from unittest.mock import patch
 
 from libs.app.menus.app_40_firewall.policy import (
-    FirewallPolicyError, compile_legacy_openvpn, inspect_before_rules,
-    plan_legacy_openvpn, read_legacy_config, rules_digest,
+    FirewallPolicyError,
+    compile_legacy_openvpn,
+    inspect_before_rules,
+    plan_legacy_openvpn,
+    read_legacy_config,
+    rules_digest,
 )
 
 VPN_BO = "# *** BOF OpenVPN JB Config - vpn-jb 10.8.88.0/23"
 VPN_EO = "# *** EOF OpenVPN JB Config - vpn-jb 10.8.88.0/23"
+VPN2_BO = "# *** BOF OpenVPN JB Config - vpn-two 10.9.88.0/23"
+VPN2_EO = "# *** EOF OpenVPN JB Config - vpn-two 10.9.88.0/23"
 HARD_BO = "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps"
 HARD_EO = "# *** EOF ZLKL Hard Source Allow Config - managed by sys_apps"
 FWD = '-A ufw-before-forward -i tun+ -s 10.8.89.12 -m comment --comment "Alice - BAN" -j DROP'
 INP = '-A ufw-before-input -i tun+ -s 10.8.89.12 -m comment --comment "Alice - BAN" -j DROP'
+FWD2 = '-A ufw-before-forward -i tun9 -s 10.9.89.12 -m comment --comment "Carol - BAN" -j DROP'
+INP2 = '-A ufw-before-input -i tun9 -s 10.9.89.12 -m comment --comment "Carol - BAN" -j DROP'
 TRUST = '-A ufw-before-input -s 198.51.100.44 -m comment --comment "Trusted office" -j ACCEPT'
 
 
-def before_rules(*, generated="2025-09-29 11:51:47", vpn=(FWD, INP),
-                 trusted=(TRUST,)) -> str:
+def before_rules(
+    *,
+    generated: str = "2025-09-29 11:51:47",
+    vpn: tuple[str, ...] = (FWD, INP),
+    trusted: tuple[str, ...] = (TRUST,),
+) -> str:
     return "\n".join((
-        "# rules.before", "*filter", ":ufw-before-input - [0:0]",
-        ":ufw-before-forward - [0:0]", "# End required lines",
-        VPN_BO, "# Generated on " + generated, *vpn, VPN_EO,
-        HARD_BO, *trusted, HARD_EO,
+        "# rules.before",
+        "*filter",
+        ":ufw-before-input - [0:0]",
+        ":ufw-before-forward - [0:0]",
+        "# End required lines",
+        VPN_BO,
+        "# Generated on " + generated,
+        *vpn,
+        VPN_EO,
+        HARD_BO,
+        *trusted,
+        HARD_EO,
         "# Custom unmanaged rule remains untouched",
         "-A ufw-before-input -i lo -j ACCEPT",
-        "COMMIT", "",
+        "COMMIT",
+        "",
     ))
 
 
-def policy_config(ban_to="2026-10-20") -> dict:
+def before_rules_two_servers() -> str:
+    return "\n".join((
+        "# rules.before",
+        "*filter",
+        ":ufw-before-input - [0:0]",
+        ":ufw-before-forward - [0:0]",
+        "# End required lines",
+        VPN_BO,
+        FWD,
+        INP,
+        VPN_EO,
+        VPN2_BO,
+        FWD2,
+        INP2,
+        VPN2_EO,
+        HARD_BO,
+        TRUST,
+        HARD_EO,
+        "COMMIT",
+        "",
+    ))
+
+
+def policy_config(ban_to: str | None = "2026-10-20") -> dict:
     return {
-        "server_name": "vpn-jb", "server_ip": "10.8.88.1",
+        "server_name": "vpn-jb",
+        "server_ip": "10.8.88.1",
         "server_mask": 23,
-        "clients": [
-            {"clientName": "Alice", "clientIP": "10.8.89.12",
-             "type": 1, "banTo": ban_to},
-        ],
+        "clients": [{
+            "clientName": "Alice",
+            "clientIP": "10.8.89.12",
+            "type": 1,
+            "banTo": ban_to,
+        }],
+    }
+
+
+def policy_config_two() -> dict:
+    return {
+        "server_name": "vpn-two",
+        "server_ip": "10.9.88.1",
+        "server_mask": 23,
+        "clients": [{
+            "clientName": "Carol",
+            "clientIP": "10.9.89.12",
+            "type": 1,
+            "banTo": None,
+        }],
     }
 
 
 class HubFirewallPolicyTests(unittest.TestCase):
     def test_parse_owned_blocks_with_other_rules_and_order(self):
         parsed = inspect_before_rules(before_rules())
-        self.assertEqual(len(parsed.openvpn.rules), 2)
+        self.assertEqual(len(parsed.openvpn), 1)
+        block = parsed.openvpn[0]
+        self.assertEqual(len(block.rules), 2)
         self.assertEqual(len(parsed.hard_sources.rules), 1)
-        self.assertLess(parsed.openvpn.last_line, parsed.hard_sources.first_line)
+        self.assertLess(block.last_line, parsed.hard_sources.first_line)
         self.assertEqual(
-            parsed.openvpn.rules[0],
-            ("-A", "ufw-before-forward", "-i", "tun+", "-s", "10.8.89.12",
-             "-j", "DROP"),
+            block.rules[0],
+            (
+                "-A", "ufw-before-forward", "-i", "tun+",
+                "-s", "10.8.89.12", "-j", "DROP",
+            ),
         )
+        self.assertEqual(parsed.hard_sources.rules[0][-2:], ("-j", "ACCEPT"))
+
+    def test_multiple_unique_openvpn_blocks_are_kept_separate(self):
+        parsed = inspect_before_rules(before_rules_two_servers())
+        self.assertEqual(len(parsed.openvpn), 2)
         self.assertEqual(
-            parsed.hard_sources.rules[0][-2:],
-            ("-j", "ACCEPT"),
+            [block.label for block in parsed.openvpn],
+            [
+                "OpenVPN JB Config - vpn-jb 10.8.88.0/23",
+                "OpenVPN JB Config - vpn-two 10.9.88.0/23",
+            ],
         )
+        self.assertEqual([len(block.rules) for block in parsed.openvpn], [2, 2])
+
+        first = plan_legacy_openvpn(
+            before_rules_two_servers(),
+            policy_config(None),
+            on_date=date(2026, 12, 1),
+            interface="tun+",
+        )
+        second = plan_legacy_openvpn(
+            before_rules_two_servers(),
+            policy_config_two(),
+            on_date=date(2026, 12, 1),
+            interface="tun9",
+        )
+        self.assertEqual(first.status, "NO_CHANGE")
+        self.assertEqual(second.status, "NO_CHANGE")
 
     def test_same_rules_ignore_timestamp_whitespace_and_display_comment(self):
         a = plan_legacy_openvpn(
@@ -94,26 +183,33 @@ class HubFirewallPolicyTests(unittest.TestCase):
         self.assertEqual(next_day.effective_rules, 0)
         self.assertNotEqual(next_day.current_hash, next_day.effective_hash)
         self.assertIsNone(next_day.next_expiry)
-        # Following checks remain idempotent once real rules have been updated.
+
         empty = plan_legacy_openvpn(
             before_rules(vpn=()), cfg, on_date=date(2026, 10, 22)
         )
         self.assertEqual(empty.status, "NO_CHANGE")
 
-    def test_static_ban_and_isolation_without_cooldown(self):
+    def test_static_ban_isolation_and_custom_interface(self):
         cfg = policy_config(None)
         cfg["clients"].append({
-            "clientName": "Bob", "clientIP": "10.8.89.8", "type": 2,
+            "clientName": "Bob",
+            "clientIP": "10.8.89.8",
+            "type": 2,
         })
         actions, expired, next_expiry, label = compile_legacy_openvpn(
-            cfg, on_date=date(2026, 12, 1)
+            cfg,
+            on_date=date(2026, 12, 1),
+            interface="tun99",
         )
         self.assertEqual((len(actions), expired, next_expiry), (3, 0, None))
         self.assertIn("10.8.88.0/23", label)
+        self.assertTrue(all("tun99" in action for action in actions))
         self.assertEqual(
             actions[-1],
-            ("-A", "ufw-before-forward", "-i", "tun+", "-s", "10.8.89.8",
-             "!", "-d", "10.8.88.1", "-j", "DROP"),
+            (
+                "-A", "ufw-before-forward", "-i", "tun99",
+                "-s", "10.8.89.8", "!", "-d", "10.8.88.1", "-j", "DROP",
+            ),
         )
 
     def test_managed_source_allow_is_kept_separate(self):
@@ -136,13 +232,18 @@ class HubFirewallPolicyTests(unittest.TestCase):
         self.assertEqual(
             plan_legacy_openvpn(
                 missing, policy_config(), on_date=date(2026, 10, 20)
-            ).status, "MISSING",
+            ).status,
+            "MISSING",
         )
-        renamed = source.replace("vpn-jb 10.8.88.0/23", "changed 10.8.88.0/23")
+        renamed = source.replace(
+            "vpn-jb 10.8.88.0/23",
+            "changed 10.8.88.0/23",
+        )
         self.assertEqual(
             plan_legacy_openvpn(
                 renamed, policy_config(), on_date=date(2026, 10, 20)
-            ).status, "REVIEW",
+            ).status,
+            "REVIEW",
         )
 
     def test_reject_duplicate_nested_unmatched_and_reversed_blocks(self):
@@ -158,6 +259,7 @@ class HubFirewallPolicyTests(unittest.TestCase):
             with self.subTest(case=candidate[-65:]):
                 with self.assertRaises(FirewallPolicyError):
                     inspect_before_rules(candidate)
+
         reversed_blocks = "\n".join((
             HARD_BO, TRUST, HARD_EO, VPN_BO, FWD, VPN_EO,
         ))
@@ -165,9 +267,7 @@ class HubFirewallPolicyTests(unittest.TestCase):
             inspect_before_rules(reversed_blocks)
 
     def test_reject_unknown_executable_directive_inside_managed_block(self):
-        candidate = before_rules().replace(
-            FWD, "-F ufw-before-forward"
-        )
+        candidate = before_rules().replace(FWD, "-F ufw-before-forward")
         with self.assertRaises(FirewallPolicyError):
             inspect_before_rules(candidate)
 
@@ -179,8 +279,12 @@ class HubFirewallPolicyTests(unittest.TestCase):
             {"clients": [{"clientIP": "10.8.89.12", "type": 66}]},
             {"clients": [{"clientIP": "10.8.89.12", "type": True}]},
             {"clients": [{"clientIP": "10.8.89.12", "type": 1, "banTo": "BAD"}]},
-            {"clients": [{"clientIP": "10.8.89.12", "type": 1},
-                         {"clientIP": "10.8.89.12", "type": 2}]},
+            {
+                "clients": [
+                    {"clientIP": "10.8.89.12", "type": 1},
+                    {"clientIP": "10.8.89.12", "type": 2},
+                ]
+            },
         ]
         for override in variations:
             with self.subTest(override=override):
@@ -193,14 +297,18 @@ class HubFirewallPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "old.js"
             source.write_text(data, encoding="utf-8")
-            with patch.object(subprocess, "run", side_effect=AssertionError("no shell")):
+            with patch.object(
+                subprocess, "run", side_effect=AssertionError("no shell")
+            ):
                 self.assertEqual(read_legacy_config(source), cfg)
             source.write_text("const x = {};\n", encoding="utf-8")
             with self.assertRaises(FirewallPolicyError):
                 read_legacy_config(source)
 
     def test_plan_is_pure_even_when_rule_expired(self):
-        with patch.object(subprocess, "run", side_effect=AssertionError("no commands")), patch.object(
+        with patch.object(
+            subprocess, "run", side_effect=AssertionError("no commands")
+        ), patch.object(
             Path, "write_text", side_effect=AssertionError("no file write")
         ):
             result = plan_legacy_openvpn(
@@ -208,3 +316,7 @@ class HubFirewallPolicyTests(unittest.TestCase):
             )
         self.assertEqual(result.status, "CHANGED")
         self.assertEqual(len(rules_digest(((),))), 64)
+
+
+if __name__ == "__main__":
+    unittest.main()

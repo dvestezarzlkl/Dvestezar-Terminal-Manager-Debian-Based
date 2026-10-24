@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.9.0
+
+- FIX Firewall Manager 0.4.0: opraven pád editace existujícího pravidla kvůli nedefinovanému `context`; výběr síťových rozhraní používá krátké unikátní volby místo názvu interface, který JBLibs omezuje na 8 znaků.
+- UX hlavní menu zvýrazňuje správu pravidel jako první cyan sekci; průvodce standardním pravidlem, VPN serverem i BANem překresluje před každým dalším krokem všechny dosud potvrzené hodnoty přes existující JBLibs `printBlock()`, stejně jako instalace nové Node-RED instance.
+- ADD `firewall.json` config v2: samostatný katalog `vpn_servers` se stabilním `server_id`; VPN BAN a legacy forward-isolation pravidla jsou vázaná přes `vpn_server_id`. Starý v1 se migruje v paměti včetně `src_ports/dst_ports`; první Save zapisuje v2, takže starší klient v2 neotevře a nemůže tiše zahodit nová pole.
+- ADD VPN BAN editor: **seznam VPN serverů -> pravidla vybraného serveru**, včetně přidání/editace serveru, BANů, expirace a vazby rozhraní. Opakovaný legacy import přidává další VPN server místo přepsání celé lokální konfigurace.
+- ADD read-only parser/preview podporuje více unikátních OpenVPN BOF/EOF bloků a používá skutečné rozhraní konkrétního serveru; všechny OpenVPN bloky musí zůstat před jediným Hard Source Allow blokem.
+- ADD Hub schema 008: host-scoped `firewall_vpn_servers` a `firewall_rules.vpn_server_uid`; VPN server UID není globálně UNIQUE, protože je identitou uvnitř cílového host scope. Oba lokální collectory vyžadují schema >=008 a nikdy nemění `central/group/all`.
+- SAFE UFW zůstává read-only: žádný `ufw enable`, reload, zápis do `/etc/ufw` ani Apply. Migraci 008 aplikovat až po aktualizaci celé Hub flotily a ověřené DB záloze.
+
 ## v2.8.1
 
 - UX Firewall Manager 0.3.1: barevné volby směru, akce a protokolu přímo ve frameworkovém `select()`, dynamický kontext dosud vyplněných hodnot.

@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager – Debian-Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.8.1
+v2.9.0
 
 [CZ](readme.md)
 
@@ -15,12 +15,14 @@ The main menu automatically loads every plugin that contains a `menu.py` entry p
 
 ## Current Menu Plugins
 
-### Firewall Manager (UFW) — read-only pilot
+### Firewall Manager (UFW) — desired-state editor, UFW runtime still read-only
 
-- Detect UFW status/version via existing hourly Hub service collector.
-- Inspect managed OpenVPN BAN/isolation and trusted source allow blocks without modifying files.
-- Preview a legacy JSON/JS policy against effective UFW rules including cooldown BAN expiry; timestamps are ignored in rule comparison.
-- This release does not enable firewall Apply, UFW reload, or remote policy updates.
+- Versioned local `/etc/jb_sys_apps/firewall.json` supports standard INPUT/FORWARD/OUTPUT rules, source/destination IP/CIDR, TCP/UDP source and destination ports, and interfaces.
+- VPN BAN management is server-scoped: select an OpenVPN server, then manage only that server's BAN rules and expiry.
+- Wizards reuse JBLibs `select/get_input/printBlock/confirm`, redraw accepted values as input progresses, and discover live host interfaces.
+- Read-only inspection supports multiple managed OpenVPN blocks plus the Hard Source Allow block and deterministic dry-run comparison.
+- Hub schema 008 synchronizes host-local VPN servers and rules only; central/group/all scope remains outside the host collector.
+- This release does not enable UFW, reload it, or apply firewall changes; activation/rollback remains separate future work.
 
 ### Disk manager
 

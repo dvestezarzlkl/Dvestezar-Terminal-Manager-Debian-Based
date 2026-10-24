@@ -152,3 +152,32 @@ any interface, a detected interface, a previously configured name that is now
 absent, or explicitly enter a pattern like `tun+`. The selection list and
 incremental form context use the existing JBLibs `select` title/subTitle
 contract, not raw terminal widgets.
+
+## SysApps 2.9.0 / Firewall Manager 0.4.0
+
+Local `firewall.json` uses format version 2. Version 1 is migrated in memory:
+the former single OpenVPN server becomes one `vpn_servers` entry and its BAN /
+forward-isolation rules receive `vpn_server_id`. Existing `src_ports` and
+`dst_ports` are retained. Saving writes version 2 so a v1-only client rejects
+the newer file instead of silently rewriting unsupported fields.
+
+The interactive VPN path is now `Edit VPN BAN -> select VPN server -> rules`.
+Forms follow the existing Node-RED new-instance pattern: before each input or
+selection, accepted values are redrawn with JBLibs `printBlock()`. Interface
+discovery reuses JBLibs `getInterfaces()` and generated short selection keys.
+
+Read-only inspection supports multiple uniquely identified OpenVPN managed
+blocks. All OpenVPN blocks must precede the single Hard Source Allow block.
+Duplicate identities, nested/mismatched blocks, or reversed ordering fail
+closed. Preview evaluates each VPN server independently using its configured
+interface rather than an implicit `tun+`.
+
+Hub migration 008 adds host-scoped `firewall_vpn_servers` and nullable
+`firewall_rules.vpn_server_uid`. Local collectors remain restricted to
+`origin=host_local,target_kind=host` and require schema 008. Server UIDs are
+scoped by target/host rather than globally unique. Upgrade all Hub clients and
+back up the shared database before manually applying migration 008.
+
+UFW runtime behavior is unchanged in this release: inspection and desired-state
+editing only. Service activation and rule application remain separate future
+work with their existing safety requirements.

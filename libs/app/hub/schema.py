@@ -23,12 +23,13 @@ _ALLOWED_TABLES = frozenset({
     "host_disks",
     "host_groups",
     "firewall_rules",
+    "firewall_vpn_servers",
 })
 
-# Migrations 005/006 are additive. New clients can continue syncing core and
+# Migrations 005-008 are additive. New clients can continue syncing core and
 # older datasets while these tables are pending; providers declare the minimum
 # schema they require. Never accept unknown future migrations.
-_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6, 7})
+_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6, 7, 8})
 
 
 @dataclass(frozen=True)
