@@ -24,7 +24,7 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7])
+        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7, 8])
         initial = migrations[0].render(self.settings.prefix)
         disks = migrations[1].render(self.settings.prefix)
         service_host = migrations[2].render(self.settings.prefix)
@@ -32,8 +32,18 @@ class HubSchemaTests(unittest.TestCase):
         groups = migrations[4].render(self.settings.prefix)
         firewall = migrations[5].render(self.settings.prefix)
         firewall_ports = migrations[6].render(self.settings.prefix)
+        firewall_vpn = migrations[7].render(self.settings.prefix)
         self.assertIn('ADD COLUMN `src_ports`', firewall_ports[0])
         self.assertIn('ADD COLUMN `dst_ports`', firewall_ports[0])
+        self.assertEqual(len(firewall_vpn), 2)
+        self.assertIn(
+            "CREATE TABLE IF NOT EXISTS `hub_firewall_vpn_servers`",
+            firewall_vpn[0],
+        )
+        self.assertIn(
+            "ADD COLUMN `vpn_server_uid` CHAR(32) NULL",
+            firewall_vpn[1],
+        )
         self.assertEqual(len(initial), 7)
         self.assertEqual(len(disks), 2)
         self.assertEqual(len(service_host), 1)
@@ -69,7 +79,7 @@ class HubSchemaTests(unittest.TestCase):
             )
         )
 
-    def test_only_known_additive_migrations_005_006_may_be_pending(self):
+    def test_only_known_additive_migrations_005_to_008_may_be_pending(self):
         from libs.app.hub.schema import HubSchemaManager
 
         class Cursor:
@@ -106,13 +116,13 @@ class HubSchemaTests(unittest.TestCase):
         self.assertTrue(pending_005_006.current)
         self.assertEqual(
             (pending_005_006.current_version, pending_005_006.latest_version),
-            (4, 7),
+            (4, 8),
         )
         pending_006 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 5
         }))
         self.assertTrue(pending_006.current)
-        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 7))
+        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 8))
 
         missing_mandatory_004 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 3
@@ -120,7 +130,7 @@ class HubSchemaTests(unittest.TestCase):
         self.assertFalse(missing_mandatory_004.current)
 
         unexpected_future = manager.check(Connection({
-            **known, 8: "0" * 64
+            **known, 9: "0" * 64
         }))
         self.assertFalse(unexpected_future.current)
         self.assertIn("Unsupported schema migrations", unexpected_future.error)
