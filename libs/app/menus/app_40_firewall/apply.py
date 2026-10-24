@@ -336,6 +336,14 @@ def _restore_backup(
     )
 
 
+def _assert_source_unchanged(path: Path, expected: str) -> None:
+    current = _read_regular(path, required=True)
+    if current != expected:
+        raise FirewallApplyError(
+            f"UFW file changed concurrently; refusing to overwrite: {path}"
+        )
+
+
 def _file_hash(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
@@ -405,7 +413,7 @@ def apply_local_config(
     config: FirewallConfig,
     *,
     acknowledge: Acknowledge,
-    rollback_seconds: int = 60,
+    rollback_seconds: int = 90,
     paths: ApplyPaths = ApplyPaths(),
     runner: Runner = _run,
 ) -> ApplyResult:
@@ -431,6 +439,10 @@ def apply_local_config(
     _validate_managed_actions(plan, runner=runner)
     ufw = _binary("ufw")
     backup, existed = _create_backup(paths, was_active=was_active)
+    _assert_source_unchanged(paths.before4, before4)
+    if before6 is not None:
+        _assert_source_unchanged(paths.before6, before6)
+
     touched = {
         "before4": plan.ipv4.changed,
         "before6": bool(plan.ipv6 is not None and plan.ipv6.changed),
@@ -446,10 +458,19 @@ def apply_local_config(
         runner=runner,
     )
 
+    mutation_started = False
     try:
+        # Recheck after arming the timer: another administrator/process may
+        # have touched UFW while the rollback unit was being created.
+        _assert_source_unchanged(paths.before4, before4)
+        if before6 is not None:
+            _assert_source_unchanged(paths.before6, before6)
+
         if plan.ipv4.changed:
+            mutation_started = True
             _atomic_replace(paths.before4, plan.ipv4.content)
         if plan.ipv6 is not None and plan.ipv6.changed:
+            mutation_started = True
             _atomic_replace(paths.before6, plan.ipv6.content)
 
         runner(
@@ -459,6 +480,7 @@ def apply_local_config(
             check=True,
             timeout=30,
         )
+        mutation_started = True
         runner(
             [ufw, "reload"] if was_active else [ufw, "--force", "enable"],
             check=True,
@@ -500,18 +522,19 @@ def apply_local_config(
         return ApplyResult("APPLIED", plan.changed, not was_active, str(backup))
     except Exception:
         _cancel_rollback(unit, runner=runner)
-        try:
-            _restore_backup(
-                paths,
-                backup,
-                existed,
-                touched,
-                ufw=ufw,
-                was_active=was_active,
-                runner=runner,
-            )
-        except Exception:
-            pass
+        if mutation_started:
+            try:
+                _restore_backup(
+                    paths,
+                    backup,
+                    existed,
+                    touched,
+                    ufw=ufw,
+                    was_active=was_active,
+                    runner=runner,
+                )
+            except Exception:
+                pass
         raise
 
 
