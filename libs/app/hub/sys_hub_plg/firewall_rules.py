@@ -18,6 +18,7 @@ def hub_collect(context: HubContext) -> HubProviderSnapshot:
             rule_uid=rule.rule_id,
             rule_type=rule.kind,
             enabled=rule.enabled,
+            vpn_server_uid=rule.vpn_server_id,
             name=rule.name,
             direction=rule.direction,
             action=rule.action,
@@ -38,5 +39,5 @@ def hub_collect(context: HubContext) -> HubProviderSnapshot:
         source_key=HUB_PROVIDER_KEY,
         dataset="firewall_rules",
         items=items,
-        min_schema_version=7,
+        min_schema_version=8,
     )
