@@ -52,9 +52,15 @@
     },
     {
       "path": "libs/app/menus/menuBoss.py",
-      "old": "                    atRight=hub_runtime.status_text(),\n",
-      "new": "                    atRight=_hub_status_text_colored(),\n",
-      "expected": 2
+      "old": "                c_menu_item(\n                    text_color('Synchronize SysApps Hub', en_color.BRIGHT_GREEN),\n                    'hs',\n                    self.syncHub,\n                    atRight=hub_runtime.status_text(),\n                    enabled=hub_runtime.status.state is HubState.READY,\n                )\n",
+      "new": "                c_menu_item(\n                    text_color('Synchronize SysApps Hub', en_color.BRIGHT_GREEN),\n                    'hs',\n                    self.syncHub,\n                    atRight=_hub_status_text_colored(),\n                    enabled=hub_runtime.status.state is HubState.READY,\n                )\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/menuBoss.py",
+      "old": "            c_menu_item(\n                text_color(\"SysApps Hub settings\", en_color.BRIGHT_CYAN),\n                \"b\",\n                HubSettingsMenu(),\n                atRight=hub_runtime.status_text(),\n            ),\n",
+      "new": "            c_menu_item(\n                text_color(\"SysApps Hub settings\", en_color.BRIGHT_CYAN),\n                \"b\",\n                HubSettingsMenu(),\n                atRight=_hub_status_text_colored(),\n            ),\n",
+      "expected": 1
     },
     {
       "path": "libs/app/menus/menuBoss.py",
