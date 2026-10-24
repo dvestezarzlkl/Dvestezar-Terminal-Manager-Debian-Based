@@ -151,7 +151,9 @@ class HubFirewallCollectorTests(unittest.TestCase):
             "read_text",
             return_value=current,
         ), patch.object(
-            firewall_menu._BEFORE6_RULES, "is_file", return_value=False
+            firewall_menu,
+            "_BEFORE6_RULES",
+            SimpleNamespace(is_file=lambda: False),
         ), patch.object(
             firewall_menu, "anyKey"
         ), redirect_stdout(io.StringIO()) as output:
