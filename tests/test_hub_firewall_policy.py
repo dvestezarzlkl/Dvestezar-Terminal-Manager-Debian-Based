@@ -24,6 +24,8 @@ VPN2_BO = "# *** BOF OpenVPN JB Config - vpn-two 10.9.88.0/23"
 VPN2_EO = "# *** EOF OpenVPN JB Config - vpn-two 10.9.88.0/23"
 HARD_BO = "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps"
 HARD_EO = "# *** EOF ZLKL Hard Source Allow Config - managed by sys_apps"
+STANDARD_BO = "# *** BOF ZLKL Standard Firewall Config - managed by sys_apps"
+STANDARD_EO = "# *** EOF ZLKL Standard Firewall Config - managed by sys_apps"
 FWD = '-A ufw-before-forward -i tun+ -s 10.8.89.12 -m comment --comment "Alice - BAN" -j DROP'
 INP = '-A ufw-before-input -i tun+ -s 10.8.89.12 -m comment --comment "Alice - BAN" -j DROP'
 FWD2 = '-A ufw-before-forward -i tun9 -s 10.9.89.12 -m comment --comment "Carol - BAN" -j DROP'
@@ -151,6 +153,44 @@ class HubFirewallPolicyTests(unittest.TestCase):
         )
         self.assertEqual(first.status, "NO_CHANGE")
         self.assertEqual(second.status, "NO_CHANGE")
+
+    def test_standard_managed_block_is_parsed_after_hard_source(self):
+        source = before_rules().replace(
+            HARD_EO,
+            HARD_EO + "\n" + STANDARD_BO + "\n"
+            "-A ufw-before-input -p tcp -m tcp --dport 3000 -j ACCEPT\n"
+            + STANDARD_EO,
+        )
+        parsed = inspect_before_rules(source)
+        self.assertIsNotNone(parsed.standard)
+        self.assertEqual(
+            parsed.standard.rules,
+            ((
+                "-A", "ufw-before-input", "-p", "tcp", "-m", "tcp",
+                "--dport", "3000", "-j", "ACCEPT",
+            ),),
+        )
+        self.assertLess(parsed.hard_sources.last_line, parsed.standard.first_line)
+
+        reversed_blocks = source.replace(
+            HARD_BO + "\n" + TRUST + "\n" + HARD_EO + "\n"
+            + STANDARD_BO + "\n"
+            + "-A ufw-before-input -p tcp -m tcp --dport 3000 -j ACCEPT\n"
+            + STANDARD_EO,
+            STANDARD_BO + "\n"
+            + "-A ufw-before-input -p tcp -m tcp --dport 3000 -j ACCEPT\n"
+            + STANDARD_EO + "\n"
+            + HARD_BO + "\n" + TRUST + "\n" + HARD_EO,
+        )
+        with self.assertRaisesRegex(FirewallPolicyError, "precede"):
+            inspect_before_rules(reversed_blocks)
+
+        duplicate = source.replace(
+            STANDARD_EO,
+            STANDARD_EO + "\n" + STANDARD_BO + "\n" + STANDARD_EO,
+        )
+        with self.assertRaisesRegex(FirewallPolicyError, "Duplicate Standard"):
+            inspect_before_rules(duplicate)
 
     def test_same_rules_ignore_timestamp_whitespace_and_display_comment(self):
         a = plan_legacy_openvpn(
