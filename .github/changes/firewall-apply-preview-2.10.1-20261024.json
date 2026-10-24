@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): preview exact candidate before guarded Apply confirmation",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "from .compiler import build_candidate, compile_firewall",
+      "new": "from .compiler import (\n    CandidateResult,\n    CompiledFirewall,\n    build_candidate,\n    compile_firewall,\n)",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    _VERSION_ = \"0.5.0\"",
+      "new": "    _VERSION_ = \"0.5.1\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    def apply_rules(self, selItem: c_menu_item) -> onSelReturn:\n        service = inspect_ufw_service()\n        if not service.detected or service.status not in {\"active\", \"inactive\"}:\n            return onSelReturn().errRet(TXT_FW_APPLY_UNSAFE_STATUS)\n\n        confirm_text = (\n            TXT_FW_ACTIVATE_CONFIRM\n            if service.status == \"inactive\"\n            else TXT_FW_APPLY_CONFIRM\n        )\n        if not confirm(confirm_text, minMessageWidth=self.minMenuWidth):\n            return onSelReturn().errRet(TXT_FW_CANCELLED)\n\n        try:\n            cfg = load_config()\n            result = apply_local_config(\n                cfg,\n                acknowledge=self._acknowledge_live_apply,\n            )\n        except (FirewallConfigError, FirewallPolicyError, FirewallApplyError) as exc:\n            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))\n\n        self.menuRecycle = True\n        if result.status == \"NO_CHANGE\":\n            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)\n        if result.status == \"ROLLED_BACK\":\n            return onSelReturn(ok=TXT_FW_APPLY_ROLLED_BACK.format(\n                backup=result.backup_dir\n            ))\n        return onSelReturn(ok=TXT_FW_APPLY_OK.format(\n            backup=result.backup_dir\n        ))\n",
+      "new": "    def _build_preview(\n        self,\n    ) -> tuple[\n        FirewallConfig,\n        CompiledFirewall,\n        CandidateResult,\n        CandidateResult | None,\n    ]:\n        cfg = load_config()\n        compiled = compile_firewall(cfg)\n        result4 = build_candidate(\n            _BEFORE_RULES.read_text(encoding=\"utf-8\"),\n            compiled.ipv4,\n            allow_openvpn=True,\n        )\n        result6: CandidateResult | None = None\n        if _BEFORE6_RULES.is_file():\n            result6 = build_candidate(\n                _BEFORE6_RULES.read_text(encoding=\"utf-8\"),\n                compiled.ipv6,\n                allow_openvpn=False,\n            )\n        elif compiled.explicit_ipv6:\n            raise FirewallPolicyError(\n                \"IPv6 rule exists but before6.rules is unavailable.\"\n            )\n        return cfg, compiled, result4, result6\n\n    def _print_preview(\n        self,\n        compiled: CompiledFirewall,\n        result4: CandidateResult,\n        result6: CandidateResult | None,\n    ) -> None:\n        print(TXT_FW_PREVIEW_FAMILY.format(\n            family=\"IPv4\",\n            status=\"CHANGED\" if result4.changed else \"NO_CHANGE\",\n            current=result4.current_rules,\n            desired=result4.desired_rules,\n        ))\n        if result6 is not None:\n            print(TXT_FW_PREVIEW_FAMILY.format(\n                family=\"IPv6\",\n                status=\"CHANGED\" if result6.changed else \"NO_CHANGE\",\n                current=result6.current_rules,\n                desired=result6.desired_rules,\n            ))\n        if compiled.expired_bans:\n            print(TXT_FW_PREVIEW_EXPIRED.format(count=compiled.expired_bans))\n        if compiled.next_expiry:\n            print(TXT_FW_NEXT_EXPIRY.format(\n                day=compiled.next_expiry.isoformat()\n            ))\n        print(TXT_FW_PREVIEW_SAFE)\n\n    def apply_rules(self, selItem: c_menu_item) -> onSelReturn:\n        service = inspect_ufw_service()\n        if not service.detected or service.status not in {\"active\", \"inactive\"}:\n            return onSelReturn().errRet(TXT_FW_APPLY_UNSAFE_STATUS)\n\n        try:\n            cfg, compiled, result4, result6 = self._build_preview()\n        except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:\n            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))\n\n        # Even when inactive, keep the menu itself reduced to one activation\n        # action, but show the exact read-only candidate before confirmation.\n        self._print_preview(compiled, result4, result6)\n\n        changed = result4.changed or bool(result6 and result6.changed)\n        if service.status == \"active\" and not changed:\n            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)\n\n        confirm_text = (\n            TXT_FW_ACTIVATE_CONFIRM\n            if service.status == \"inactive\"\n            else TXT_FW_APPLY_CONFIRM\n        )\n        if not confirm(confirm_text, minMessageWidth=self.minMenuWidth):\n            return onSelReturn().errRet(TXT_FW_CANCELLED)\n\n        try:\n            # The configuration the operator confirmed must be exactly the\n            # configuration that is applied.\n            if load_config() != cfg:\n                return onSelReturn().errRet(TXT_FW_APPLY_CONFIG_CHANGED)\n            result = apply_local_config(\n                cfg,\n                acknowledge=self._acknowledge_live_apply,\n            )\n        except (FirewallConfigError, FirewallPolicyError, FirewallApplyError) as exc:\n            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))\n\n        self.menuRecycle = True\n        if result.status == \"NO_CHANGE\":\n            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)\n        if result.status == \"ROLLED_BACK\":\n            return onSelReturn(ok=TXT_FW_APPLY_ROLLED_BACK.format(\n                backup=result.backup_dir\n            ))\n        return onSelReturn(ok=TXT_FW_APPLY_OK.format(\n            backup=result.backup_dir\n        ))\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    def preview_local_config(self, selItem: c_menu_item) -> onSelReturn:\n        \"\"\"Compare local desired state with the exact candidates Apply would use.\"\"\"\n        try:\n            cfg = load_config()\n            compiled = compile_firewall(cfg)\n            current4 = _BEFORE_RULES.read_text(encoding=\"utf-8\")\n            result4 = build_candidate(\n                current4,\n                compiled.ipv4,\n                allow_openvpn=True,\n            )\n            result6 = None\n            if _BEFORE6_RULES.is_file():\n                result6 = build_candidate(\n                    _BEFORE6_RULES.read_text(encoding=\"utf-8\"),\n                    compiled.ipv6,\n                    allow_openvpn=False,\n                )\n            elif compiled.explicit_ipv6:\n                raise FirewallPolicyError(\n                    \"IPv6 rule exists but before6.rules is unavailable.\"\n                )\n        except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:\n            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))\n\n        print(TXT_FW_PREVIEW_FAMILY.format(\n            family=\"IPv4\",\n            status=\"CHANGED\" if result4.changed else \"NO_CHANGE\",\n            current=result4.current_rules,\n            desired=result4.desired_rules,\n        ))\n        if result6 is not None:\n            print(TXT_FW_PREVIEW_FAMILY.format(\n                family=\"IPv6\",\n                status=\"CHANGED\" if result6.changed else \"NO_CHANGE\",\n                current=result6.current_rules,\n                desired=result6.desired_rules,\n            ))\n        if compiled.expired_bans:\n            print(TXT_FW_PREVIEW_EXPIRED.format(count=compiled.expired_bans))\n        if compiled.next_expiry:\n            print(TXT_FW_NEXT_EXPIRY.format(\n                day=compiled.next_expiry.isoformat()\n            ))\n        print(TXT_FW_PREVIEW_SAFE)\n        anyKey()\n        return onSelReturn(ok=TXT_FW_PREVIEW_DONE)\n",
+      "new": "    def preview_local_config(self, selItem: c_menu_item) -> onSelReturn:\n        \"\"\"Compare local desired state with the exact candidates Apply would use.\"\"\"\n        try:\n            _, compiled, result4, result6 = self._build_preview()\n        except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:\n            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))\n\n        self._print_preview(compiled, result4, result6)\n        anyKey()\n        return onSelReturn(ok=TXT_FW_PREVIEW_DONE)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "old": "TXT_FW_APPLY_UNSAFE_STATUS = \"Current UFW status is not safe for Apply.\"",
+      "new": "TXT_FW_APPLY_UNSAFE_STATUS = \"Current UFW status is not safe for Apply.\"\nTXT_FW_APPLY_CONFIG_CHANGED = \"firewall.json changed after Preview; Apply was cancelled. Review the new Preview and confirm again.\"",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "old": "TXT_FW_APPLY_UNSAFE_STATUS = \"Aktuální stav UFW není bezpečný pro Apply.\"",
+      "new": "TXT_FW_APPLY_UNSAFE_STATUS = \"Aktuální stav UFW není bezpečný pro Apply.\"\nTXT_FW_APPLY_CONFIG_CHANGED = \"firewall.json se po Preview změnil; Apply byl zrušen. Zkontrolujte nový Preview a potvrďte znovu.\"",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "self.assertEqual(firewall_menu.menu._VERSION_, \"0.5.0\")",
+      "new": "self.assertEqual(firewall_menu.menu._VERSION_, \"0.5.1\")",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "    def test_menu_blocks_unknown_and_absent_states(self):\n",
+      "new": "    def test_inactive_apply_shows_preview_before_confirmation(self):\n        screen = firewall_menu.menu()\n        cfg = FirewallConfig()\n        compiled = compile_firewall(cfg)\n        result4 = SimpleNamespace(changed=True)\n        with patch.object(\n            firewall_menu,\n            \"inspect_ufw_service\",\n            return_value=SimpleNamespace(\n                detected=True, status=\"inactive\", version=\"0.36\"\n            ),\n        ), patch.object(\n            screen,\n            \"_build_preview\",\n            return_value=(cfg, compiled, result4, None),\n        ) as preview, patch.object(\n            screen, \"_print_preview\"\n        ) as render, patch.object(\n            firewall_menu, \"confirm\", return_value=False\n        ) as ask, patch.object(\n            firewall_menu, \"apply_local_config\"\n        ) as apply:\n            screen.apply_rules(None)\n\n        preview.assert_called_once_with()\n        render.assert_called_once_with(compiled, result4, None)\n        ask.assert_called_once()\n        apply.assert_not_called()\n\n    def test_active_no_change_apply_skips_confirmation_and_mutation(self):\n        screen = firewall_menu.menu()\n        cfg = FirewallConfig()\n        compiled = compile_firewall(cfg)\n        result4 = SimpleNamespace(changed=False)\n        with patch.object(\n            firewall_menu,\n            \"inspect_ufw_service\",\n            return_value=SimpleNamespace(\n                detected=True, status=\"active\", version=\"0.36\"\n            ),\n        ), patch.object(\n            screen,\n            \"_build_preview\",\n            return_value=(cfg, compiled, result4, None),\n        ), patch.object(\n            screen, \"_print_preview\"\n        ), patch.object(\n            firewall_menu, \"confirm\"\n        ) as ask, patch.object(\n            firewall_menu, \"apply_local_config\"\n        ) as apply:\n            screen.apply_rules(None)\n\n        ask.assert_not_called()\n        apply.assert_not_called()\n\n    def test_menu_blocks_unknown_and_absent_states(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.10.0\"",
+      "new": "VERSION = \"2.10.1\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.10.0",
+      "new": "v2.10.1",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "v2.10.0",
+      "new": "v2.10.1",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.10.0\n",
+      "new": "# Changelog\n\n## v2.10.1\n\n- SAFETY Firewall Manager 0.5.1: jediná akce dostupná při neaktivním UFW nyní nejdřív zobrazí přesný read-only IPv4/IPv6 Preview stejného kandidátu a teprve potom nabídne potvrzení Activate + Apply. Požadavek, že při inactive není aktivní žádná jiná položka menu, zůstává zachován.\n- SAFE Aktivní UFW s `NO_CHANGE` po Preview rovnou skončí bez potvrzení, zápisu nebo reloadu. Pokud se `firewall.json` mezi Preview a potvrzením změní, Apply se fail-closed zruší a vyžádá nový Preview.\n\n## v2.10.0\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Module 0.5.0 owns local desired state",
+      "new": "- Module 0.5.1 owns local desired state",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "as SysApps 2.10.0 / Firewall Manager 0.5.0 (2026-10-24).",
+      "new": "as SysApps 2.10.1 / Firewall Manager 0.5.1 (2026-10-24).",
+      "expected": 1
+    }
+  ]
+}
