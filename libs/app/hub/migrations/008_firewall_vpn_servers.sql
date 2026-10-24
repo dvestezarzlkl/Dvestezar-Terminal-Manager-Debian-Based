@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `{{PREFIX}}firewall_vpn_servers` (
     `interface_name` VARCHAR(32) NOT NULL DEFAULT 'tun+',
     `last_seen_at` DATETIME(6) NOT NULL,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_firewall_vpn_server_uid` (`server_uid`),
+    KEY `idx_firewall_vpn_server_uid` (`server_uid`),
     KEY `idx_firewall_vpn_servers_host` (`host_id`, `origin`),
     KEY `idx_firewall_vpn_servers_group` (`group_id`, `origin`),
     CONSTRAINT `fk_firewall_vpn_servers_host`
