@@ -156,11 +156,7 @@ def _validate_managed_actions(
         timeout=20,
     )
     if plan.ipv6 is not None:
-        ip6tables_restore = shutil.which("ip6tables-restore")
-        if not ip6tables_restore:
-            raise FirewallApplyError(
-                "before6.rules is managed but ip6tables-restore is unavailable."
-            )
+        ip6tables_restore = _binary("ip6tables-restore")
         runner(
             [ip6tables_restore, "--test"],
             input_text=_validation_payload(plan.compiled.ipv6),
