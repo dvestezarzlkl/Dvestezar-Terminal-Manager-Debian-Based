@@ -1,7 +1,8 @@
 # Firewall Manager / UFW scoped agent instructions
 
-- Module 0.3.0 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Use standard JBLibs `c_menu`/`select()`/`get_input()` and `selectFile()`; never reintroduce typed filesystem paths. Opening the menu must not create the file; first Save/import may create it atomically with mode 0600 and symlink rejection.
-- Local editor rules belong only to the current host. Hub collector `firewall_rules` may publish them only as `origin=host_local,target_kind=host` when schema >=007; it must never touch future central host/group/all rules.
+- Module 0.4.0 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Config v2 owns a `vpn_servers` catalog with stable `server_id` plus rules that may reference it through `vpn_server_id`. Loading config v1 must migrate in memory without losing src/dst port expressions; saving writes v2 so older clients fail closed instead of silently discarding new fields.
+- Use standard JBLibs `c_menu`/`select()`/`get_input()`/`printBlock()`/`confirm()` and `selectFile()`; never introduce a parallel terminal UI/input layer. Wizard input must redraw accepted values before the next prompt like Node-RED `install_instance.py::print_newInstance()`. Interface discovery must reuse JBLibs `getInterfaces()`; select choices must be short and collision-free because the framework bounds choice length.
+- Local VPN servers and rules belong only to the current host. Hub collectors `firewall_vpn_servers` and `firewall_rules` may publish only `origin=host_local,target_kind=host` when schema >=008; they must never touch future central host/group/all rows.
 - UFW runtime remains **read-only**: `policy.py` is pure, `hub_provider.py` calls only UFW status/version, comparison only reads `before.rules`. No UFW reload, no write to `/etc/ufw`, no remote Apply.
 - Pure `reconcile.py` only classifies plan against verified prior `applied_hash`; never mutates prior state or advances `last_applied_at`. Missing prior hash needs review; unexpected drift blocks automatic Apply. This release has NO persistent state and NO UFW Apply.
 - Future Apply belongs to a separate guarded and tested implementation.
@@ -10,9 +11,7 @@
 - Original manual `ufw_opevpn_update_form_cfg_json.py` behavior was intentional
   (regenerates timestamp, backups and reloads on every manual invocation).
   It is deprecated but remains operational during migration.
-- Preserve both exact deployed legacy BOF/EOF managed blocks and their order:
-  OpenVPN BAN/forward isolation precedes ZLKL Hard Source Allow.
-  Invalid, duplicate or mismatched blocks MUST fail closed (inspection error).
+- Preserve deployed legacy BOF/EOF ownership and order. Multiple uniquely identified OpenVPN BAN/forward-isolation blocks are allowed and all must precede the single ZLKL Hard Source Allow block. Duplicate OpenVPN marker identities, duplicate Hard Source blocks, nested/unmatched markers or reversed ordering MUST fail closed. A VPN preview must use that server's configured interface, not silently fall back to `tun+`.
 - Semantically compare executable rules excluding audit comments/timestamps;
   content order matters. No difference means `NO_CHANGE`; a BAN with
   `banTo=YYYY-MM-DD` expires after that calendar day, so unchanged source
