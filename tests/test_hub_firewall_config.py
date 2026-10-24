@@ -351,6 +351,10 @@ class HubFirewallConfigTests(unittest.TestCase):
             menu_helpers.color_protocol("udp"),
             menu_helpers.text_color("UDP", menu_helpers.en_color.CYAN),
         )
+        self.assertNotEqual(
+            menu_helpers.color_protocol("udp"),
+            menu_helpers.text_color("UDP", menu_helpers.en_color.BLUE),
+        )
 
     def test_optional_editor_value_can_be_cleared_explicitly(self):
         with patch.object(menu_helpers, "get_input", return_value="-"):
