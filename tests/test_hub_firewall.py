@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.5.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.5.1")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -103,6 +103,62 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertEqual(len(screen.menu), 1)
         self.assertTrue(screen.menu[0].enabled)
         self.assertEqual(screen.menu[0].choice, "a")
+
+    def test_inactive_apply_shows_preview_before_confirmation(self):
+        screen = firewall_menu.menu()
+        cfg = FirewallConfig()
+        compiled = compile_firewall(cfg)
+        result4 = SimpleNamespace(changed=True)
+        with patch.object(
+            firewall_menu,
+            "inspect_ufw_service",
+            return_value=SimpleNamespace(
+                detected=True, status="inactive", version="0.36"
+            ),
+        ), patch.object(
+            screen,
+            "_build_preview",
+            return_value=(cfg, compiled, result4, None),
+        ) as preview, patch.object(
+            screen, "_print_preview"
+        ) as render, patch.object(
+            firewall_menu, "confirm", return_value=False
+        ) as ask, patch.object(
+            firewall_menu, "apply_local_config"
+        ) as apply:
+            screen.apply_rules(None)
+
+        preview.assert_called_once_with()
+        render.assert_called_once_with(compiled, result4, None)
+        ask.assert_called_once()
+        apply.assert_not_called()
+
+    def test_active_no_change_apply_skips_confirmation_and_mutation(self):
+        screen = firewall_menu.menu()
+        cfg = FirewallConfig()
+        compiled = compile_firewall(cfg)
+        result4 = SimpleNamespace(changed=False)
+        with patch.object(
+            firewall_menu,
+            "inspect_ufw_service",
+            return_value=SimpleNamespace(
+                detected=True, status="active", version="0.36"
+            ),
+        ), patch.object(
+            screen,
+            "_build_preview",
+            return_value=(cfg, compiled, result4, None),
+        ), patch.object(
+            screen, "_print_preview"
+        ), patch.object(
+            firewall_menu, "confirm"
+        ) as ask, patch.object(
+            firewall_menu, "apply_local_config"
+        ) as apply:
+            screen.apply_rules(None)
+
+        ask.assert_not_called()
+        apply.assert_not_called()
 
     def test_menu_blocks_unknown_and_absent_states(self):
         for detected, status in (

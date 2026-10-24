@@ -15,7 +15,12 @@ from libs.JBLibs.input import anyKey, confirm, selectFile
 from libs.JBLibs.term import en_color, text_color
 
 from .apply import FirewallApplyError, apply_local_config, disable_ufw
-from .compiler import build_candidate, compile_firewall
+from .compiler import (
+    CandidateResult,
+    CompiledFirewall,
+    build_candidate,
+    compile_firewall,
+)
 from .config import (
     FirewallConfig, FirewallConfigError, config_path,
     import_legacy, load_config, merge_config, save_config,
@@ -32,7 +37,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.5.0"
+    _VERSION_ = "0.5.1"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -110,10 +115,78 @@ class menu(c_menu):
             minMessageWidth=self.minMenuWidth,
         )
 
+    def _build_preview(
+        self,
+    ) -> tuple[
+        FirewallConfig,
+        CompiledFirewall,
+        CandidateResult,
+        CandidateResult | None,
+    ]:
+        cfg = load_config()
+        compiled = compile_firewall(cfg)
+        result4 = build_candidate(
+            _BEFORE_RULES.read_text(encoding="utf-8"),
+            compiled.ipv4,
+            allow_openvpn=True,
+        )
+        result6: CandidateResult | None = None
+        if _BEFORE6_RULES.is_file():
+            result6 = build_candidate(
+                _BEFORE6_RULES.read_text(encoding="utf-8"),
+                compiled.ipv6,
+                allow_openvpn=False,
+            )
+        elif compiled.explicit_ipv6:
+            raise FirewallPolicyError(
+                "IPv6 rule exists but before6.rules is unavailable."
+            )
+        return cfg, compiled, result4, result6
+
+    def _print_preview(
+        self,
+        compiled: CompiledFirewall,
+        result4: CandidateResult,
+        result6: CandidateResult | None,
+    ) -> None:
+        print(TXT_FW_PREVIEW_FAMILY.format(
+            family="IPv4",
+            status="CHANGED" if result4.changed else "NO_CHANGE",
+            current=result4.current_rules,
+            desired=result4.desired_rules,
+        ))
+        if result6 is not None:
+            print(TXT_FW_PREVIEW_FAMILY.format(
+                family="IPv6",
+                status="CHANGED" if result6.changed else "NO_CHANGE",
+                current=result6.current_rules,
+                desired=result6.desired_rules,
+            ))
+        if compiled.expired_bans:
+            print(TXT_FW_PREVIEW_EXPIRED.format(count=compiled.expired_bans))
+        if compiled.next_expiry:
+            print(TXT_FW_NEXT_EXPIRY.format(
+                day=compiled.next_expiry.isoformat()
+            ))
+        print(TXT_FW_PREVIEW_SAFE)
+
     def apply_rules(self, selItem: c_menu_item) -> onSelReturn:
         service = inspect_ufw_service()
         if not service.detected or service.status not in {"active", "inactive"}:
             return onSelReturn().errRet(TXT_FW_APPLY_UNSAFE_STATUS)
+
+        try:
+            cfg, compiled, result4, result6 = self._build_preview()
+        except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:
+            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
+
+        # Even when inactive, keep the menu itself reduced to one activation
+        # action, but show the exact read-only candidate before confirmation.
+        self._print_preview(compiled, result4, result6)
+
+        changed = result4.changed or bool(result6 and result6.changed)
+        if service.status == "active" and not changed:
+            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)
 
         confirm_text = (
             TXT_FW_ACTIVATE_CONFIRM
@@ -124,7 +197,10 @@ class menu(c_menu):
             return onSelReturn().errRet(TXT_FW_CANCELLED)
 
         try:
-            cfg = load_config()
+            # The configuration the operator confirmed must be exactly the
+            # configuration that is applied.
+            if load_config() != cfg:
+                return onSelReturn().errRet(TXT_FW_APPLY_CONFIG_CHANGED)
             result = apply_local_config(
                 cfg,
                 acknowledge=self._acknowledge_live_apply,
@@ -197,48 +273,11 @@ class menu(c_menu):
     def preview_local_config(self, selItem: c_menu_item) -> onSelReturn:
         """Compare local desired state with the exact candidates Apply would use."""
         try:
-            cfg = load_config()
-            compiled = compile_firewall(cfg)
-            current4 = _BEFORE_RULES.read_text(encoding="utf-8")
-            result4 = build_candidate(
-                current4,
-                compiled.ipv4,
-                allow_openvpn=True,
-            )
-            result6 = None
-            if _BEFORE6_RULES.is_file():
-                result6 = build_candidate(
-                    _BEFORE6_RULES.read_text(encoding="utf-8"),
-                    compiled.ipv6,
-                    allow_openvpn=False,
-                )
-            elif compiled.explicit_ipv6:
-                raise FirewallPolicyError(
-                    "IPv6 rule exists but before6.rules is unavailable."
-                )
+            _, compiled, result4, result6 = self._build_preview()
         except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
 
-        print(TXT_FW_PREVIEW_FAMILY.format(
-            family="IPv4",
-            status="CHANGED" if result4.changed else "NO_CHANGE",
-            current=result4.current_rules,
-            desired=result4.desired_rules,
-        ))
-        if result6 is not None:
-            print(TXT_FW_PREVIEW_FAMILY.format(
-                family="IPv6",
-                status="CHANGED" if result6.changed else "NO_CHANGE",
-                current=result6.current_rules,
-                desired=result6.desired_rules,
-            ))
-        if compiled.expired_bans:
-            print(TXT_FW_PREVIEW_EXPIRED.format(count=compiled.expired_bans))
-        if compiled.next_expiry:
-            print(TXT_FW_NEXT_EXPIRY.format(
-                day=compiled.next_expiry.isoformat()
-            ))
-        print(TXT_FW_PREVIEW_SAFE)
+        self._print_preview(compiled, result4, result6)
         anyKey()
         return onSelReturn(ok=TXT_FW_PREVIEW_DONE)
 

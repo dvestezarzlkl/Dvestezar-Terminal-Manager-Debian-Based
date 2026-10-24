@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.10.1
+
+- SAFETY Firewall Manager 0.5.1: jediná akce dostupná při neaktivním UFW nyní nejdřív zobrazí přesný read-only IPv4/IPv6 Preview stejného kandidátu a teprve potom nabídne potvrzení Activate + Apply. Požadavek, že při inactive není aktivní žádná jiná položka menu, zůstává zachován.
+- SAFE Aktivní UFW s `NO_CHANGE` po Preview rovnou skončí bez potvrzení, zápisu nebo reloadu. Pokud se `firewall.json` mezi Preview a potvrzením změní, Apply se fail-closed zruší a vyžádá nový Preview.
+
 ## v2.10.0
 
 - ADD Firewall Manager 0.5.0 zavádí první explicitní mutační workflow UFW. Lokální `firewall.json` se kompiluje do vlastněných OpenVPN BAN/izolačních, Hard Source Allow a nového Standard Firewall bloku; běžná INPUT/OUTPUT/FORWARD pravidla podporují allow/drop/reject, protokol, src/dst CIDR, zdrojové/cílové porty a interface.
