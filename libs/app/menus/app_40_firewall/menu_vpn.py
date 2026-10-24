@@ -142,16 +142,13 @@ def _edit_server(
         return None
     context[TXT_FW_EDITOR_INTERFACE.rstrip(":")] = interface
 
-    try:
-        return normalize_vpn_server(FirewallVpnServer(
-            server_id=current.server_id if current else new_server_id(),
-            name=name,
-            ip=ip,
-            mask=int(mask),
-            interface=interface,
-        ))
-    except (ValueError, FirewallConfigError):
-        return None
+    return normalize_vpn_server(FirewallVpnServer(
+        server_id=current.server_id if current else new_server_id(),
+        name=name,
+        ip=ip,
+        mask=int(mask),
+        interface=interface,
+    ))
 
 
 def _edit_ban(
@@ -197,18 +194,15 @@ def _edit_ban(
     if ban_to is None:
         return None
 
-    try:
-        return normalize_rule(FirewallRule(
-            rule_id=current.rule_id if current else new_rule_id(),
-            kind="vpn_ban",
-            enabled=current.enabled if current else True,
-            name=name,
-            source=source,
-            ban_to=ban_to,
-            vpn_server_id=server.server_id,
-        ))
-    except FirewallConfigError:
-        return None
+    return normalize_rule(FirewallRule(
+        rule_id=current.rule_id if current else new_rule_id(),
+        kind="vpn_ban",
+        enabled=current.enabled if current else True,
+        name=name,
+        source=source,
+        ban_to=ban_to,
+        vpn_server_id=server.server_id,
+    ))
 
 
 class VpnServersMenu(c_menu):
@@ -261,7 +255,10 @@ class VpnServersMenu(c_menu):
             cfg = load_config()
         except FirewallConfigError as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
-        server = _edit_server(self.minMenuWidth, None)
+        try:
+            server = _edit_server(self.minMenuWidth, None)
+        except (ValueError, FirewallConfigError) as exc:
+            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
         if server is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         if not _confirm_server(server, self.minMenuWidth):
@@ -331,7 +328,10 @@ class VpnServerRulesMenu(c_menu):
             server = vpn_server(cfg, self.server_id)
         except FirewallConfigError as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
-        rule = _edit_ban(self.minMenuWidth, server, None)
+        try:
+            rule = _edit_ban(self.minMenuWidth, server, None)
+        except FirewallConfigError as exc:
+            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
         if rule is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         if not _confirm_ban(server, rule, self.minMenuWidth):
@@ -385,7 +385,10 @@ class VpnServerRulesMenu(c_menu):
             except FirewallConfigError as exc:
                 return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
 
-        edited = _edit_ban(self.minMenuWidth, server, rule)
+        try:
+            edited = _edit_ban(self.minMenuWidth, server, rule)
+        except FirewallConfigError as exc:
+            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
         if edited is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         if not _confirm_ban(server, edited, self.minMenuWidth):
@@ -401,7 +404,10 @@ class VpnServerRulesMenu(c_menu):
             current = vpn_server(cfg, self.server_id)
         except FirewallConfigError as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
-        edited = _edit_server(self.minMenuWidth, current)
+        try:
+            edited = _edit_server(self.minMenuWidth, current)
+        except (ValueError, FirewallConfigError) as exc:
+            return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
         if edited is None:
             return onSelReturn().errRet(TXT_FW_CANCELLED)
         if not _confirm_server(edited, self.minMenuWidth):
