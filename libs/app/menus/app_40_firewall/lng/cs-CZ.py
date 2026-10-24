@@ -124,6 +124,7 @@ TXT_FW_APPLY_CONFIRM = "Aplikovat lokální firewall.json do UFW? Před reloadem
 TXT_FW_ACTIVATE_CONFIRM = "Aktivovat UFW a aplikovat lokální firewall.json? Pozor na ztrátu připojení; před aktivací bude spuštěn nezávislý časovaný rollback."
 TXT_FW_APPLY_ACK = "UFW je aplikované. Otevřete NOVÉ druhé SSH/správcovské připojení a ověřte, že se skutečně přihlásí. Teprve potom potvrďte do {seconds} s; bez potvrzení se konfigurace automaticky vrátí."
 TXT_FW_APPLY_UNSAFE_STATUS = "Aktuální stav UFW není bezpečný pro Apply."
+TXT_FW_APPLY_CONFIG_CHANGED = "firewall.json se po Preview změnil; Apply byl zrušen. Zkontrolujte nový Preview a potvrďte znovu."
 TXT_FW_APPLY_FAIL = "Apply UFW selhal nebo byl vrácen: {reason}"
 TXT_FW_APPLY_NO_CHANGE = "UFW je aktivní a spravované konfigurační bloky odpovídají lokální konfiguraci; bez zápisu/reloadu."
 TXT_FW_APPLY_ROLLED_BACK = "Změna byla vrácena na původní stav. Záloha: {backup}"

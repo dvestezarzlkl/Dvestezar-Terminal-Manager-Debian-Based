@@ -124,6 +124,7 @@ TXT_FW_APPLY_CONFIRM = "Apply local firewall.json to UFW? A backup and independe
 TXT_FW_ACTIVATE_CONFIRM = "Activate UFW and apply local firewall.json? This may disconnect the remote session; an independent timed rollback is armed first."
 TXT_FW_APPLY_ACK = "UFW is live. Open a NEW second SSH/management connection and verify a fresh login succeeds. Only then confirm within {seconds}s; without confirmation the previous state is restored automatically."
 TXT_FW_APPLY_UNSAFE_STATUS = "Current UFW status is not safe for Apply."
+TXT_FW_APPLY_CONFIG_CHANGED = "firewall.json changed after Preview; Apply was cancelled. Review the new Preview and confirm again."
 TXT_FW_APPLY_FAIL = "UFW Apply failed or was rolled back: {reason}"
 TXT_FW_APPLY_NO_CHANGE = "UFW is active and managed configuration blocks already match local config; no write/reload was performed."
 TXT_FW_APPLY_ROLLED_BACK = "Change was rolled back to the previous state. Backup: {backup}"
