@@ -329,6 +329,20 @@ def build_candidate(
         ))
 
     if spans:
+        ordered_spans = sorted(spans)
+        for (_, previous_last), (next_first, _) in zip(
+            ordered_spans,
+            ordered_spans[1:],
+        ):
+            between = lines[previous_last:next_first - 1]
+            if any(
+                line.strip() and not line.lstrip().startswith("#")
+                for line in between
+            ):
+                raise FirewallPolicyError(
+                    "Unmanaged executable UFW rule exists between SysApps "
+                    "managed blocks; refusing to change its precedence."
+                )
         anchor = min(first for first, _ in spans) - 1
     else:
         anchors = [
