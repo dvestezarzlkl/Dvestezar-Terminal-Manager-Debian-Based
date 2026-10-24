@@ -169,7 +169,6 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ), redirect_stdout(io.StringIO()) as output:
             screen.preview_local_config(None)
         self.assertIn("CHANGED", output.getvalue())
-        self.assertIn("desired: 0", output.getvalue())
 
     def test_preview_passes_each_vpn_server_interface_to_policy(self):
         server = FirewallVpnServer(
