@@ -37,12 +37,14 @@ Hlavní menu automaticky načte každý plugin, který obsahuje `menu.py`, takž
 - výpis procesů využívajících SWAP
 - změna velikosti SWAP image podle stavu systému
 
-### Firewall Manager (UFW) — zatím read-only
+### Firewall Manager (UFW) — desired-state editor, UFW zatím read-only
 
-- detekce UFW (stav/verze) při běžném hodinovém sběru SysApps Hub
-- kontrola dvou existujících bloků v `/etc/ufw/before.rules`: OpenVPN BAN/izolace a důvěryhodné zdroje
-- dry-run porovnání proti legacy JSON/JS konfiguraci, účinný hash bez generovaného času, hlídání expirace BAN
-- žádný automatický přepis, reload ani změna firewallu (Apply a rollback se připravují samostatně)
+- lokální verzovaná konfigurace `/etc/jb_sys_apps/firewall.json`: standardní INPUT/FORWARD/OUTPUT pravidla, source/destination IP/CIDR, TCP/UDP zdrojové i cílové porty a rozhraní
+- VPN BAN správa po serverech: seznam OpenVPN serverů -> BAN pravidla konkrétního serveru, včetně expirace a legacy forward-isolation vazby
+- průvodce používají stávající JBLibs `select/get_input/printBlock/confirm`, zobrazují průběžně zadané hodnoty a rozhraní vybírají z živého seznamu hostu
+- read-only kontrola více spravovaných OpenVPN bloků v `/etc/ufw/before.rules`, Hard Source Allow bloku a dry-run porovnání bez volatilních timestampů
+- Hub schema 008 synchronizuje pouze host-local VPN servery a pravidla; central/group/all zůstávají mimo vlastnictví host collectoru
+- žádný automatický přepis, `ufw enable`, reload ani Apply; aktivace a bezpečný rollback jsou samostatná budoucí etapa
 
 ### Node-RED manager
 
