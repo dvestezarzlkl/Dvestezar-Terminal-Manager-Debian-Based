@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager - Debian Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.9.2
+v2.10.0
 
 [ENG](readme_en.md)
 
@@ -37,14 +37,15 @@ Hlavní menu automaticky načte každý plugin, který obsahuje `menu.py`, takž
 - výpis procesů využívajících SWAP
 - změna velikosti SWAP image podle stavu systému
 
-### Firewall Manager (UFW) — desired-state editor, UFW zatím read-only
+### Firewall Manager (UFW) — desired-state editor + chráněný ruční Apply
 
 - lokální verzovaná konfigurace `/etc/jb_sys_apps/firewall.json`: standardní INPUT/FORWARD/OUTPUT pravidla, source/destination IP/CIDR, TCP/UDP zdrojové i cílové porty a rozhraní
 - VPN BAN správa po serverech: seznam OpenVPN serverů -> BAN pravidla konkrétního serveru, včetně expirace a legacy forward-isolation vazby
-- průvodce používají stávající JBLibs `select/get_input/printBlock/confirm`, zobrazují průběžně zadané hodnoty a rozhraní vybírají z živého seznamu hostu
-- read-only kontrola více spravovaných OpenVPN bloků v `/etc/ufw/before.rules`, Hard Source Allow bloku a dry-run porovnání bez volatilních timestampů
-- Hub schema 008 synchronizuje pouze host-local VPN servery a pravidla; central/group/all zůstávají mimo vlastnictví host collectoru
-- žádný automatický přepis, `ufw enable`, reload ani Apply; aktivace a bezpečný rollback jsou samostatná budoucí etapa
+- preview a Apply pracují se stejným pure compilerem; SysApps vlastní pouze označené OpenVPN, Hard Source Allow a Standard Firewall bloky a ostatní obsah `before.rules`/ `before6.rules` zachovává
+- ruční Apply vytváří zálohu, předem aktivuje nezávislý systemd rollback, provede syntax/dry-run validaci, atomický zápis a teprve potom `ufw reload` nebo chráněné `ufw enable`
+- po živé změně musí správce potvrdit, že správcovské spojení stále funguje; bez potvrzení nebo při chybě se automaticky obnoví původní soubory i active/inactive stav
+- aktivní firewall s `NO_CHANGE` se nereadloaduje; Disable je samostatná potvrzovaná akce
+- Hub schema 008 synchronizuje host-local VPN servery a pravidla, ale Hub/hourly sync UFW nikdy automaticky neaplikuje; central/group/all zůstávají mimo vlastnictví host collectoru
 
 ### Node-RED manager
 

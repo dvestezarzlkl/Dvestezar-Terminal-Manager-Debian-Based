@@ -1,6 +1,6 @@
 # Firewall Manager — UFW / OpenVPN takeover design
 
-Status: **read-only UFW inspection + pure policy comparison implemented** as SysApps 2.6.0 (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.
+Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.10.0 / Firewall Manager 0.5.0 (2026-10-24). Hub/hourly auto-apply and production/new21 takeover remain disabled.
 
 ## Read-only phase (SysApps 2.6.0)
 
