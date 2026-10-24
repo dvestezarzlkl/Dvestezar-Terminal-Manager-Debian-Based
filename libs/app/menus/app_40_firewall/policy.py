@@ -45,7 +45,7 @@ class ManagedBlock:
 
 @dataclass(frozen=True)
 class UfwInspection:
-    openvpn: ManagedBlock | None
+    openvpn: tuple[ManagedBlock, ...]
     hard_sources: ManagedBlock | None
 
 
@@ -94,13 +94,12 @@ def _action_lines(lines: list[str]) -> tuple[Rule, ...]:
 
 
 def inspect_before_rules(content: str) -> UfwInspection:
-    """Parse managed BOF/EOF blocks and reject ambiguous/duplicate ownership.
-
-    Other UFW rules and arbitrary surrounding text are never modified or
-    interpreted. An unexpected directive *inside* a managed block is fatal.
-    """
+    """Parse owned blocks; allow multiple uniquely identified OpenVPN servers."""
     started: tuple[str, str, int, list[str]] | None = None
-    found: dict[str, ManagedBlock] = {}
+    openvpn_blocks: list[ManagedBlock] = []
+    hard_sources: ManagedBlock | None = None
+    openvpn_labels: set[str] = set()
+
     for lineno, original in enumerate(content.splitlines(), 1):
         line = original.strip()
         match = _MARKER.fullmatch(line)
@@ -108,8 +107,13 @@ def inspect_before_rules(content: str) -> UfwInspection:
             boundary, label = match.groups()
             kind = "openvpn" if label.startswith(_OPENVPN_PREFIX) else "hard_sources"
             if boundary == "BOF":
-                if started is not None or kind in found:
-                    raise FirewallPolicyError("Nested or duplicate managed UFW block.")
+                if started is not None:
+                    raise FirewallPolicyError("Nested managed UFW block.")
+                if kind == "openvpn":
+                    if label in openvpn_labels:
+                        raise FirewallPolicyError("Duplicate OpenVPN managed block.")
+                elif hard_sources is not None:
+                    raise FirewallPolicyError("Duplicate Hard Source managed block.")
                 started = (kind, label, lineno, [])
             else:
                 if started is None:
@@ -117,9 +121,14 @@ def inspect_before_rules(content: str) -> UfwInspection:
                 active_kind, active_label, first_line, section = started
                 if label != active_label or kind != active_kind:
                     raise FirewallPolicyError("Managed UFW BOF/EOF marker mismatch.")
-                found[kind] = ManagedBlock(
+                block = ManagedBlock(
                     kind, label, first_line, lineno, _action_lines(section)
                 )
+                if kind == "openvpn":
+                    openvpn_blocks.append(block)
+                    openvpn_labels.add(label)
+                else:
+                    hard_sources = block
                 started = None
             continue
         if started is not None:
@@ -127,15 +136,13 @@ def inspect_before_rules(content: str) -> UfwInspection:
 
     if started is not None:
         raise FirewallPolicyError("Managed UFW BOF without EOF.")
-    openvpn = found.get("openvpn")
-    sources = found.get("hard_sources")
-    if openvpn is not None and sources is not None:
-        if openvpn.last_line >= sources.first_line:
-            raise FirewallPolicyError(
-                "OpenVPN BAN block must precede Hard Source Allow block."
-            )
-    return UfwInspection(openvpn, sources)
 
+    if hard_sources is not None:
+        if any(block.last_line >= hard_sources.first_line for block in openvpn_blocks):
+            raise FirewallPolicyError(
+                "All OpenVPN BAN blocks must precede Hard Source Allow block."
+            )
+    return UfwInspection(tuple(openvpn_blocks), hard_sources)
 
 def rules_digest(rules: tuple[Rule, ...]) -> str:
     """SHA-256 of ordered effective iptables actions, not generated comments."""
@@ -255,19 +262,24 @@ def plan_legacy_openvpn(
     on_date: date | None = None,
     interface: str = "tun+",
 ) -> FirewallPlan:
-    """Pure comparison. Nothing is written even if status is CHANGED."""
+    """Pure comparison for one server against a multi-server before.rules."""
     inspection = inspect_before_rules(before_rules)
     expected, expired, next_expiry, label = compile_legacy_openvpn(
         cfg, on_date=on_date, interface=interface
     )
-    old = inspection.openvpn
+    matches = [block for block in inspection.openvpn if block.label == label]
+    old = matches[0] if matches else None
     old_rules = old.rules if old is not None else ()
     current_hash = rules_digest(old_rules)
     effective_hash = rules_digest(expected)
     if old is None:
-        status, reason = "MISSING", "OpenVPN managed UFW block not found."
-    elif old.label != label:
-        status, reason = "REVIEW", "OpenVPN managed marker identity changed."
+        if inspection.openvpn:
+            status, reason = (
+                "REVIEW",
+                "Matching OpenVPN managed block not found; existing server blocks require review.",
+            )
+        else:
+            status, reason = "MISSING", "OpenVPN managed UFW block not found."
     elif current_hash == effective_hash:
         status, reason = "NO_CHANGE", ""
     else:
