@@ -334,11 +334,13 @@ class HubFirewallConfigTests(unittest.TestCase):
 
     def test_reject_save_before_confirmation(self):
         rule = FirewallRule("f" * 32, "standard", name="test")
-        with patch.object(firewall_menu_rules, "printBlock") as block, patch.object(
+        with patch.object(
+            firewall_menu_rules, "render_progress", return_value=78
+        ) as redraw, patch.object(
             firewall_menu_rules, "confirm", return_value=False
         ):
             self.assertFalse(firewall_menu_rules._confirm_rule(rule, 78))
-        block.assert_called_once()
+        redraw.assert_called_once()
 
     def test_optional_editor_value_can_be_cleared_explicitly(self):
         with patch.object(menu_helpers, "get_input", return_value="-"):
