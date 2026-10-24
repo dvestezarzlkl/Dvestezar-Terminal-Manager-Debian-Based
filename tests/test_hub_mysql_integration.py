@@ -9,6 +9,7 @@ from libs.app.hub.database import HubDatabase
 from libs.app.hub.models import (
     HubDisk,
     HubFirewallRule,
+    HubFirewallVpnServer,
     HubHostSnapshot,
     HubProviderSnapshot,
     HubService,
@@ -42,8 +43,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 7:
-            raise AssertionError(f"Expected schema version 7, got {version}")
+        if version != 8:
+            raise AssertionError(f"Expected schema version 8, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -324,7 +325,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 7)
+                self.assertEqual(check.latest_version, 8)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
@@ -399,8 +400,10 @@ class HubMySqlIntegrationTests(unittest.TestCase):
     def test_host_local_firewall_sync_never_overwrites_central_rules(self) -> None:
         host = self._host("machine-firewall", "host-firewall")
         self.database.sync_core(host)
-        table = table_identifier(self.settings, "firewall_rules")
+        rules = table_identifier(self.settings, "firewall_rules")
+        servers = table_identifier(self.settings, "firewall_vpn_servers")
         hosts = table_identifier(self.settings, "hosts")
+
         with self.database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
@@ -409,69 +412,146 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 )
                 host_id = cursor.fetchone()[0]
                 cursor.execute(
-                    f"INSERT INTO {table} "
+                    f"INSERT INTO {servers} "
+                    "(server_uid, origin, target_kind, host_id, group_id, name, "
+                    "server_ip, server_mask, interface_name, last_seen_at) "
+                    "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,UTC_TIMESTAMP(6))",
+                    (
+                        "e" * 32, "central", "host", host_id,
+                        "Central VPN", "10.99.0.1", 24, "tun99",
+                    ),
+                )
+                cursor.execute(
+                    f"INSERT INTO {rules} "
                     "(rule_uid, origin, target_kind, host_id, group_id, rule_type, "
                     "enabled, name, direction, action, protocol, source, destination, "
                     "destination_invert, port_from, port_to, interface_name, ban_to, "
-                    "last_seen_at) VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,UTC_TIMESTAMP(6))",
+                    "last_seen_at) "
+                    "VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,UTC_TIMESTAMP(6))",
                     (
                         "d" * 32, "central", "host", host_id, "standard", 1,
-                        "Central SSH", "input", "allow", "tcp", "198.51.100.10/32",
-                        "", 0, 22, 22, "", None,
+                        "Central SSH", "input", "allow", "tcp",
+                        "198.51.100.10/32", "", 0, 22, 22, "", None,
                     ),
                 )
             connection.commit()
 
+        local_server_uid = "c" * 32
+        server_result = self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_vpn_servers",
+                "firewall_vpn_servers",
+                (
+                    HubFirewallVpnServer(
+                        local_server_uid,
+                        "Local VPN",
+                        "10.8.88.1",
+                        23,
+                        "tun+",
+                    ),
+                ),
+                min_schema_version=8,
+            ),
+        )
+        self.assertEqual(server_result.item_count, 1)
+
         result = self.database.sync_provider(
             host.machine_id,
             HubProviderSnapshot(
-                "firewall_rules", "firewall_rules",
+                "firewall_rules",
+                "firewall_rules",
                 (
                     HubFirewallRule(
-                        "a" * 32, "vpn_ban", True, "Alice",
-                        direction="input", action="deny", protocol="any",
-                        source="10.8.89.12/32", ban_to="2026-12-31",
+                        "a" * 32,
+                        "vpn_ban",
+                        True,
+                        "Alice",
+                        direction="input",
+                        action="deny",
+                        protocol="any",
+                        source="10.8.89.12/32",
+                        ban_to="2026-12-31",
+                        vpn_server_uid=local_server_uid,
                     ),
                     HubFirewallRule(
-                        "b" * 32, "standard", True, "Office HTTPS",
-                        direction="input", action="allow", protocol="tcp",
+                        "b" * 32,
+                        "standard",
+                        True,
+                        "Office HTTPS",
+                        direction="input",
+                        action="allow",
+                        protocol="tcp",
                         source="203.0.113.0/24",
-                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
+                        src_ports="40000-40100",
+                        dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=7,
+                min_schema_version=8,
             ),
         )
         self.assertEqual(result.item_count, 2)
-        # A second local snapshot replaces only host_local rows.
+
         self.database.sync_provider(
             host.machine_id,
             HubProviderSnapshot(
-                "firewall_rules", "firewall_rules",
+                "firewall_rules",
+                "firewall_rules",
                 (
                     HubFirewallRule(
-                        "b" * 32, "standard", False, "Office HTTPS",
-                        direction="input", action="allow", protocol="tcp",
+                        "b" * 32,
+                        "standard",
+                        False,
+                        "Office HTTPS",
+                        direction="input",
+                        action="allow",
+                        protocol="tcp",
                         source="203.0.113.0/24",
-                        src_ports="40000-40100", dst_ports="80,443,8080-8090",
+                        src_ports="40000-40100",
+                        dst_ports="80,443,8080-8090",
                     ),
                 ),
-                min_schema_version=7,
+                min_schema_version=8,
             ),
         )
+
         with self.database.connect() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"SELECT rule_uid, origin, target_kind, enabled, name, src_ports, dst_ports "
-                    f"FROM {table} WHERE host_id=%s ORDER BY origin, rule_uid",
+                    f"SELECT rule_uid, origin, target_kind, enabled, name, "
+                    "vpn_server_uid, src_ports, dst_ports "
+                    f"FROM {rules} WHERE host_id=%s ORDER BY origin, rule_uid",
                     (host_id,),
                 )
                 self.assertEqual(
                     cursor.fetchall(),
                     (
-                        ("d" * 32, "central", "host", 1, "Central SSH", "", ""),
-                        ("b" * 32, "host_local", "host", 0, "Office HTTPS",
-                         "40000-40100", "80,443,8080-8090"),
+                        (
+                            "d" * 32, "central", "host", 1, "Central SSH",
+                            None, "", "",
+                        ),
+                        (
+                            "b" * 32, "host_local", "host", 0, "Office HTTPS",
+                            None, "40000-40100", "80,443,8080-8090",
+                        ),
+                    ),
+                )
+                cursor.execute(
+                    f"SELECT server_uid, origin, target_kind, name, interface_name "
+                    f"FROM {servers} WHERE host_id=%s ORDER BY origin, server_uid",
+                    (host_id,),
+                )
+                self.assertEqual(
+                    cursor.fetchall(),
+                    (
+                        ("e" * 32, "central", "host", "Central VPN", "tun99"),
+                        (
+                            local_server_uid,
+                            "host_local",
+                            "host",
+                            "Local VPN",
+                            "tun+",
+                        ),
                     ),
                 )
 
@@ -479,14 +559,17 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             self.database.sync_provider(
                 host.machine_id,
                 HubProviderSnapshot(
-                    "firewall_rules", "firewall_rules",
+                    "firewall_rules",
+                    "firewall_rules",
                     (
                         HubFirewallRule(
-                            "z" * 32, "standard", True,
+                            "z" * 32,
+                            "standard",
+                            True,
                             source="203.0.113.4/32",
                         ),
                     ),
-                    min_schema_version=7,
+                    min_schema_version=8,
                 ),
             )
 
