@@ -547,6 +547,29 @@ def vpn_server(config: FirewallConfig, server_id: str) -> FirewallVpnServer:
     except StopIteration as exc:
         raise FirewallConfigError("VPN server was not found.") from exc
 
+def merge_config(base: FirewallConfig, incoming: FirewallConfig) -> FirewallConfig:
+    """Merge normalized local configs while preserving stable IDs."""
+    left = normalize_config(base)
+    right = normalize_config(incoming)
+    server_ids = {item.server_id for item in left.vpn_servers}
+    rule_ids = {item.rule_id for item in left.rules}
+    if any(item.server_id in server_ids for item in right.vpn_servers):
+        raise FirewallConfigError("Duplicate VPN server ID during import.")
+    if any(item.rule_id in rule_ids for item in right.rules):
+        raise FirewallConfigError("Duplicate firewall rule ID during import.")
+    return normalize_config({
+        "version": CONFIG_VERSION,
+        "vpn_servers": [
+            *(asdict(item) for item in left.vpn_servers),
+            *(asdict(item) for item in right.vpn_servers),
+        ],
+        "rules": [
+            *(asdict(item) for item in left.rules),
+            *(asdict(item) for item in right.rules),
+        ],
+    })
+
+
 def import_legacy(path: Path, inspection: UfwInspection | None = None) -> FirewallConfig:
     """Convert one old OpenVPN JSON/JS policy into config v2."""
     legacy = read_legacy_config(path)
