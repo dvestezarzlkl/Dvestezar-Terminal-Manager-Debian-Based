@@ -110,3 +110,7 @@ TXT_FW_VPN_BAN_ADD = "Přidat BAN pravidlo"
 TXT_FW_VPN_BAN_PERMANENT = "trvalý"
 TXT_FW_VPN_SERVER_ITEM = "{name}: {ip}/{mask} ({interface}), BAN: {bans}"
 TXT_FW_VPN_BANS_TITLE = "VPN BAN pravidla"
+
+TXT_FW_IMPORT_MERGE = "Lokální firewall.json už obsahuje data. Přidat tento importovaný VPN server a jeho pravidla?"
+TXT_FW_PREVIEW_VPN_SERVER = "OpenVPN {name}: {status}"
+TXT_FW_BLOCK_COUNT = "bloků"
