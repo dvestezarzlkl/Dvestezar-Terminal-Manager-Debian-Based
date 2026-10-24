@@ -246,7 +246,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             before = db.check_status()
             self.assertEqual(before.state, HubState.READY)
             self.assertEqual(before.schema_version, 4)
-            self.assertIn("optional schema upgrade", before.message)
+            self.assertEqual(before.latest_schema_version, 8)
+            self.assertEqual(before.message, "ready")
             db.sync_core(self._host("new-host", "new-host"))
 
             with db.connect() as connection:
