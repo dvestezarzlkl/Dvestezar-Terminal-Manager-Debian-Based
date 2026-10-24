@@ -58,12 +58,16 @@ class menu(c_menu):
             ]
             return
         self.menu = [
-            c_menu_title_label(text_color(TXT_FW_READ_ONLY, en_color.BRIGHT_YELLOW)),
+            c_menu_title_label(text_color(TXT_FW_SECTION_MANAGE, en_color.BRIGHT_CYAN)),
+            c_menu_item(text_color(TXT_FW_EDIT_RULES, en_color.BRIGHT_CYAN),
+                        "e", FirewallRulesMenu()),
+            c_menu_title_label(TXT_FW_SECTION_INSPECT),
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
             c_menu_item(TXT_FW_STATUS, "s", self.inspect_status),
             c_menu_item(TXT_FW_PREVIEW, "p", self.preview_local_config),
-            c_menu_item(TXT_FW_EDIT_RULES, "e", FirewallRulesMenu()),
+            c_menu_title_label(TXT_FW_SECTION_IMPORT),
             c_menu_item(TXT_FW_IMPORT_LEGACY, "l", self.import_legacy_config),
+            c_menu_title_label(text_color(TXT_FW_READ_ONLY, en_color.BRIGHT_YELLOW)),
         ]
 
     def import_legacy_config(self, selItem: c_menu_item) -> onSelReturn:
