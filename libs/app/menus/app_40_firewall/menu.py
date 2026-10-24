@@ -32,7 +32,7 @@ _BEFORE_RULES = Path("/etc/ufw/before.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.4.0"
+    _VERSION_ = "0.4.1"
     ESC_is_quit = True
     minMenuWidth = 72
 

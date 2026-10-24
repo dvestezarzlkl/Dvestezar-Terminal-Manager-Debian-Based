@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.9.2
+
+- UX Firewall Manager 0.4.1: UDP se v seznamu pravidel i výběru protokolu zobrazuje cyan místo tmavě modré, aby zůstalo čitelné i na zvýrazněném řádku terminálového menu. TCP zůstává zelené; výběr protokolu používá stejný `color_protocol()` helper jako výsledný seznam pravidel.
+
 ## v2.9.1
 
 - FIX SysApps Hub status keeps a pending optional schema upgrade visible even after a successful inventory sync; structured Hub status now carries both current and latest known schema versions.

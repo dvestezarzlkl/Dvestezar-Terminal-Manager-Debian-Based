@@ -270,8 +270,8 @@ class FirewallRulesMenu(c_menu):
             TXT_FW_EDITOR_PROTOCOL,
             [
                 ("a", TXT_FW_EDITOR_PROTO_ANY, "any"),
-                ("t", text_color("TCP", en_color.GREEN), "tcp"),
-                ("u", text_color("UDP", en_color.BLUE), "udp"),
+                ("t", color_protocol("tcp"), "tcp"),
+                ("u", color_protocol("udp"), "udp"),
                 ("i", "ICMP", "icmp"),
             ],
             self.minMenuWidth,
