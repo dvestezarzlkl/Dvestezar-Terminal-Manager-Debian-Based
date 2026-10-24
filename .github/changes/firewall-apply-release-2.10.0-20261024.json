@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "commit_message": "release: SysApps 2.10.0 guarded Firewall Apply",
+  "replacements": [
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.9.2\"",
+      "new": "VERSION = \"2.10.0\"",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.9.2",
+      "new": "v2.10.0",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "v2.9.2",
+      "new": "v2.10.0",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n## v2.9.2\n",
+      "new": "# Changelog\n\n## v2.10.0\n\n- ADD Firewall Manager 0.5.0 zavádí první explicitní mutační workflow UFW. Lokální `firewall.json` se kompiluje do vlastněných OpenVPN BAN/izolačních, Hard Source Allow a nového Standard Firewall bloku; běžná INPUT/OUTPUT/FORWARD pravidla podporují allow/drop/reject, protokol, src/dst CIDR, zdrojové/cílové porty a interface.\n- SAFE Apply je pouze ruční z menu. Kandidát zachovává všechny nespravované řádky, před zápisem se semanticky kontroluje a generated akce procházejí `iptables-restore --test` / `ip6tables-restore --test`. Po atomickém zápisu proběhne `ufw --dry-run reload|enable` ještě před živou změnou.\n- SAFE Před reload/enable se vytvoří úplná lokální záloha dotčených UFW souborů a aktivuje se nezávislý transient systemd rollback timer. Pokud správce po živé změně nepotvrdí funkční spojení, Apply se odmítne, proces selže nebo se spojení přeruší, původní soubory a původní active/inactive stav se obnoví.\n- ADD Neaktivní UFW nabízí pouze chráněnou akci Aktivovat + Apply; aktivní UFW nabízí samostatný guarded Apply a explicitně potvrzované Disable. `NO_CHANGE` na aktivním firewallu neprovádí zápis ani reload.\n- ADD IPv4 je spravováno v `before.rules`; pokud existuje `before6.rules`, family-neutral/IPv6 standardní pravidla se kompilují také do IPv6. Explicitní IPv6 pravidlo bez dostupného `before6.rules` failuje před změnou systému.\n- SAFE Hub provider a hodinový Hub sync zůstávají striktně read-only vůči UFW; žádný automatický Apply není v 2.10.0 povolen. Fyzický enable/apply/rollback/disable test je určen pro testovací VM před jakýmkoli produkčním takeoverem.\n\n## v2.9.2\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "### Firewall Manager (UFW) — desired-state editor, UFW zatím read-only\n\n- lokální verzovaná konfigurace `/etc/jb_sys_apps/firewall.json`: standardní INPUT/FORWARD/OUTPUT pravidla, source/destination IP/CIDR, TCP/UDP zdrojové i cílové porty a rozhraní\n- VPN BAN správa po serverech: seznam OpenVPN serverů -> BAN pravidla konkrétního serveru, včetně expirace a legacy forward-isolation vazby\n- průvodce používají stávající JBLibs `select/get_input/printBlock/confirm`, zobrazují průběžně zadané hodnoty a rozhraní vybírají z živého seznamu hostu\n- read-only kontrola více spravovaných OpenVPN bloků v `/etc/ufw/before.rules`, Hard Source Allow bloku a dry-run porovnání bez volatilních timestampů\n- Hub schema 008 synchronizuje pouze host-local VPN servery a pravidla; central/group/all zůstávají mimo vlastnictví host collectoru\n- žádný automatický přepis, `ufw enable`, reload ani Apply; aktivace a bezpečný rollback jsou samostatná budoucí etapa\n",
+      "new": "### Firewall Manager (UFW) — desired-state editor + chráněný ruční Apply\n\n- lokální verzovaná konfigurace `/etc/jb_sys_apps/firewall.json`: standardní INPUT/FORWARD/OUTPUT pravidla, source/destination IP/CIDR, TCP/UDP zdrojové i cílové porty a rozhraní\n- VPN BAN správa po serverech: seznam OpenVPN serverů -> BAN pravidla konkrétního serveru, včetně expirace a legacy forward-isolation vazby\n- preview a Apply pracují se stejným pure compilerem; SysApps vlastní pouze označené OpenVPN, Hard Source Allow a Standard Firewall bloky a ostatní obsah `before.rules`/ `before6.rules` zachovává\n- ruční Apply vytváří zálohu, předem aktivuje nezávislý systemd rollback, provede syntax/dry-run validaci, atomický zápis a teprve potom `ufw reload` nebo chráněné `ufw enable`\n- po živé změně musí správce potvrdit, že správcovské spojení stále funguje; bez potvrzení nebo při chybě se automaticky obnoví původní soubory i active/inactive stav\n- aktivní firewall s `NO_CHANGE` se nereadloaduje; Disable je samostatná potvrzovaná akce\n- Hub schema 008 synchronizuje host-local VPN servery a pravidla, ale Hub/hourly sync UFW nikdy automaticky neaplikuje; central/group/all zůstávají mimo vlastnictví host collectoru\n",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "### Firewall Manager (UFW) — desired-state editor, UFW runtime still read-only\n\n- Versioned local `/etc/jb_sys_apps/firewall.json` supports standard INPUT/FORWARD/OUTPUT rules, source/destination IP/CIDR, TCP/UDP source and destination ports, and interfaces.\n- VPN BAN management is server-scoped: select an OpenVPN server, then manage only that server's BAN rules and expiry.\n- Wizards reuse JBLibs `select/get_input/printBlock/confirm`, redraw accepted values as input progresses, and discover live host interfaces.\n- Read-only inspection supports multiple managed OpenVPN blocks plus the Hard Source Allow block and deterministic dry-run comparison.\n- Hub schema 008 synchronizes host-local VPN servers and rules only; central/group/all scope remains outside the host collector.\n- This release does not enable UFW, reload it, or apply firewall changes; activation/rollback remains separate future work.\n",
+      "new": "### Firewall Manager (UFW) — desired-state editor + guarded manual Apply\n\n- Versioned local `/etc/jb_sys_apps/firewall.json` supports standard INPUT/FORWARD/OUTPUT rules, source/destination IP/CIDR, TCP/UDP source and destination ports, and interfaces.\n- VPN BAN management is server-scoped: select an OpenVPN server, then manage only that server's BAN rules and expiry.\n- Preview and Apply use the same pure compiler. SysApps owns only marked OpenVPN, Hard Source Allow and Standard Firewall blocks while preserving all unrelated `before.rules` / `before6.rules` content.\n- Manual Apply creates a backup, pre-arms an independent systemd rollback, validates generated actions and UFW dry-run, performs atomic file replacement, then reloads or guarded-enables UFW.\n- The administrator must acknowledge that the management connection survived the live change; missing/rejected acknowledgement or any failure restores the previous files and previous active/inactive state automatically.\n- Active `NO_CHANGE` performs no write/reload; Disable is a separate confirmed operation.\n- Hub schema 008 synchronizes host-local VPN servers/rules, but Hub/hourly synchronization never auto-applies UFW in this release.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Module 0.4.1 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Config v2 owns a `vpn_servers` catalog with stable `server_id` plus rules that may reference it through `vpn_server_id`. Loading config v1 must migrate in memory without losing src/dst port expressions; saving writes v2 so older clients fail closed instead of silently discarding new fields.\n",
+      "new": "- Module 0.5.0 owns local desired state in `/etc/jb_sys_apps/firewall.json` and may mutate UFW **only through the explicit guarded manual Apply/Enable/Disable workflow in `apply.py`**. Config v2 owns a `vpn_servers` catalog with stable `server_id` plus rules that may reference it through `vpn_server_id`. Loading config v1 must migrate in memory without losing src/dst port expressions; saving writes v2 so older clients fail closed instead of silently discarding new fields.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- UFW runtime remains **read-only**: `policy.py` is pure, `hub_provider.py` calls only UFW status/version, comparison only reads `before.rules`. No UFW reload, no write to `/etc/ufw`, no remote Apply.\n- Pure `reconcile.py` only classifies plan against verified prior `applied_hash`; never mutates prior state or advances `last_applied_at`. Missing prior hash needs review; unexpected drift blocks automatic Apply. This release has NO persistent state and NO UFW Apply.\n- Future Apply belongs to a separate guarded and tested implementation.\n  It must stage+validate candidate config, arm automatic rollback before\n  applying, verify new remote access and rollback on missing acknowledgement.\n",
+      "new": "- `policy.py` and `compiler.py` remain pure. `hub_provider.py` calls only UFW status/version and MUST remain read-only. All filesystem/service mutation is isolated in `apply.py`; no Hub collector, hourly sync or remote policy callback may import/call the mutator.\n- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require live management acknowledgement and verify candidate hashes before committing local apply state.\n- An active `NO_CHANGE` is zero-write/zero-reload. A failed/rejected/unacknowledged Apply restores both touched files and the previous UFW active/inactive state. Do not weaken this for convenience.\n- Automatic Hub/hourly Apply remains forbidden in 0.5.0. `reconcile.py` stays a decision-only layer until a separately reviewed opt-in unattended contract is implemented.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Preserve deployed legacy BOF/EOF ownership and order. Multiple uniquely identified OpenVPN BAN/forward-isolation blocks are allowed and all must precede the single ZLKL Hard Source Allow block. Duplicate OpenVPN marker identities, duplicate Hard Source blocks, nested/unmatched markers or reversed ordering MUST fail closed. A VPN preview must use that server's configured interface, not silently fall back to `tun+`.\n",
+      "new": "- Preserve deployed legacy BOF/EOF ownership and order. Multiple uniquely identified OpenVPN BAN/forward-isolation blocks are allowed and all must precede the single ZLKL Hard Source Allow block; the SysApps Standard Firewall block follows it. Duplicate identities/blocks, nested/unmatched markers or reversed ordering MUST fail closed. A VPN preview/apply must use that server's configured interface, not silently fall back to `tun+`.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "Status: **read-only UFW inspection + pure policy comparison implemented** as SysApps 2.6.0 (2026-10-20). No firewall writer, automatic policy application, or migration of new21 is implemented.\n",
+      "new": "Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.10.0 / Firewall Manager 0.5.0 (2026-10-24). Hub/hourly auto-apply and production/new21 takeover remain disabled.\n",
+      "expected": 1
+    }
+  ]
+}
