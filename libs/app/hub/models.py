@@ -52,10 +52,20 @@ class HubService:
 
 
 @dataclass(frozen=True)
+class HubFirewallVpnServer:
+    server_uid: str
+    name: str
+    server_ip: str
+    server_mask: int
+    interface_name: str = "tun+"
+
+
+@dataclass(frozen=True)
 class HubFirewallRule:
     rule_uid: str
     rule_type: str
     enabled: bool
+    vpn_server_uid: str = ""
     name: str = ""
     direction: str = "input"
     action: str = "allow"
@@ -134,7 +144,13 @@ class HubDiskNameUpdate:
     updated_at: datetime
 
 
-HubProviderItem = HubNodeRedInstance | HubDisk | HubService | HubFirewallRule
+HubProviderItem = (
+    HubNodeRedInstance
+    | HubDisk
+    | HubService
+    | HubFirewallVpnServer
+    | HubFirewallRule
+)
 HubRemoteUpdate = HubDiskNameUpdate
 
 
