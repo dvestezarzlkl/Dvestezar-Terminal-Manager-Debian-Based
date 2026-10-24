@@ -276,6 +276,47 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             ))
             self.assertTrue(any(call[-1] == "disable" for call in calls))
 
+    def test_concurrent_ufw_file_edit_aborts_without_overwriting_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            original = paths.before4.read_text(encoding="utf-8")
+            external = original + "# external administrator change\n"
+            calls: list[list[str]] = []
+
+            def runner(args, **kwargs):
+                calls.append(list(args))
+                if args and args[0].endswith("/systemd-run"):
+                    paths.before4.write_text(external, encoding="utf-8")
+                return subprocess.CompletedProcess(args, 0, "", "")
+
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply,
+                "inspect_ufw_service",
+                return_value=SimpleNamespace(detected=True, status="active"),
+            ), patch.object(
+                firewall_apply.os, "fchown", return_value=None
+            ):
+                with self.assertRaisesRegex(
+                    FirewallApplyError, "changed concurrently"
+                ):
+                    apply_local_config(
+                        config(),
+                        acknowledge=lambda seconds: True,
+                        paths=paths,
+                        runner=runner,
+                    )
+
+            self.assertEqual(
+                paths.before4.read_text(encoding="utf-8"),
+                external,
+            )
+            self.assertFalse(any(
+                call[-2:] == ["/usr/bin/ufw", "reload"]
+                for call in calls
+            ))
+
     def test_active_no_change_does_not_arm_or_reload(self):
         with tempfile.TemporaryDirectory() as tmp:
             paths = self._paths(Path(tmp))
