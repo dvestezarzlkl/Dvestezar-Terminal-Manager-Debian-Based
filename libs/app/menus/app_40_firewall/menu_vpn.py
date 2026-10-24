@@ -39,7 +39,13 @@ from .config import (
     vpn_server,
 )
 from .hub_sync import sync_local_rules_best_effort
-from .menu_helpers import pick, pick_interface, progress_block, prompt
+from .menu_helpers import (
+    pick,
+    pick_interface,
+    progress_block,
+    prompt,
+    render_progress,
+)
 
 
 def _save(menu: c_menu, cfg: FirewallConfig) -> onSelReturn:
@@ -62,12 +68,11 @@ def _server_context(server: FirewallVpnServer) -> dict[str, str]:
 
 
 def _confirm_server(server: FirewallVpnServer, width: int) -> bool:
-    printBlock(
-        progress_block(TXT_FW_VPN_SERVER_FORM, _server_context(server)),
-        c_menu_block_items(),
-        min_width=width,
+    width = max(
+        width,
+        render_progress(TXT_FW_VPN_SERVER_FORM, _server_context(server), width),
     )
-    return confirm(TXT_FW_VPN_SERVER_CONFIRM)
+    return confirm(TXT_FW_VPN_SERVER_CONFIRM, minMessageWidth=width)
 
 
 def _confirm_ban(
@@ -79,12 +84,8 @@ def _confirm_ban(
     context[TXT_FW_EDITOR_NAME.rstrip(":")] = rule.name
     context[TXT_FW_EDITOR_SOURCE.rstrip(":")] = rule.source
     context[TXT_FW_EDITOR_BAN_TO.rstrip(":")] = rule.ban_to or "-"
-    printBlock(
-        progress_block(TXT_FW_VPN_BAN_FORM, context),
-        c_menu_block_items(),
-        min_width=width,
-    )
-    return confirm(TXT_FW_EDITOR_CONFIRM_SAVE)
+    width = max(width, render_progress(TXT_FW_VPN_BAN_FORM, context, width))
+    return confirm(TXT_FW_EDITOR_CONFIRM_SAVE, minMessageWidth=width)
 
 
 def _edit_server(
@@ -134,7 +135,7 @@ def _edit_server(
     interface = pick_interface(
         width=width,
         context=context,
-        current=current.interface if current else "tun+",
+        current=current.interface if current else "",
         allow_any=False,
         title=TXT_FW_VPN_SERVER_FORM,
     )
