@@ -149,8 +149,11 @@ class FirewallCompilerTests(unittest.TestCase):
         self.assertEqual(second.content, first.content)
 
     def test_unmanaged_executable_rule_between_owned_blocks_blocks_reorder(self):
-        desired = compile_firewall(config()).ipv4
-        candidate = build_candidate(base_before(), desired, allow_openvpn=True)
+        original_cfg = config()
+        current_desired = compile_firewall(original_cfg).ipv4
+        candidate = build_candidate(
+            base_before(), current_desired, allow_openvpn=True
+        )
         source = candidate.content.replace(
             "# *** EOF OpenVPN JB Config - dvestezar 10.8.88.0/23\n"
             "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps",
@@ -158,10 +161,32 @@ class FirewallCompilerTests(unittest.TestCase):
             "-A ufw-before-input -s 203.0.113.77 -j DROP\n"
             "# *** BOF ZLKL Hard Source Allow Config - managed by sys_apps",
         )
+
+        # NO_CHANGE must stay a harmless no-op even with an unmanaged line
+        # between owned blocks.
+        noop = build_candidate(source, current_desired, allow_openvpn=True)
+        self.assertFalse(noop.changed)
+
+        changed_cfg = FirewallConfig(
+            vpn_servers=original_cfg.vpn_servers,
+            rules=original_cfg.rules + (
+                FirewallRule(
+                    "f" * 32,
+                    "standard",
+                    True,
+                    "new ssh",
+                    direction="input",
+                    action="allow",
+                    protocol="tcp",
+                    dst_ports="22",
+                ),
+            ),
+        )
+        changed_desired = compile_firewall(changed_cfg).ipv4
         with self.assertRaisesRegex(
             FirewallPolicyError, "change its precedence"
         ):
-            build_candidate(source, desired, allow_openvpn=True)
+            build_candidate(source, changed_desired, allow_openvpn=True)
 
     def test_unrepresented_existing_openvpn_block_blocks_takeover(self):
         source = base_before().replace(
