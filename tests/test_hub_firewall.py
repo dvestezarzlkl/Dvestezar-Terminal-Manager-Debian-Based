@@ -187,6 +187,10 @@ class HubFirewallCollectorTests(unittest.TestCase):
             "read_text",
             return_value=before_rules(),
         ), patch.object(
+            firewall_menu,
+            "_BEFORE6_RULES",
+            SimpleNamespace(is_file=lambda: False),
+        ), patch.object(
             firewall_menu, "anyKey"
         ), redirect_stdout(io.StringIO()) as output:
             screen.preview_local_config(None)
