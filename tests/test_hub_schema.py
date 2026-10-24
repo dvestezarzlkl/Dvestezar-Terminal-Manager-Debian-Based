@@ -185,6 +185,10 @@ class HubSchemaTests(unittest.TestCase):
         self.assertEqual(table_identifier(self.settings, "hosts"), "`hub_hosts`")
         self.assertEqual(table_identifier(self.settings, "host_groups"), "`hub_host_groups`")
         self.assertEqual(table_identifier(self.settings, "firewall_rules"), "`hub_firewall_rules`")
+        self.assertEqual(
+            table_identifier(self.settings, "firewall_vpn_servers"),
+            "`hub_firewall_vpn_servers`",
+        )
         self.assertEqual(table_identifier(self.settings, "disks"), "`hub_disks`")
         self.assertEqual(
             table_identifier(self.settings, "host_disks"), "`hub_host_disks`"
