@@ -1,23 +1,11 @@
 {
   "version": 1,
-  "commit_message": "test(firewall): wire guarded Apply tests into Hub CI",
+  "commit_message": "test(firewall): wire guarded Apply tests into existing Hub test runner",
   "replacements": [
     {
       "path": "tests/test_hub_runtime.py",
       "old": "from tests.test_hub_firewall_config import HubFirewallConfigTests\nfrom tests.test_hub_scheduling import HubScheduleTests\n",
       "new": "from tests.test_hub_firewall_config import HubFirewallConfigTests\nfrom tests.test_hub_firewall_apply import (\n    FirewallApplyTransactionTests,\n    FirewallCompilerTests,\n)\nfrom tests.test_hub_scheduling import HubScheduleTests\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            libs/app/menus/app_40_firewall/policy.py \\\n            libs/app/menus/app_40_firewall/reconcile.py \\\n            libs/app/menus/app_40_firewall/menu_helpers.py \\\n",
-      "new": "            libs/app/menus/app_40_firewall/policy.py \\\n            libs/app/menus/app_40_firewall/reconcile.py \\\n            libs/app/menus/app_40_firewall/compiler.py \\\n            libs/app/menus/app_40_firewall/apply.py \\\n            libs/app/menus/app_40_firewall/menu_helpers.py \\\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-sysapps-hub.yml",
-      "old": "            tests/test_hub_mysql_integration.py \\\n            tests/test_settings_package.py \\\n",
-      "new": "            tests/test_hub_mysql_integration.py \\\n            tests/test_hub_firewall_apply.py \\\n            tests/test_settings_package.py \\\n",
       "expected": 1
     },
     {
