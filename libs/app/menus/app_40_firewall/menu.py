@@ -140,9 +140,13 @@ class menu(c_menu):
 
         vpn_found = False
         for server in cfg.vpn_servers:
-            vpn_map = legacy_openvpn_mapping(cfg, server.server_id)
-            if not vpn_map["clients"]:
+            associated = any(
+                rule.vpn_server_id == server.server_id
+                for rule in cfg.rules
+            )
+            if not associated:
                 continue
+            vpn_map = legacy_openvpn_mapping(cfg, server.server_id)
             vpn_found = True
             try:
                 result = plan_legacy_openvpn(
