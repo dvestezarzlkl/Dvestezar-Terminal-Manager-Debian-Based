@@ -39,7 +39,7 @@ def color_action(value: str) -> str:
 def color_protocol(value: str) -> str:
     return text_color(value.upper(), {
         "tcp": en_color.GREEN,
-        "udp": en_color.BLUE,
+        "udp": en_color.CYAN,
     }.get(value, en_color.WHITE))
 
 

@@ -342,6 +342,20 @@ class HubFirewallConfigTests(unittest.TestCase):
             self.assertFalse(firewall_menu_rules._confirm_rule(rule, 78))
         redraw.assert_called_once()
 
+    def test_protocol_colors_keep_tcp_green_and_udp_cyan(self):
+        self.assertEqual(
+            menu_helpers.color_protocol("tcp"),
+            menu_helpers.text_color("TCP", menu_helpers.en_color.GREEN),
+        )
+        self.assertEqual(
+            menu_helpers.color_protocol("udp"),
+            menu_helpers.text_color("UDP", menu_helpers.en_color.CYAN),
+        )
+        self.assertNotEqual(
+            menu_helpers.color_protocol("udp"),
+            menu_helpers.text_color("UDP", menu_helpers.en_color.BLUE),
+        )
+
     def test_optional_editor_value_can_be_cleared_explicitly(self):
         with patch.object(menu_helpers, "get_input", return_value="-"):
             value = menu_helpers.prompt(
