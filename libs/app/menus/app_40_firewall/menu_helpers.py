@@ -43,6 +43,16 @@ def color_protocol(value: str) -> str:
     }.get(value, en_color.WHITE))
 
 
+def context_block(
+    context: dict[str, str] | None = None,
+) -> c_menu_block_items:
+    block = c_menu_block_items()
+    if context:
+        for label, value in context.items():
+            block.append((label, value or "*"))
+    return block
+
+
 def progress_block(
     title: str,
     context: dict[str, str] | None = None,
@@ -50,9 +60,7 @@ def progress_block(
     block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
     block.append((title, "c"))
     block.append("-")
-    if context:
-        for label, value in context.items():
-            block.append((label, value or "*"))
+    block.extend(context_block(context))
     return block
 
 
@@ -83,7 +91,7 @@ def pick(
         [select_item(label, key, data) for key, label, data in options],
         width,
         title=title,
-        subTitle=progress_block("", context) if context else "",
+        subTitle=context_block(context),
     )
     if not result or result.item is None:
         return None
