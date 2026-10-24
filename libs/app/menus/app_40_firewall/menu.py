@@ -1,4 +1,4 @@
-"""Read-only UFW inspection and local desired-state entrypoint."""
+"""Firewall Manager UI: desired-state editor, preview and guarded manual UFW Apply."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,27 +14,27 @@ from libs.JBLibs.c_menu import (
 from libs.JBLibs.input import anyKey, confirm, selectFile
 from libs.JBLibs.term import en_color, text_color
 
+from .apply import FirewallApplyError, apply_local_config, disable_ufw
+from .compiler import build_candidate, compile_firewall
 from .config import (
-    FirewallConfig, FirewallConfigError, config_path, hard_source_rules,
-    import_legacy, legacy_openvpn_mapping, load_config,
-    managed_standard_rule_ids, merge_config, save_config,
+    FirewallConfig, FirewallConfigError, config_path,
+    import_legacy, load_config, merge_config, save_config,
 )
 from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
 from .hub_sync import sync_local_rules_best_effort
 from .menu_rules import FirewallRulesMenu
-from .policy import (
-    FirewallPolicyError, inspect_before_rules, plan_legacy_openvpn, rules_digest,
-)
+from .policy import FirewallPolicyError, inspect_before_rules
 
 _MENU_NAME_ = TXT_FW_MENU
 _HUB_PROVIDER_KEY_ = HUB_PROVIDER_KEY
 _BEFORE_RULES = Path("/etc/ufw/before.rules")
+_BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.4.1"
+    _VERSION_ = "0.5.0"
     ESC_is_quit = True
-    minMenuWidth = 72
+    minMenuWidth = 78
 
     def onShowMenu(self) -> None:
         title = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
@@ -42,6 +42,8 @@ class menu(c_menu):
         title.append("-")
         title.append((TXT_FW_VERSION, self._VERSION_))
         title.append((TXT_FW_FILE, str(_BEFORE_RULES)))
+        if _BEFORE6_RULES.exists():
+            title.append((TXT_FW_FILE6, str(_BEFORE6_RULES)))
         title.append((TXT_FW_LOCAL_CONFIG, str(config_path(create_dir=False))))
         self.title = title
 
@@ -54,15 +56,19 @@ class menu(c_menu):
                 ),
             ]
             return
-        if service.status != "active":
-            label = (
-                TXT_FW_INACTIVE
-                if service.status == "inactive"
-                else TXT_FW_UNKNOWN_STATUS
-            )
+        if service.status == "inactive":
             self.menu = [
                 c_menu_item(
-                    text_color(label, en_color.BRIGHT_RED),
+                    text_color(TXT_FW_ACTIVATE, en_color.BRIGHT_RED),
+                    "a",
+                    self.apply_rules,
+                ),
+            ]
+            return
+        if service.status != "active":
+            self.menu = [
+                c_menu_item(
+                    text_color(TXT_FW_UNKNOWN_STATUS, en_color.BRIGHT_RED),
                     enabled=False,
                 ),
             ]
@@ -77,16 +83,75 @@ class menu(c_menu):
                 "e",
                 FirewallRulesMenu(),
             ),
+            c_menu_title_label(
+                text_color(TXT_FW_RUNTIME_SECTION, en_color.BRIGHT_YELLOW)
+            ),
+            c_menu_item(
+                text_color(TXT_FW_APPLY, en_color.BRIGHT_YELLOW),
+                "a",
+                self.apply_rules,
+            ),
+            c_menu_item(
+                text_color(TXT_FW_DISABLE, en_color.BRIGHT_RED),
+                "d",
+                self.disable_runtime,
+            ),
             c_menu_title_label(TXT_FW_SECTION_INSPECT),
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
             c_menu_item(TXT_FW_STATUS, "s", self.inspect_status),
             c_menu_item(TXT_FW_PREVIEW, "p", self.preview_local_config),
             c_menu_title_label(TXT_FW_SECTION_IMPORT),
             c_menu_item(TXT_FW_IMPORT_LEGACY, "l", self.import_legacy_config),
-            c_menu_title_label(
-                text_color(TXT_FW_READ_ONLY, en_color.BRIGHT_YELLOW)
-            ),
         ]
+
+    def _acknowledge_live_apply(self, seconds: int) -> bool:
+        return confirm(
+            TXT_FW_APPLY_ACK.format(seconds=seconds),
+            minMessageWidth=self.minMenuWidth,
+        )
+
+    def apply_rules(self, selItem: c_menu_item) -> onSelReturn:
+        service = inspect_ufw_service()
+        if not service.detected or service.status not in {"active", "inactive"}:
+            return onSelReturn().errRet(TXT_FW_APPLY_UNSAFE_STATUS)
+
+        confirm_text = (
+            TXT_FW_ACTIVATE_CONFIRM
+            if service.status == "inactive"
+            else TXT_FW_APPLY_CONFIRM
+        )
+        if not confirm(confirm_text, minMessageWidth=self.minMenuWidth):
+            return onSelReturn().errRet(TXT_FW_CANCELLED)
+
+        try:
+            cfg = load_config()
+            result = apply_local_config(
+                cfg,
+                acknowledge=self._acknowledge_live_apply,
+            )
+        except (FirewallConfigError, FirewallPolicyError, FirewallApplyError) as exc:
+            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
+
+        self.menuRecycle = True
+        if result.status == "NO_CHANGE":
+            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)
+        if result.status == "ROLLED_BACK":
+            return onSelReturn(ok=TXT_FW_APPLY_ROLLED_BACK.format(
+                backup=result.backup_dir
+            ))
+        return onSelReturn(ok=TXT_FW_APPLY_OK.format(
+            backup=result.backup_dir
+        ))
+
+    def disable_runtime(self, selItem: c_menu_item) -> onSelReturn:
+        if not confirm(TXT_FW_DISABLE_CONFIRM, minMessageWidth=self.minMenuWidth):
+            return onSelReturn().errRet(TXT_FW_CANCELLED)
+        try:
+            disable_ufw()
+        except FirewallApplyError as exc:
+            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
+        self.menuRecycle = True
+        return onSelReturn(ok=TXT_FW_DISABLE_OK)
 
     def import_legacy_config(self, selItem: c_menu_item) -> onSelReturn:
         """Import one legacy VPN policy; merge with an existing v2 config."""
@@ -130,80 +195,50 @@ class menu(c_menu):
         )
 
     def preview_local_config(self, selItem: c_menu_item) -> onSelReturn:
-        """Compare local desired state with all managed UFW blocks."""
+        """Compare local desired state with the exact candidates Apply would use."""
         try:
             cfg = load_config()
-            current = _BEFORE_RULES.read_text(encoding="utf-8")
-            inspection = inspect_before_rules(current)
+            compiled = compile_firewall(cfg)
+            current4 = _BEFORE_RULES.read_text(encoding="utf-8")
+            result4 = build_candidate(
+                current4,
+                compiled.ipv4,
+                allow_openvpn=True,
+            )
+            result6 = None
+            if _BEFORE6_RULES.is_file():
+                result6 = build_candidate(
+                    _BEFORE6_RULES.read_text(encoding="utf-8"),
+                    compiled.ipv6,
+                    allow_openvpn=False,
+                )
+            elif compiled.explicit_ipv6:
+                raise FirewallPolicyError(
+                    "IPv6 rule exists but before6.rules is unavailable."
+                )
         except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:
             return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
 
-        vpn_found = False
-        for server in cfg.vpn_servers:
-            associated = any(
-                rule.vpn_server_id == server.server_id
-                for rule in cfg.rules
-            )
-            if not associated:
-                continue
-            vpn_map = legacy_openvpn_mapping(cfg, server.server_id)
-            vpn_found = True
-            try:
-                result = plan_legacy_openvpn(
-                    current,
-                    vpn_map,
-                    interface=server.interface,
-                )
-            except FirewallPolicyError as exc:
-                return onSelReturn().errRet(TXT_FW_FAIL.format(reason=str(exc)))
-
-            print(TXT_FW_PREVIEW_VPN_SERVER.format(
-                name=server.name,
-                status=result.status,
-            ))
-            print(TXT_FW_PREVIEW_RULES.format(
-                current=result.current_rules,
-                desired=result.effective_rules,
-                expired=result.expired_bans,
-            ))
-            if result.next_expiry:
-                print(TXT_FW_NEXT_EXPIRY.format(
-                    day=result.next_expiry.isoformat()
-                ))
-            if result.reason:
-                print(result.reason)
-
-        if not vpn_found:
-            print(TXT_FW_PREVIEW_NO_VPN)
-
-        expected_hard = hard_source_rules(cfg)
-        actual_hard = (
-            inspection.hard_sources.rules
-            if inspection.hard_sources else ()
-        )
-        hard_state = (
-            "NO_CHANGE"
-            if rules_digest(expected_hard) == rules_digest(actual_hard)
-            else "CHANGED"
-        )
-        print(TXT_FW_PREVIEW_HARD.format(
-            status=hard_state,
-            current=len(actual_hard),
-            desired=len(expected_hard),
+        print(TXT_FW_PREVIEW_FAMILY.format(
+            family="IPv4",
+            status="CHANGED" if result4.changed else "NO_CHANGE",
+            current=result4.current_rules,
+            desired=result4.desired_rules,
         ))
-
-        managed_ids = managed_standard_rule_ids(cfg)
-        other = sum(
-            1 for rule in cfg.rules
-            if (
-                rule.enabled
-                and rule.kind == "standard"
-                and rule.rule_id not in managed_ids
-            )
-        )
-        if other:
-            print(TXT_FW_PREVIEW_GENERIC_PENDING.format(count=other))
-        print(TXT_FW_NO_RELOAD)
+        if result6 is not None:
+            print(TXT_FW_PREVIEW_FAMILY.format(
+                family="IPv6",
+                status="CHANGED" if result6.changed else "NO_CHANGE",
+                current=result6.current_rules,
+                desired=result6.desired_rules,
+            ))
+        if compiled.expired_bans:
+            print(TXT_FW_PREVIEW_EXPIRED.format(count=compiled.expired_bans))
+        if compiled.next_expiry:
+            print(TXT_FW_NEXT_EXPIRY.format(
+                day=compiled.next_expiry.isoformat()
+            ))
+        print(TXT_FW_PREVIEW_SAFE)
         anyKey()
         return onSelReturn(ok=TXT_FW_PREVIEW_DONE)
 
@@ -247,16 +282,21 @@ class menu(c_menu):
             print(f"{TXT_FW_OPENVPN}: {TXT_FW_ABSENT}")
 
         block = inspection.hard_sources
-        message = (
+        print(
             f"{TXT_FW_HARD_SOURCES}: {TXT_FW_PRESENT} "
             f"({len(block.rules)} {TXT_FW_RULE_COUNT})"
             if block is not None
             else f"{TXT_FW_HARD_SOURCES}: {TXT_FW_ABSENT}"
         )
-        print(message)
 
-        if inspection.openvpn and inspection.hard_sources:
-            print(TXT_FW_ORDER_OK)
-        print(TXT_FW_NO_RELOAD)
+        standard = inspection.standard
+        print(
+            f"{TXT_FW_STANDARD_BLOCK}: {TXT_FW_PRESENT} "
+            f"({len(standard.rules)} {TXT_FW_RULE_COUNT})"
+            if standard is not None
+            else f"{TXT_FW_STANDARD_BLOCK}: {TXT_FW_ABSENT}"
+        )
+
+        print(TXT_FW_INSPECT_DONE)
         anyKey()
-        return onSelReturn(ok=TXT_FW_NO_RELOAD)
+        return onSelReturn(ok=TXT_FW_INSPECT_DONE)

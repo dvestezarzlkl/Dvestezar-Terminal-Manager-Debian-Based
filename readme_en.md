@@ -1,7 +1,7 @@
 # Dvestezar Terminal Manager – Debian-Based
 <!-- cspell:ignore submoduly,submodul,symlinku,pipx,venv,pipreqs,ensurepath,pushurl,utilitku,standartní -->
 
-v2.9.2
+v2.10.0
 
 [CZ](readme.md)
 
@@ -15,14 +15,15 @@ The main menu automatically loads every plugin that contains a `menu.py` entry p
 
 ## Current Menu Plugins
 
-### Firewall Manager (UFW) — desired-state editor, UFW runtime still read-only
+### Firewall Manager (UFW) — desired-state editor + guarded manual Apply
 
 - Versioned local `/etc/jb_sys_apps/firewall.json` supports standard INPUT/FORWARD/OUTPUT rules, source/destination IP/CIDR, TCP/UDP source and destination ports, and interfaces.
 - VPN BAN management is server-scoped: select an OpenVPN server, then manage only that server's BAN rules and expiry.
-- Wizards reuse JBLibs `select/get_input/printBlock/confirm`, redraw accepted values as input progresses, and discover live host interfaces.
-- Read-only inspection supports multiple managed OpenVPN blocks plus the Hard Source Allow block and deterministic dry-run comparison.
-- Hub schema 008 synchronizes host-local VPN servers and rules only; central/group/all scope remains outside the host collector.
-- This release does not enable UFW, reload it, or apply firewall changes; activation/rollback remains separate future work.
+- Preview and Apply use the same pure compiler. SysApps owns only marked OpenVPN, Hard Source Allow and Standard Firewall blocks while preserving all unrelated `before.rules` / `before6.rules` content.
+- Manual Apply creates a backup, pre-arms an independent systemd rollback, validates generated actions and UFW dry-run, performs atomic file replacement, then reloads or guarded-enables UFW.
+- The administrator must acknowledge that the management connection survived the live change; missing/rejected acknowledgement or any failure restores the previous files and previous active/inactive state automatically.
+- Active `NO_CHANGE` performs no write/reload; Disable is a separate confirmed operation.
+- Hub schema 008 synchronizes host-local VPN servers/rules, but Hub/hourly synchronization never auto-applies UFW in this release.
 
 ### Disk manager
 

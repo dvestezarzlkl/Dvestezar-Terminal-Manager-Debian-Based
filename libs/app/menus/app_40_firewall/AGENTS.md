@@ -1,17 +1,16 @@
 # Firewall Manager / UFW scoped agent instructions
 
-- Module 0.4.1 may edit **local desired state only** in `/etc/jb_sys_apps/firewall.json`; this is not UFW Apply. Config v2 owns a `vpn_servers` catalog with stable `server_id` plus rules that may reference it through `vpn_server_id`. Loading config v1 must migrate in memory without losing src/dst port expressions; saving writes v2 so older clients fail closed instead of silently discarding new fields.
+- Module 0.5.0 owns local desired state in `/etc/jb_sys_apps/firewall.json` and may mutate UFW **only through the explicit guarded manual Apply/Enable/Disable workflow in `apply.py`**. Config v2 owns a `vpn_servers` catalog with stable `server_id` plus rules that may reference it through `vpn_server_id`. Loading config v1 must migrate in memory without losing src/dst port expressions; saving writes v2 so older clients fail closed instead of silently discarding new fields.
 - Use standard JBLibs `c_menu`/`select()`/`get_input()`/`printBlock()`/`confirm()` and `selectFile()`; never introduce a parallel terminal UI/input layer. Wizard input must redraw accepted values before the next prompt like Node-RED `install_instance.py::print_newInstance()`. Interface discovery must reuse JBLibs `getInterfaces()`; select choices must be short and collision-free because the framework bounds choice length.
 - Local VPN servers and rules belong only to the current host. Hub collectors `firewall_vpn_servers` and `firewall_rules` may publish only `origin=host_local,target_kind=host` when schema >=008; they must never touch future central host/group/all rows.
-- UFW runtime remains **read-only**: `policy.py` is pure, `hub_provider.py` calls only UFW status/version, comparison only reads `before.rules`. No UFW reload, no write to `/etc/ufw`, no remote Apply.
-- Pure `reconcile.py` only classifies plan against verified prior `applied_hash`; never mutates prior state or advances `last_applied_at`. Missing prior hash needs review; unexpected drift blocks automatic Apply. This release has NO persistent state and NO UFW Apply.
-- Future Apply belongs to a separate guarded and tested implementation.
-  It must stage+validate candidate config, arm automatic rollback before
-  applying, verify new remote access and rollback on missing acknowledgement.
+- `policy.py` and `compiler.py` remain pure. `hub_provider.py` calls only UFW status/version and MUST remain read-only. All filesystem/service mutation is isolated in `apply.py`; no Hub collector, hourly sync or remote policy callback may import/call the mutator.
+- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require live management acknowledgement and verify candidate hashes before committing local apply state.
+- An active `NO_CHANGE` is zero-write/zero-reload. A failed/rejected/unacknowledged Apply restores both touched files and the previous UFW active/inactive state. Do not weaken this for convenience.
+- Automatic Hub/hourly Apply remains forbidden in 0.5.0. `reconcile.py` stays a decision-only layer until a separately reviewed opt-in unattended contract is implemented.
 - Original manual `ufw_opevpn_update_form_cfg_json.py` behavior was intentional
   (regenerates timestamp, backups and reloads on every manual invocation).
   It is deprecated but remains operational during migration.
-- Preserve deployed legacy BOF/EOF ownership and order. Multiple uniquely identified OpenVPN BAN/forward-isolation blocks are allowed and all must precede the single ZLKL Hard Source Allow block. Duplicate OpenVPN marker identities, duplicate Hard Source blocks, nested/unmatched markers or reversed ordering MUST fail closed. A VPN preview must use that server's configured interface, not silently fall back to `tun+`.
+- Preserve deployed legacy BOF/EOF ownership and order. Multiple uniquely identified OpenVPN BAN/forward-isolation blocks are allowed and all must precede the single ZLKL Hard Source Allow block; the SysApps Standard Firewall block follows it. Duplicate identities/blocks, nested/unmatched markers or reversed ordering MUST fail closed. A VPN preview/apply must use that server's configured interface, not silently fall back to `tun+`.
 - Semantically compare executable rules excluding audit comments/timestamps;
   content order matters. No difference means `NO_CHANGE`; a BAN with
   `banTo=YYYY-MM-DD` expires after that calendar day, so unchanged source

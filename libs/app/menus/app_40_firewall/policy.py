@@ -15,13 +15,16 @@ import re
 import shlex
 from typing import Any, Mapping
 
-# Markers as found in the deployed new21 /etc/ufw/before.rules.
+# Markers as found in deployed UFW files plus the SysApps standard block.
+OPENVPN_PREFIX = "OpenVPN JB Config - "
+HARD_NAME = "ZLKL Hard Source Allow Config - managed by sys_apps"
+STANDARD_NAME = "ZLKL Standard Firewall Config - managed by sys_apps"
 _MARKER = re.compile(
     r"^#\s*\*\*\*\s*(BOF|EOF)\s+"
-    r"(OpenVPN JB Config - .+|ZLKL Hard Source Allow Config - managed by sys_apps)\s*$"
+    r"(OpenVPN JB Config - .+|"
+    r"ZLKL Hard Source Allow Config - managed by sys_apps|"
+    r"ZLKL Standard Firewall Config - managed by sys_apps)\s*$"
 )
-_OPENVPN_PREFIX = "OpenVPN JB Config - "
-_HARD_NAME = "ZLKL Hard Source Allow Config - managed by sys_apps"
 _IFACE = re.compile(r"^[a-zA-Z0-9_.+-]{1,15}$")
 _MAX_SOURCE_BYTES = 1_048_576
 _MAX_CLIENTS = 10000
@@ -47,6 +50,7 @@ class ManagedBlock:
 class UfwInspection:
     openvpn: tuple[ManagedBlock, ...]
     hard_sources: ManagedBlock | None
+    standard: ManagedBlock | None
 
 
 @dataclass(frozen=True)
@@ -98,6 +102,7 @@ def inspect_before_rules(content: str) -> UfwInspection:
     started: tuple[str, str, int, list[str]] | None = None
     openvpn_blocks: list[ManagedBlock] = []
     hard_sources: ManagedBlock | None = None
+    standard: ManagedBlock | None = None
     openvpn_labels: set[str] = set()
 
     for lineno, original in enumerate(content.splitlines(), 1):
@@ -105,15 +110,23 @@ def inspect_before_rules(content: str) -> UfwInspection:
         match = _MARKER.fullmatch(line)
         if match:
             boundary, label = match.groups()
-            kind = "openvpn" if label.startswith(_OPENVPN_PREFIX) else "hard_sources"
+            if label.startswith(OPENVPN_PREFIX):
+                kind = "openvpn"
+            elif label == HARD_NAME:
+                kind = "hard_sources"
+            else:
+                kind = "standard"
             if boundary == "BOF":
                 if started is not None:
                     raise FirewallPolicyError("Nested managed UFW block.")
                 if kind == "openvpn":
                     if label in openvpn_labels:
                         raise FirewallPolicyError("Duplicate OpenVPN managed block.")
-                elif hard_sources is not None:
-                    raise FirewallPolicyError("Duplicate Hard Source managed block.")
+                elif kind == "hard_sources":
+                    if hard_sources is not None:
+                        raise FirewallPolicyError("Duplicate Hard Source managed block.")
+                elif standard is not None:
+                    raise FirewallPolicyError("Duplicate Standard Firewall managed block.")
                 started = (kind, label, lineno, [])
             else:
                 if started is None:
@@ -127,8 +140,10 @@ def inspect_before_rules(content: str) -> UfwInspection:
                 if kind == "openvpn":
                     openvpn_blocks.append(block)
                     openvpn_labels.add(label)
-                else:
+                elif kind == "hard_sources":
                     hard_sources = block
+                else:
+                    standard = block
                 started = None
             continue
         if started is not None:
@@ -142,7 +157,18 @@ def inspect_before_rules(content: str) -> UfwInspection:
             raise FirewallPolicyError(
                 "All OpenVPN BAN blocks must precede Hard Source Allow block."
             )
-    return UfwInspection(tuple(openvpn_blocks), hard_sources)
+    if standard is not None:
+        if hard_sources is not None and hard_sources.last_line >= standard.first_line:
+            raise FirewallPolicyError(
+                "Hard Source Allow block must precede Standard Firewall block."
+            )
+        if hard_sources is None and any(
+            block.last_line >= standard.first_line for block in openvpn_blocks
+        ):
+            raise FirewallPolicyError(
+                "OpenVPN BAN blocks must precede Standard Firewall block."
+            )
+    return UfwInspection(tuple(openvpn_blocks), hard_sources, standard)
 
 def rules_digest(rules: tuple[Rule, ...]) -> str:
     """SHA-256 of ordered effective iptables actions, not generated comments."""
@@ -251,7 +277,7 @@ def compile_legacy_openvpn(
         rules.append(("-A", "ufw-before-forward", *prefix, "-j", "DROP"))
         rules.append(("-A", "ufw-before-input", *prefix, "-j", "DROP"))
 
-    label = f"{_OPENVPN_PREFIX}{name.strip()} {network.with_prefixlen}"
+    label = f"{OPENVPN_PREFIX}{name.strip()} {network.with_prefixlen}"
     return tuple(rules), expired, next_expiry, label
 
 

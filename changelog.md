@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.10.0
+
+- ADD Firewall Manager 0.5.0 zavádí první explicitní mutační workflow UFW. Lokální `firewall.json` se kompiluje do vlastněných OpenVPN BAN/izolačních, Hard Source Allow a nového Standard Firewall bloku; běžná INPUT/OUTPUT/FORWARD pravidla podporují allow/drop/reject, protokol, src/dst CIDR, zdrojové/cílové porty a interface.
+- SAFE Apply je pouze ruční z menu. Kandidát zachovává všechny nespravované řádky, před zápisem se semanticky kontroluje a generated akce procházejí `iptables-restore --test` / `ip6tables-restore --test`. Po atomickém zápisu proběhne `ufw --dry-run reload|enable` ještě před živou změnou.
+- SAFE Před reload/enable se vytvoří úplná lokální záloha dotčených UFW souborů a aktivuje se nezávislý transient systemd rollback timer. Pokud správce po živé změně nepotvrdí funkční spojení, Apply se odmítne, proces selže nebo se spojení přeruší, původní soubory a původní active/inactive stav se obnoví.
+- ADD Neaktivní UFW nabízí pouze chráněnou akci Aktivovat + Apply; aktivní UFW nabízí samostatný guarded Apply a explicitně potvrzované Disable. `NO_CHANGE` na aktivním firewallu neprovádí zápis ani reload.
+- ADD IPv4 je spravováno v `before.rules`; pokud existuje `before6.rules`, family-neutral/IPv6 standardní pravidla se kompilují také do IPv6. Explicitní IPv6 pravidlo bez dostupného `before6.rules` failuje před změnou systému.
+- SAFE Hub provider a hodinový Hub sync zůstávají striktně read-only vůči UFW; žádný automatický Apply není v 2.10.0 povolen. Fyzický enable/apply/rollback/disable test je určen pro testovací VM před jakýmkoli produkčním takeoverem.
+
 ## v2.9.2
 
 - UX Firewall Manager 0.4.1: UDP se v seznamu pravidel i výběru protokolu zobrazuje cyan místo tmavě modré, aby zůstalo čitelné i na zvýrazněném řádku terminálového menu. TCP zůstává zelené; výběr protokolu používá stejný `color_protocol()` helper jako výsledný seznam pravidel.
