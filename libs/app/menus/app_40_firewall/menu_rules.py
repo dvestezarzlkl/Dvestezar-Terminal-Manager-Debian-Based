@@ -42,6 +42,7 @@ from .menu_helpers import (
     pick_interface,
     progress_block,
     prompt,
+    render_progress,
 )
 from .menu_vpn import VpnServersMenu
 
@@ -89,12 +90,11 @@ def _rule_context(rule: FirewallRule) -> dict[str, str]:
 
 
 def _confirm_rule(rule: FirewallRule, width: int) -> bool:
-    printBlock(
-        progress_block(TXT_FW_STANDARD_FORM, _rule_context(rule)),
-        c_menu_block_items(),
-        min_width=width,
+    width = max(
+        width,
+        render_progress(TXT_FW_STANDARD_FORM, _rule_context(rule), width),
     )
-    return confirm(TXT_FW_EDITOR_CONFIRM_SAVE)
+    return confirm(TXT_FW_EDITOR_CONFIRM_SAVE, minMessageWidth=width)
 
 class FirewallRulesMenu(c_menu):
     ESC_is_quit = True
