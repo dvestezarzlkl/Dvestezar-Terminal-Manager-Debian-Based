@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): persist host-local VPN server catalog and rule ownership",
+  "replacements": [
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "from ipaddress import ip_network",
+      "new": "from ipaddress import IPv4Address, ip_address, ip_network",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "    HubFirewallRule,\n    HubHostSnapshot,",
+      "new": "    HubFirewallRule,\n    HubFirewallVpnServer,\n    HubHostSnapshot,",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "        if snapshot.dataset == \"firewall_rules\":\n            return self._sync_firewall_rules_provider(machine_id, snapshot)\n        raise ValueError(f\"Unsupported Hub dataset: {snapshot.dataset}\")",
+      "new": "        if snapshot.dataset == \"firewall_rules\":\n            return self._sync_firewall_rules_provider(machine_id, snapshot)\n        if snapshot.dataset == \"firewall_vpn_servers\":\n            return self._sync_firewall_vpn_servers_provider(machine_id, snapshot)\n        raise ValueError(f\"Unsupported Hub dataset: {snapshot.dataset}\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "    def _sync_firewall_rules_provider(\n",
+      "new": "    def _sync_firewall_vpn_servers_provider(\n        self,\n        machine_id: str,\n        snapshot: HubProviderSnapshot,\n    ) -> HubProviderSyncResult:\n        \"\"\"Replace only this host's locally-owned VPN server catalog.\"\"\"\n        if snapshot.source_key != \"firewall_vpn_servers\":\n            raise ValueError(\"Invalid firewall VPN server provider key.\")\n        normalized: list[HubFirewallVpnServer] = []\n        seen: set[str] = set()\n        for item in snapshot.items:\n            if not isinstance(item, HubFirewallVpnServer):\n                raise TypeError(\"Invalid firewall VPN server provider item.\")\n            if (\n                not _FIREWALL_RULE_UID_RE.fullmatch(item.server_uid)\n                or item.server_uid in seen\n            ):\n                raise ValueError(\"Invalid or duplicate VPN server UID.\")\n            seen.add(item.server_uid)\n            if not item.name or len(item.name) > 128:\n                raise ValueError(\"Invalid VPN server name.\")\n            try:\n                parsed_ip = ip_address(item.server_ip)\n            except ValueError as exc:\n                raise ValueError(\"Invalid VPN server IP.\") from exc\n            if not isinstance(parsed_ip, IPv4Address):\n                raise ValueError(\"VPN server IP must be IPv4.\")\n            if type(item.server_mask) is not int or not 0 <= item.server_mask <= 32:\n                raise ValueError(\"Invalid VPN server mask.\")\n            if not item.interface_name or not _FIREWALL_INTERFACE_RE.fullmatch(\n                item.interface_name\n            ):\n                raise ValueError(\"Invalid VPN server interface.\")\n            normalized.append(item)\n\n        table = table_identifier(self.settings, \"firewall_vpn_servers\")\n        now = _utc_now()\n        with self.connect() as connection:\n            try:\n                with connection.cursor() as cursor:\n                    host_id = self._host_id(cursor, machine_id)\n                    cursor.execute(\n                        f\"DELETE FROM {table} \"\n                        \"WHERE host_id=%s AND origin=%s AND target_kind=%s\",\n                        (host_id, \"host_local\", \"host\"),\n                    )\n                    if normalized:\n                        cursor.executemany(\n                            f\"INSERT INTO {table} \"\n                            \"(server_uid, origin, target_kind, host_id, group_id, \"\n                            \"name, server_ip, server_mask, interface_name, last_seen_at) \"\n                            \"VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s)\",\n                            [\n                                (\n                                    item.server_uid,\n                                    \"host_local\",\n                                    \"host\",\n                                    host_id,\n                                    item.name,\n                                    item.server_ip,\n                                    item.server_mask,\n                                    item.interface_name,\n                                    now,\n                                )\n                                for item in normalized\n                            ],\n                        )\n                    self._upsert_source(\n                        cursor, host_id, snapshot.source_key, \"ok\", len(normalized)\n                    )\n                connection.commit()\n                return HubProviderSyncResult(len(normalized))\n            except Exception:\n                connection.rollback()\n                raise\n\n    def _sync_firewall_rules_provider(\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "            if item.rule_type not in {\"vpn_ban\", \"standard\"}:\n                raise ValueError(\"Unsupported firewall rule type.\")",
+      "new": "            if item.rule_type not in {\"vpn_ban\", \"standard\"}:\n                raise ValueError(\"Unsupported firewall rule type.\")\n            if item.vpn_server_uid:\n                if not _FIREWALL_RULE_UID_RE.fullmatch(item.vpn_server_uid):\n                    raise ValueError(\"Invalid firewall VPN server UID.\")\n            elif item.rule_type == \"vpn_ban\":\n                raise ValueError(\"VPN BAN rule requires a VPN server UID.\")",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                            \"(rule_uid, origin, target_kind, host_id, group_id, \"\n                            \"rule_type, enabled, name, direction, action, protocol, \"\n                            \"source, destination, destination_invert, port_from, \"\n                            \"port_to, src_ports, dst_ports, interface_name, ban_to, last_seen_at) \"\n                            \"VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)\",\n",
+      "new": "                            \"(rule_uid, origin, target_kind, host_id, group_id, \"\n                            \"rule_type, vpn_server_uid, enabled, name, direction, \"\n                            \"action, protocol, source, destination, destination_invert, \"\n                            \"port_from, port_to, src_ports, dst_ports, interface_name, \"\n                            \"ban_to, last_seen_at) \"\n                            \"VALUES (%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)\",\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/database.py",
+      "old": "                                    item.rule_uid, \"host_local\", \"host\", host_id,\n                                    item.rule_type, 1 if item.enabled else 0,\n                                    item.name, item.direction, item.action,",
+      "new": "                                    item.rule_uid, \"host_local\", \"host\", host_id,\n                                    item.rule_type, item.vpn_server_uid or None,\n                                    1 if item.enabled else 0,\n                                    item.name, item.direction, item.action,",
+      "expected": 1
+    }
+  ]
+}
