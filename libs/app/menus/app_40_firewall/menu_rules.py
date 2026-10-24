@@ -11,7 +11,7 @@ loadLng()
 
 from libs.JBLibs.c_menu import c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn, printBlock
 from libs.JBLibs.input import confirm, get_input, select, select_item
-from libs.JBLibs.term import en_color, text_color
+from libs.JBLibs.term import en_color, text_color, cls
 
 from .config import (
     FirewallConfig, FirewallConfigError, FirewallRule, append_rule, config_path,
@@ -37,6 +37,17 @@ def _pick(message: str, options: list[tuple[str, str, Any]], width: int,
     return result.item.data
 
 
+def _render_progress(context: dict[str, str], width: int) -> None:
+    """Node-RED-style redraw of all accepted fields before each prompt."""
+    cls()
+    block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+    block.append((TXT_FW_EDITOR_TITLE, "c"))
+    block.append("-")
+    for label, value in context.items():
+        block.append((label, value or "*"))
+    printBlock(block, c_menu_block_items(), min_width=width)
+
+
 def _prompt(
     message: str,
     *,
@@ -45,7 +56,10 @@ def _prompt(
     required: bool = False,
     max_len: int = 255,
     rgx: Any = None,
+    context: dict[str, str] | None = None,
 ) -> str | None:
+    if context is not None:
+        _render_progress(context, width)
     note = ""
     if current not in (None, ""):
         note = TXT_FW_EDITOR_CURRENT.format(value=current)
@@ -335,9 +349,11 @@ class FirewallRulesMenu(c_menu):
             return None
 
     def _edit_standard(self, current: FirewallRule | None) -> FirewallRule | None:
+        context: dict[str, str] = {}
         name = _prompt(
             TXT_FW_EDITOR_NAME, width=self.minMenuWidth,
             current=current.name if current else "", required=True,
+            context=context,
         )
         if name is None:
             return None
@@ -361,7 +377,7 @@ class FirewallRulesMenu(c_menu):
                 ("d", text_color(TXT_FW_EDITOR_ACTION_DENY, en_color.YELLOW), "deny"),
                 ("r", text_color(TXT_FW_EDITOR_ACTION_REJECT, en_color.RED), "reject"),
             ],
-            self.minMenuWidth,
+            self.minMenuWidth, context,
         )
         if action is None:
             return None
@@ -382,15 +398,19 @@ class FirewallRulesMenu(c_menu):
         source = _prompt(
             TXT_FW_EDITOR_SOURCE_OPTIONAL, width=self.minMenuWidth,
             current=current.source if current else "", required=False, max_len=64,
+            context=context,
         )
         if source is None:
             return None
+        context[TXT_FW_EDITOR_SOURCE_OPTIONAL.rstrip(":")] = source or "*"
         destination = _prompt(
             TXT_FW_EDITOR_DEST_OPTIONAL, width=self.minMenuWidth,
             current=current.destination if current else "", required=False, max_len=64,
+            context=context,
         )
         if destination is None:
             return None
+        context[TXT_FW_EDITOR_DEST_OPTIONAL.rstrip(":")] = destination or "*"
         invert = False
         if destination:
             choice = _pick(
@@ -399,25 +419,27 @@ class FirewallRulesMenu(c_menu):
                     ("n", TXT_FW_EDITOR_DEST_NORMAL, False),
                     ("x", TXT_FW_EDITOR_DEST_INVERT, True),
                 ],
-                self.minMenuWidth,
+                self.minMenuWidth, context,
             )
             if choice is None:
                 return None
             invert = bool(choice)
+            context[TXT_FW_EDITOR_DEST_MODE] = TXT_FW_EDITOR_DEST_INVERT if invert else TXT_FW_EDITOR_DEST_NORMAL
 
         src_ports = dst_ports = ""
         if protocol in {"tcp", "udp"}:
             src_ports = _prompt(
                 TXT_FW_EDITOR_SRC_PORTS, width=self.minMenuWidth,
                 current=current.src_ports if current else "",
-                rgx=_PORT_INPUT_RE, max_len=1024,
+                rgx=_PORT_INPUT_RE, max_len=1024, context=context,
             )
             if src_ports is None:
                 return None
+            context[TXT_FW_EDITOR_SRC_PORTS] = src_ports or "*"
             dst_ports = _prompt(
                 TXT_FW_EDITOR_DST_PORTS, width=self.minMenuWidth,
                 current=current.dst_ports if current else "",
-                rgx=_PORT_INPUT_RE, max_len=1024,
+                rgx=_PORT_INPUT_RE, max_len=1024, context=context,
             )
             if dst_ports is None:
                 return None
@@ -451,6 +473,7 @@ class FirewallRulesMenu(c_menu):
                 TXT_FW_EDITOR_INTERFACE_OPTIONAL, width=self.minMenuWidth,
                 current=current_iface, required=True, max_len=15,
                 rgx=re.compile(r"^[a-zA-Z0-9_.+-]{1,15}$"),
+                context=context,
             )
             if interface is None:
                 return None
