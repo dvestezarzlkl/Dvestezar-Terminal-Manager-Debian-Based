@@ -160,6 +160,46 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ask.assert_not_called()
         apply.assert_not_called()
 
+    def test_apply_aborts_if_config_changed_after_preview(self):
+        screen = firewall_menu.menu()
+        cfg = FirewallConfig()
+        changed_cfg = FirewallConfig(rules=(
+            FirewallRule(
+                "a" * 32,
+                "standard",
+                True,
+                "changed",
+                direction="input",
+                action="allow",
+                protocol="tcp",
+                dst_ports="22",
+            ),
+        ))
+        compiled = compile_firewall(cfg)
+        result4 = SimpleNamespace(changed=True)
+        with patch.object(
+            firewall_menu,
+            "inspect_ufw_service",
+            return_value=SimpleNamespace(
+                detected=True, status="inactive", version="0.36"
+            ),
+        ), patch.object(
+            screen,
+            "_build_preview",
+            return_value=(cfg, compiled, result4, None),
+        ), patch.object(
+            screen, "_print_preview"
+        ), patch.object(
+            firewall_menu, "confirm", return_value=True
+        ), patch.object(
+            firewall_menu, "load_config", return_value=changed_cfg
+        ), patch.object(
+            firewall_menu, "apply_local_config"
+        ) as apply:
+            screen.apply_rules(None)
+
+        apply.assert_not_called()
+
     def test_menu_blocks_unknown_and_absent_states(self):
         for detected, status in (
             (False, "absent"),
