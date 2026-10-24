@@ -70,7 +70,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_has_no_apply(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.4.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.4.1")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
