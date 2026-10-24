@@ -188,6 +188,35 @@ class HubSchemaTests(unittest.TestCase):
             HubSettingsMenu.initialize_schema(None, None)
             ask.assert_called_once()
 
+    def test_schema_status_text_exposes_optional_upgrade(self):
+        from unittest.mock import patch
+        from libs.app.hub import menu as hub_menu
+        from libs.app.hub.menu import HubSettingsMenu
+        from libs.app.hub.models import HubState, HubStatus
+
+        status = HubStatus(
+            HubState.READY,
+            "ready",
+            schema_version=7,
+            latest_schema_version=8,
+        )
+        with patch.object(hub_menu.hub_runtime, "status", status):
+            screen = HubSettingsMenu()
+            value = screen._schema_status_text()
+            self.assertIn("7 -> 8", value)
+            self.assertEqual(screen._status_color(), hub_menu.en_color.BRIGHT_YELLOW)
+
+        status = HubStatus(
+            HubState.READY,
+            "ready",
+            schema_version=8,
+            latest_schema_version=8,
+        )
+        with patch.object(hub_menu.hub_runtime, "status", status):
+            screen = HubSettingsMenu()
+            self.assertEqual(screen._schema_status_text(), "8")
+            self.assertEqual(screen._status_color(), hub_menu.en_color.BRIGHT_GREEN)
+
     def test_statement_marker_is_explicit(self):
         statements = split_migration_statements(
             "-- heading\n-- statement\nSELECT 1\n-- statement\nSELECT 2"
