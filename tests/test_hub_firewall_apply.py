@@ -229,12 +229,17 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             self.assertTrue(result.changed_files)
             self.assertFalse(result.activated)
             self.assertTrue(paths.state.is_file())
-            flat = [" ".join(call) for call in calls]
-            arm = next(i for i, call in enumerate(flat) if "systemd-run" in call)
-            dry = next(i for i, call in enumerate(flat) if "--dry-run reload" in call)
+            arm = next(
+                i for i, call in enumerate(calls)
+                if call and call[0].endswith("/systemd-run")
+            )
+            dry = next(
+                i for i, call in enumerate(calls)
+                if call[-3:] == ["/usr/bin/ufw", "--dry-run", "reload"]
+            )
             live = next(
-                i for i, call in enumerate(flat)
-                if call.endswith("/ufw reload") and "--dry-run" not in call
+                i for i, call in enumerate(calls)
+                if call[-2:] == ["/usr/bin/ufw", "reload"]
             )
             self.assertLess(arm, dry)
             self.assertLess(dry, live)
