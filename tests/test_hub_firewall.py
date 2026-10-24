@@ -140,6 +140,37 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertIn("NO_CHANGE", output.getvalue())
         self.assertIn("0", output.getvalue())
 
+    def test_preview_detects_stale_block_when_local_ban_is_disabled(self):
+        server = FirewallVpnServer(
+            "3" * 32, "vpn-jb", "10.8.88.1", 23, "tun+"
+        )
+        cfg = FirewallConfig(
+            vpn_servers=(server,),
+            rules=(
+                FirewallRule(
+                    "c" * 32,
+                    "vpn_ban",
+                    False,
+                    "Alice",
+                    source="10.8.89.12/32",
+                    vpn_server_id=server.server_id,
+                ),
+            ),
+        )
+        screen = firewall_menu.menu()
+        with patch.object(
+            firewall_menu, "load_config", return_value=cfg
+        ), patch.object(
+            firewall_menu._BEFORE_RULES.__class__,
+            "read_text",
+            return_value=before_rules(),
+        ), patch.object(
+            firewall_menu, "anyKey"
+        ), redirect_stdout(io.StringIO()) as output:
+            screen.preview_local_config(None)
+        self.assertIn("CHANGED", output.getvalue())
+        self.assertIn("desired: 0", output.getvalue())
+
     def test_preview_passes_each_vpn_server_interface_to_policy(self):
         server = FirewallVpnServer(
             "2" * 32, "vpn-two", "10.9.88.1", 23, "tun9"
