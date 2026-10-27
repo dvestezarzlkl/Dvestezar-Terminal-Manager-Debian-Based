@@ -258,6 +258,8 @@ class FirewallCompilerTests(unittest.TestCase):
         self.assertIsNotNone(plan.ipv6)
         assert plan.ipv6 is not None
         self.assertIn(":ufw6-before-input - [0:0]", plan.ipv6.content)
+        self.assertIn(":ufw6-before-output - [0:0]", plan.ipv6.content)
+        self.assertIn(":ufw6-before-forward - [0:0]", plan.ipv6.content)
         self.assertIn("-A ufw6-before-input", plan.ipv6.content)
         self.assertNotIn("-A ufw-before-input", plan.ipv6.content)
 
