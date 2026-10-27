@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): keep inactive UFW dry-run noninteractive",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "        runner(\n            [ufw, \"--dry-run\", \"reload\"]\n            if was_active\n            else [ufw, \"--dry-run\", \"enable\"],\n            check=True,\n            timeout=30,\n        )",
+      "new": "        runner(\n            [ufw, \"--dry-run\", \"reload\"]\n            if was_active\n            else [ufw, \"--force\", \"--dry-run\", \"enable\"],\n            check=True,\n            timeout=30,\n        )"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "            self.assertTrue(any(\n                call[-2:] == [\"--force\", \"enable\"] for call in calls\n            ))\n            self.assertTrue(any(call[-1] == \"disable\" for call in calls))",
+      "new": "            self.assertTrue(any(\n                call[-4:] == [\"/usr/bin/ufw\", \"--force\", \"--dry-run\", \"enable\"]\n                for call in calls\n            ))\n            self.assertTrue(any(\n                call[-2:] == [\"--force\", \"enable\"] for call in calls\n            ))\n            self.assertTrue(any(call[-1] == \"disable\" for call in calls))"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "## v2.10.3\n\n- FIX Firewall Manager 0.5.2: IPv6 standard/trusted-source pravidla se v `/etc/ufw/before6.rules` generují do skutečných UFW řetězců `ufw6-before-input/output/forward`, ne chybně do IPv4 `ufw-before-*`. Fyzický VM test 0.5.1 chybu odhalil při Apply jako `ip6tables-restore: No chain/target/match by that name`.",
+      "new": "## v2.10.3\n\n- FIX Firewall Manager 0.5.2: dry-run pro aktivaci neaktivního UFW používá `--force`, aby `ufw --dry-run enable` nikdy nečekalo na interaktivní potvrzení a guarded Apply zůstal plně neinteraktivní až do vlastního potvrzovacího kroku SysApps.\n- FIX Firewall Manager 0.5.2: IPv6 standard/trusted-source pravidla se v `/etc/ufw/before6.rules` generují do skutečných UFW řetězců `ufw6-before-input/output/forward`, ne chybně do IPv4 `ufw-before-*`. Fyzický VM test 0.5.1 chybu odhalil při Apply jako `ip6tables-restore: No chain/target/match by that name`."
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require live management acknowledgement and verify candidate hashes before committing local apply state.",
+      "new": "- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require live management acknowledgement and verify candidate hashes before committing local apply state. Dry-run activation of an inactive UFW must use `--force` so the preflight itself never waits for UFW interactive confirmation."
+    }
+  ]
+}
