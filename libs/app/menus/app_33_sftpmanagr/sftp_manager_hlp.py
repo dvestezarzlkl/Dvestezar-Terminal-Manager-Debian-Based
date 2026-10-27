@@ -5,7 +5,6 @@ from .helper_lng import *
 import base64
 import html
 import ipaddress
-import socket
 import subprocess
 
 import json5
