@@ -22,7 +22,6 @@ from uuid import uuid4
 from .compiler import (
     CandidateResult,
     CompiledFirewall,
-    DesiredBlock,
     build_candidate,
     compile_firewall,
     managed_digest,
@@ -130,28 +129,22 @@ def build_apply_plan(
     return ApplyPlan(compiled, ipv4, ipv6)
 
 
-def _validation_payload(blocks: tuple[DesiredBlock, ...]) -> str:
-    actions = [rule for block in blocks for rule in block.rules]
-    lines = [
-        "*filter",
-        ":ufw-before-input - [0:0]",
-        ":ufw-before-output - [0:0]",
-        ":ufw-before-forward - [0:0]",
-    ]
-    lines.extend(" ".join(rule) for rule in actions)
-    lines.append("COMMIT")
-    return "\n".join(lines) + "\n"
-
-
-def _validate_managed_actions(
+def _validate_candidate_files(
     plan: ApplyPlan,
     *,
     runner: Runner,
 ) -> None:
+    """Validate the exact full before.rules candidates before any file write.
+
+    Testing only extracted managed rules can hide invalid references to chains
+    that do not exist in the real UFW file (notably ufw-before-* vs
+    ufw6-before-*). The payload validated here is byte-for-byte the candidate
+    that would later be atomically written.
+    """
     iptables_restore = _binary("iptables-restore")
     runner(
         [iptables_restore, "--test"],
-        input_text=_validation_payload(plan.compiled.ipv4),
+        input_text=plan.ipv4.content,
         check=True,
         timeout=20,
     )
@@ -159,7 +152,7 @@ def _validate_managed_actions(
         ip6tables_restore = _binary("ip6tables-restore")
         runner(
             [ip6tables_restore, "--test"],
-            input_text=_validation_payload(plan.compiled.ipv6),
+            input_text=plan.ipv6.content,
             check=True,
             timeout=20,
         )
@@ -436,7 +429,7 @@ def apply_local_config(
     if was_active and not plan.changed:
         return ApplyResult("NO_CHANGE", False, False)
 
-    _validate_managed_actions(plan, runner=runner)
+    _validate_candidate_files(plan, runner=runner)
     ufw = _binary("ufw")
     backup, existed = _create_backup(paths, was_active=was_active)
     _assert_source_unchanged(paths.before4, before4)

@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.10.3
+
+- FIX Firewall Manager 0.5.2: IPv6 standard/trusted-source pravidla se v `/etc/ufw/before6.rules` generují do skutečných UFW řetězců `ufw6-before-input/output/forward`, ne chybně do IPv4 `ufw-before-*`. Fyzický VM test 0.5.1 chybu odhalil při Apply jako `ip6tables-restore: No chain/target/match by that name`.
+- SAFETY Apply preflight už netestuje syntetický výřez managed pravidel s vlastními chain deklaracemi. `iptables-restore --test` / `ip6tables-restore --test` dostanou přesný celý kandidátní `before.rules` / `before6.rules`, který by se následně zapsal; chybějící řetězec nebo interakce s existujícím souborem se tak zablokují před první mutací.
+- TEST realistický IPv6 UFW fixture používá `ufw6-before-*`, kontroluje family-neutral TCP/UDP pravidla, výsledný kandidát a byte-for-byte payload preflightu. Enable/Disable a Hub auto-apply kontrakt se nemění.
+
 ## v2.10.2
 
 - UX SFTP Manager 1.3.5 přidává do mailu s klíčem i ZIP README kompletní připojovací blok: hostname z `machineInfo.hostname_full`, lokálně dostupnou veřejnou IPv4, `tun*` VPN IPv4 a efektivní SSH/SFTP port z `sshd -T`. Hostname je primární adresa; IP údaje jsou záložní/diagnostické. Zjišťování nepoužívá žádnou externí public-IP službu.

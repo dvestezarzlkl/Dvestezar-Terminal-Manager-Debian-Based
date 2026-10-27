@@ -101,10 +101,14 @@ def _compile_standard_rule(
     if family not in _rule_families(rule):
         return ()
 
+    # UFW uses different built-in before-chain names for IPv4 and IPv6.
+    # before.rules:  ufw-before-*
+    # before6.rules: ufw6-before-*
+    chain_prefix = "ufw6-before" if family == 6 else "ufw-before"
     chain = {
-        "input": "ufw-before-input",
-        "output": "ufw-before-output",
-        "forward": "ufw-before-forward",
+        "input": f"{chain_prefix}-input",
+        "output": f"{chain_prefix}-output",
+        "forward": f"{chain_prefix}-forward",
     }[rule.direction]
     target = {
         "allow": "ACCEPT",
@@ -161,6 +165,8 @@ def _hard_source_by_family(
     for action in hard_source_rules(config):
         source = action[3]
         if ip_network(source, strict=False).version == family:
+            if family == 6:
+                action = (action[0], "ufw6-before-input", *action[2:])
             result.append(action)
     return tuple(result)
 
