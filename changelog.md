@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.10.3
+
+- FIX Firewall Manager: inactive UFW now uses the compatible argument order ufw --dry-run --force enable, so guarded Apply does not fail on a non-interactive confirmation.
+
 ## v2.10.2
 
 - UX SFTP Manager 1.3.5 přidává do mailu s klíčem i ZIP README kompletní připojovací blok: hostname z `machineInfo.hostname_full`, lokálně dostupnou veřejnou IPv4, `tun*` VPN IPv4 a efektivní SSH/SFTP port z `sshd -T`. Hostname je primární adresa; IP údaje jsou záložní/diagnostické. Zjišťování nepoužívá žádnou externí public-IP službu.

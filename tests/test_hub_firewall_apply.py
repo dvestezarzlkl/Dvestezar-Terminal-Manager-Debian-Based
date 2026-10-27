@@ -314,6 +314,12 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             self.assertTrue(any(
                 call[-2:] == ["--force", "enable"] for call in calls
             ))
+            self.assertTrue(any(
+                call[-4:] == [
+                    "/usr/bin/ufw", "--dry-run", "--force", "enable"
+                ]
+                for call in calls
+            ))
             self.assertTrue(any(call[-1] == "disable" for call in calls))
 
     def test_concurrent_ufw_file_edit_aborts_without_overwriting_it(self):
