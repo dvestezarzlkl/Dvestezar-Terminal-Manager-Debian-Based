@@ -43,6 +43,21 @@ def base_before() -> str:
     ))
 
 
+def base_before6() -> str:
+    return "\n".join((
+        "# rules.before",
+        "*filter",
+        ":ufw6-before-input - [0:0]",
+        ":ufw6-before-output - [0:0]",
+        ":ufw6-before-forward - [0:0]",
+        "# End required lines",
+        "# unmanaged custom IPv6 rule",
+        "-A ufw6-before-input -i lo -j ACCEPT",
+        "COMMIT",
+        "",
+    ))
+
+
 def config() -> FirewallConfig:
     server = FirewallVpnServer(
         "e099a95ebc1f4984b61cad9ffe2915b1",
@@ -114,8 +129,23 @@ class FirewallCompilerTests(unittest.TestCase):
             ),
             standard4,
         )
-        # Family-neutral standard rules apply to IPv6 too when before6.rules exists.
-        self.assertEqual(compiled.ipv6[-1].rules, standard4)
+        # Family-neutral rules also target the real UFW IPv6 chain namespace.
+        standard6 = compiled.ipv6[-1].rules
+        self.assertIn(
+            (
+                "-A", "ufw6-before-input", "-p", "tcp", "-m", "tcp",
+                "--dport", "3000", "-j", "ACCEPT",
+            ),
+            standard6,
+        )
+        self.assertIn(
+            (
+                "-A", "ufw6-before-input", "-p", "udp", "-m", "udp",
+                "--dport", "50", "-j", "ACCEPT",
+            ),
+            standard6,
+        )
+        self.assertFalse(any(rule[1] == "ufw-before-input" for rule in standard6))
 
     def test_multiple_source_and_destination_ports_expand_deterministically(self):
         cfg = FirewallConfig(rules=(
@@ -219,6 +249,18 @@ class FirewallCompilerTests(unittest.TestCase):
         with self.assertRaisesRegex(FirewallPolicyError, "before6"):
             build_apply_plan(cfg, before4=base_before(), before6=None)
 
+    def test_ipv6_candidate_uses_ufw6_chains(self):
+        plan = build_apply_plan(
+            config(),
+            before4=base_before(),
+            before6=base_before6(),
+        )
+        self.assertIsNotNone(plan.ipv6)
+        assert plan.ipv6 is not None
+        self.assertIn(":ufw6-before-input - [0:0]", plan.ipv6.content)
+        self.assertIn("-A ufw6-before-input", plan.ipv6.content)
+        self.assertNotIn("-A ufw-before-input", plan.ipv6.content)
+
 
 class FirewallApplyTransactionTests(unittest.TestCase):
     def _paths(self, root: Path) -> ApplyPaths:
@@ -227,7 +269,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         before4 = etc / "before.rules"
         before6 = etc / "before6.rules"
         before4.write_text(base_before(), encoding="utf-8")
-        before6.write_text(base_before(), encoding="utf-8")
+        before6.write_text(base_before6(), encoding="utf-8")
         return ApplyPaths(
             before4=before4,
             before6=before6,
@@ -241,6 +283,28 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             calls.append(list(args))
             return subprocess.CompletedProcess(args, 0, "", "")
         return run
+
+    def test_preflight_validates_exact_full_ipv4_and_ipv6_candidates(self):
+        plan = build_apply_plan(
+            config(),
+            before4=base_before(),
+            before6=base_before6(),
+        )
+        payloads: list[tuple[list[str], str]] = []
+
+        def runner(args, **kwargs):
+            payloads.append((list(args), kwargs.get("input_text") or ""))
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with patch.object(
+            firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+        ):
+            firewall_apply._validate_candidate_files(plan, runner=runner)
+
+        self.assertEqual(payloads[0][1], plan.ipv4.content)
+        self.assertEqual(payloads[1][1], plan.ipv6.content)
+        self.assertIn(":ufw6-before-input - [0:0]", payloads[1][1])
+        self.assertIn("-A ufw6-before-input", payloads[1][1])
 
     def test_active_apply_arms_rollback_before_reload_and_saves_state(self):
         with tempfile.TemporaryDirectory() as tmp:

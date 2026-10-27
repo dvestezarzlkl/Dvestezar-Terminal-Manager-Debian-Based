@@ -1,6 +1,6 @@
 # Firewall Manager — UFW / OpenVPN takeover design
 
-Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.10.1 / Firewall Manager 0.5.1 (2026-10-24). Hub/hourly auto-apply and production/new21 takeover remain disabled.
+Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.10.3 / Firewall Manager 0.5.2 (2026-10-27). Hub/hourly auto-apply and production/new21 takeover remain disabled. VM testing found and fixed the IPv6 UFW chain namespace mismatch: `before6.rules` requires `ufw6-before-*`, and preflight now validates the exact full IPv4/IPv6 candidate files before mutation.
 
 ## Read-only phase (SysApps 2.6.0)
 
