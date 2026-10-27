@@ -12,6 +12,13 @@ TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC = " (veřejný)"
 TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Omezený SFTP přístup pouze pro přenos souborů - uživatel: {username}"
 TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE = "Tento účet je určen výhradně pro přenos souborů přes SFTP. Je oddělený od běžného SSH účtu a neumožňuje interaktivní shell ani přihlášení do terminálu."
 TXT_SFTP_HLP_MAIL_RECIPIENTS = "Příjemci: {recipients}"
+TXT_SFTP_HLP_MAIL_CONNECTION_TITLE = "Připojení:"
+TXT_SFTP_HLP_MAIL_CONNECTION_HOSTNAME = "Hostname: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_PUBLIC_IP = "Veřejná IPv4: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_TUN_IP = "VPN/TUN IPv4: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_PORT = "Port: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_NOT_AVAILABLE = "není dostupná"
+TXT_SFTP_HLP_MAIL_CONNECTION_PORT_UNKNOWN = "nezjištěn (výchozí OpenSSH je 22)"
 TXT_SFTP_HLP_MAIL_PUBLIC_KEY = "Veřejný klíč:"
 TXT_SFTP_HLP_MAIL_PRIVATE_KEY = "Soukromý klíč:"
 TXT_SFTP_HLP_MAIL_PRIVATE_WARNING = "Přiložený archiv obsahuje soukromý klíč. Přenášejte a ukládejte jej bezpečně."
@@ -25,13 +32,15 @@ TXT_SFTP_HLP_MAIL_README = """Balíček klíče pro omezený SFTP přístup uži
 Účel přístupu:
 {access_purpose}
 
+{connection_info}
+
 Soubory:
 - {public_filename}: veřejný klíč; tento soubor lze předat správci serveru.
 {private_line}
 
 Obecné pokyny:
 1. Rozbalte tento ZIP archiv.
-2. Adresa serveru a případný nestandardní port se předávají samostatně. Výchozí port SFTP je 22.
+2. Pro připojení použijte primárně Hostname uvedený výše; veřejná IPv4 je záložní/diagnostický údaj a VPN/TUN IPv4 je určena pro připojení přes odpovídající VPN.
 3. Heslo ponechte prázdné, pokud nebylo předáno samostatně.
 4. V Linuxu soukromý klíč chraňte příkazem: chmod 600 <soubor-soukromého-klíče>
 

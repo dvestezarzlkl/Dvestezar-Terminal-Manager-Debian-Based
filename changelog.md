@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.10.2
+
+- UX SFTP Manager 1.3.5 přidává do mailu s klíčem i ZIP README kompletní připojovací blok: hostname z `machineInfo.hostname_full`, lokálně dostupnou veřejnou IPv4, `tun*` VPN IPv4 a efektivní SSH/SFTP port z `sshd -T`. Hostname je primární adresa; IP údaje jsou záložní/diagnostické. Zjišťování nepoužívá žádnou externí public-IP službu.
+
 ## v2.10.1
 
 - SAFETY Firewall Manager 0.5.1: jediná akce dostupná při neaktivním UFW nyní nejdřív zobrazí přesný read-only IPv4/IPv6 Preview stejného kandidátu a teprve potom nabídne potvrzení Activate + Apply. Požadavek, že při inactive není aktivní žádná jiná položka menu, zůstává zachován.
