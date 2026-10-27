@@ -4,16 +4,20 @@ from .helper_lng import *
 
 import base64
 import html
+import ipaddress
+import socket
+import subprocess
 
 import json5
 import os
 import binascii
 import re
+from shutil import which
 from typing import Dict, List, Optional, Tuple
 import tempfile
 import time
 
-from libs.JBLibs.helper import getLogger
+from libs.JBLibs.helper import getInterfaces, getLogger
 from libs.JBLibs.sftp.parser import check_config_exists, check_config_valid, uninstallAllUsers as unInstAll, createUserFromJson, getDefaultEtcConfigPath,uninstallUnwantedUsers
 from libs.JBLibs.sftp.mountpoint_templates import effective_mountpoint_records, resolve_mountpoint_records
 from libs.JBLibs.sftp.sambaPoint import smbHelp, ManagedCIFSTargetNotEmptyError
@@ -236,6 +240,79 @@ def _key_file_stem(public_key: str) -> str:
     }.get(key_type, "id_ssh_key")
 
 
+def _effective_sshd_ports() -> List[int]:
+    """Return effective SSH listener ports reported by sshd -T."""
+    sshd_bin = which("sshd")
+    if sshd_bin is None and os.path.isfile("/usr/sbin/sshd"):
+        sshd_bin = "/usr/sbin/sshd"
+    if sshd_bin is None:
+        return []
+
+    try:
+        proc = subprocess.run(
+            [sshd_bin, "-T"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if proc.returncode != 0:
+        return []
+
+    ports: List[int] = []
+    for line in proc.stdout.splitlines():
+        if not line.startswith("port "):
+            continue
+        try:
+            port = int(line.split(None, 1)[1])
+        except (IndexError, ValueError):
+            continue
+        if 1 <= port <= 65535 and port not in ports:
+            ports.append(port)
+    return ports
+
+
+def get_sftp_connection_info() -> Dict[str, str]:
+    """Return host identity and local connection endpoints for SFTP handover."""
+    machine = getattr(app_cfg, "machineInfo", None)
+    hostname = str(getattr(machine, "hostname_full", "") or "").strip()
+    if not hostname:
+        hostname = str(getattr(machine, "static_hostname", "") or "").strip()
+
+    public_ipv4: List[str] = []
+    tun_ipv4: List[str] = []
+    try:
+        interfaces = getInterfaces(noLoop=True)
+    except Exception:
+        interfaces = []
+
+    for interface in interfaces:
+        value = str(getattr(interface, "ipv4", "") or "").strip()
+        if not value:
+            continue
+        try:
+            address = ipaddress.ip_address(value)
+        except ValueError:
+            continue
+        if address.version != 4:
+            continue
+        name = str(getattr(interface, "name", "") or "")
+        if name.startswith("tun"):
+            if value not in tun_ipv4:
+                tun_ipv4.append(value)
+        elif address.is_global and value not in public_ipv4:
+            public_ipv4.append(value)
+
+    ports = _effective_sshd_ports()
+    return {
+        "hostname": hostname,
+        "public_ipv4": ", ".join(public_ipv4),
+        "tun_ipv4": ", ".join(tun_ipv4),
+        "port": ", ".join(str(port) for port in ports),
+    }
+
+
 def build_key_mail_payload(
     username: str,
     public_key: str,
@@ -262,9 +339,29 @@ def build_key_mail_payload(
     generated_by = TXT_SFTP_HLP_MAIL_GENERATED_BY.format(
         version=getattr(app_cfg, "VERSION", "")
     )
+    connection = get_sftp_connection_info()
+    not_available = TXT_SFTP_HLP_MAIL_CONNECTION_NOT_AVAILABLE
+    connection_lines = [
+        TXT_SFTP_HLP_MAIL_CONNECTION_TITLE,
+        TXT_SFTP_HLP_MAIL_CONNECTION_HOSTNAME.format(
+            value=connection["hostname"] or not_available
+        ),
+        TXT_SFTP_HLP_MAIL_CONNECTION_PUBLIC_IP.format(
+            value=connection["public_ipv4"] or not_available
+        ),
+        TXT_SFTP_HLP_MAIL_CONNECTION_TUN_IP.format(
+            value=connection["tun_ipv4"] or not_available
+        ),
+        TXT_SFTP_HLP_MAIL_CONNECTION_PORT.format(
+            value=connection["port"] or TXT_SFTP_HLP_MAIL_CONNECTION_PORT_UNKNOWN
+        ),
+    ]
+    connection_info = "\n".join(connection_lines)
+
     readme = TXT_SFTP_HLP_MAIL_README.format(
         username=username,
         access_purpose=TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE,
+        connection_info=connection_info,
         public_filename=public_filename,
         private_line=private_line,
         private_usage=private_usage,
@@ -304,6 +401,8 @@ def build_key_mail_payload(
     body_lines = [
         TXT_SFTP_HLP_MAIL_EXPORT_FOR.format(username=username),
         TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE,
+        "",
+        connection_info,
         TXT_SFTP_HLP_MAIL_RECIPIENTS.format(recipients=', '.join(recipients)),
         "",
         TXT_SFTP_HLP_MAIL_ARCHIVE_ATTACHED.format(filename=archive_filename),
@@ -330,6 +429,10 @@ def build_key_mail_payload(
         ),
         "    <p>{}</p>".format(
             html.escape(TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE)
+        ),
+        "    <p><strong>{}</strong><br>{}</p>".format(
+            html.escape(TXT_SFTP_HLP_MAIL_CONNECTION_TITLE),
+            "<br>".join(html.escape(line) for line in connection_lines[1:]),
         ),
         "    <p>{}</p>".format(
             html.escape(

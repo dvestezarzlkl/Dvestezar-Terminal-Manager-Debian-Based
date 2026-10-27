@@ -12,6 +12,13 @@ TXT_SFTP_HLP_MAIL_SUBJECT_PUBLIC = " (public)"
 TXT_SFTP_HLP_MAIL_EXPORT_FOR = "Restricted SFTP access for file transfer only - user: {username}"
 TXT_SFTP_HLP_MAIL_ACCESS_PURPOSE = "This account is intended exclusively for SFTP file transfer. It is separate from an ordinary SSH account and does not allow an interactive shell or terminal login."
 TXT_SFTP_HLP_MAIL_RECIPIENTS = "Recipients: {recipients}"
+TXT_SFTP_HLP_MAIL_CONNECTION_TITLE = "Connection:"
+TXT_SFTP_HLP_MAIL_CONNECTION_HOSTNAME = "Hostname: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_PUBLIC_IP = "Public IPv4: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_TUN_IP = "VPN/TUN IPv4: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_PORT = "Port: {value}"
+TXT_SFTP_HLP_MAIL_CONNECTION_NOT_AVAILABLE = "not available"
+TXT_SFTP_HLP_MAIL_CONNECTION_PORT_UNKNOWN = "unknown (OpenSSH default is 22)"
 TXT_SFTP_HLP_MAIL_PUBLIC_KEY = "Public key:"
 TXT_SFTP_HLP_MAIL_PRIVATE_KEY = "Private key:"
 TXT_SFTP_HLP_MAIL_PRIVATE_WARNING = "The attached archive contains private key material. Transfer and store it securely."
@@ -25,13 +32,15 @@ TXT_SFTP_HLP_MAIL_README = """Key package for restricted SFTP access for user: {
 Access purpose:
 {access_purpose}
 
+{connection_info}
+
 Files:
 - {public_filename}: public key; this file may be shared with the server administrator.
 {private_line}
 
 General instructions:
 1. Extract this ZIP archive.
-2. The server address and any non-standard port are delivered separately. The default SFTP port is 22.
+2. Use the Hostname above as the primary connection address; Public IPv4 is a fallback/diagnostic value and VPN/TUN IPv4 is intended for connections through the corresponding VPN.
 3. Leave the password empty unless it was delivered separately.
 4. On Linux, protect the private key with: chmod 600 <private-key-file>
 

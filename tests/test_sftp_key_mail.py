@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import unittest
 import zipfile
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from libs.app.menus.app_33_sftpmanagr import sftp_manager_hlp as sftp_hlp
@@ -58,7 +59,11 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("výhradně pro přenos souborů", readme)
         self.assertIn("neumožňuje interaktivní shell ani přihlášení do terminálu", readme)
         self.assertIn("chmod 600", readme)
-        self.assertIn("Výchozí port SFTP je 22", readme)
+        self.assertIn("Připojení:", readme)
+        self.assertIn("Hostname:", readme)
+        self.assertIn("Veřejná IPv4:", readme)
+        self.assertIn("VPN/TUN IPv4:", readme)
+        self.assertIn("Port:", readme)
         self.assertIn("Total Commander", readme)
         self.assertIn("Private key file", readme)
         self.assertIn("Public key file", readme)
@@ -67,6 +72,34 @@ class SftpKeyMailTests(unittest.TestCase):
         self.assertIn("Pole Password ponechte prázdné", readme)
         self.assertIn("Samba/SFTP sandbox", readme)
         self.assertIn("nelze nastavit práva", readme)
+
+    def test_connection_info_uses_app_hostname_interfaces_and_effective_sshd_port(self):
+        interfaces = [
+            SimpleNamespace(name="eth0", ipv4="8.8.8.8"),
+            SimpleNamespace(name="eth1", ipv4="192.168.1.10"),
+            SimpleNamespace(name="tun0", ipv4="10.8.88.1"),
+        ]
+        machine = SimpleNamespace(
+            hostname_full="new21.dvestezar.cz",
+            static_hostname="new21",
+        )
+        sshd_result = SimpleNamespace(
+            returncode=0,
+            stdout="port 2222\n",
+            stderr="",
+        )
+
+        with patch.object(sftp_hlp.app_cfg, "machineInfo", machine), patch.object(
+            sftp_hlp, "getInterfaces", return_value=interfaces
+        ), patch.object(sftp_hlp, "which", return_value="/usr/sbin/sshd"), patch.object(
+            sftp_hlp.subprocess, "run", return_value=sshd_result
+        ):
+            info = sftp_hlp.get_sftp_connection_info()
+
+        self.assertEqual(info["hostname"], "new21.dvestezar.cz")
+        self.assertEqual(info["public_ipv4"], "8.8.8.8")
+        self.assertEqual(info["tun_ipv4"], "10.8.88.1")
+        self.assertEqual(info["port"], "2222")
 
     def test_public_only_archive_has_no_private_file(self):
         _, text_body, html_body, attachments = sftp_hlp.build_key_mail_payload(

@@ -122,7 +122,7 @@ class MenuAndMailFeedbackTests(unittest.TestCase):
             self.assertEqual(menuBoss._get_menu_version(menu_cls), menu_cls._VERSION_)
         self.assertEqual(node_red_menu.menu._VERSION_, "1.0.1")
         self.assertEqual(ssh_menu.menu._VERSION_, "1.0.2")
-        self.assertEqual(sftp_menu.menu._VERSION_, "1.3.4")
+        self.assertEqual(sftp_menu.menu._VERSION_, "1.3.5")
 
     def test_global_host_context_uses_fqdn_and_home_avoids_duplicate(self):
         original = menuBoss.c_menu.globalTitle
