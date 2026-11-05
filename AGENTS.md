@@ -12,6 +12,7 @@
 ## runtime prostředí, lokální data a testy
 
 - Integrační a fyzické testy na cílovém terminálu může provést uživatel. Připrav přesný scénář nebo příkazy, výsledek nepovažuj za fyzicky ověřený, dokud jej uživatel nepotvrdí, a potvrzený výsledek zapiš do `todo_md`.
+- Zdrojový kód `sys_apps` se na cílovém ani vývojovém/testovacím stroji přes SSH nikdy neupravuje, nepatchuje ani lokálně necommituje. Source změna musí nejdřív vzniknout v kanonickém Git repozitáři a na každý cílový, vývojový i testovací stroj se nasazuje pouze standardním SysApps Update mechanismem. Přímý přístup na zařízení používej jen pro diagnostiku, konfiguraci nebo runtime test chování. Standardní Update je povinná součást integračního ověření, protože současně testuje updater, Git historii, submoduly a instalační/update kontrakt aplikace.
 - `etc_jb_sys_apps` je unixový symlink na živou konfiguraci v systému. Obsah aktuálního `config.ini` nelze odvozovat z GitHubu; pokud je potřeba, vyžádej si od uživatele konkrétní obsah nebo výpis z terminálu.
 - `log` je unixový symlink na živý logovací adresář. Aktuální logy nejsou součástí repozitáře a při diagnostice je musí dodat uživatel.
 - `venv310` je aktuální Python runtime aplikace a je záměrně ignorovaný Gitem. Změny závislostí řeš přes `requirements.txt`, `setup.sh` a `venv_install_step.py`, ne přímou úpravou obsahu venv.
