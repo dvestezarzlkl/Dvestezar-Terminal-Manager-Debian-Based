@@ -469,7 +469,7 @@ def apply_local_config(
         runner(
             [ufw, "--dry-run", "reload"]
             if was_active
-            else [ufw, "--force", "--dry-run", "enable"],
+            else [ufw, "--dry-run", "--force", "enable"],
             check=True,
             timeout=30,
         )
