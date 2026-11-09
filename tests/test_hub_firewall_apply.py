@@ -378,7 +378,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             self.assertEqual(paths.before4.read_text(encoding="utf-8"), original4)
             self.assertEqual(paths.before6.read_text(encoding="utf-8"), original6)
             self.assertTrue(any(
-                call[-4:] == ["/usr/bin/ufw", "--force", "--dry-run", "enable"]
+                call[-4:] == ["/usr/bin/ufw", "--dry-run", "--force", "enable"]
                 for call in calls
             ))
             self.assertTrue(any(

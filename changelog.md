@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.10.4
+
+- FIX Firewall Manager 0.5.3: neaktivní UFW dry-run používá syntakticky správné pořadí `ufw --dry-run --force enable`. UFW parser zpracovává `--dry-run` před `--force`; opačné pořadí z 0.5.2 skončilo na fyzickém VM testu chybou `ERROR: Invalid syntax` ještě před živým enable.
+- TEST regresní test nyní vyžaduje přesné pořadí parametrů dry-run enable. Živý `ufw --force enable` zůstává beze změny a rollback/acknowledgement kontrakt se nemění.
+
 ## v2.10.3
 
 - FIX Firewall Manager 0.5.2: dry-run pro aktivaci neaktivního UFW používá `--force`, aby `ufw --dry-run enable` nikdy nečekalo na interaktivní potvrzení a guarded Apply zůstal plně neinteraktivní až do vlastního potvrzovacího kroku SysApps.
