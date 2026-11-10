@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.11.0
+
+- SAFETY Firewall Manager 0.6.0 nahrazuje původní `Y/N` potvrzení po live Apply jednorázovým cross-session tokenem. Původní terminál zobrazí `sys_apps ufw <token>` a živý 90s odpočet; potvrzení přijme pouze nová SSH session, nikoli původní spojení ani lokální konzole.
+- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Token je jednorázový a po expiraci neplatí.
+- SAFETY rollback zůstává nezávislý systemd timer a autorita při ztrátě spojení/procesu. Headless příkaz pouze označí ověřenou novou SSH session; původní Apply teprve potom zruší rollback, znovu ověří live candidate a uloží finální apply state. Pozdní potvrzení už nemůže být zaměněno za platné `Y` po timeoutu.
+- UX čekání používá existující JBLibs terminal primitives pro přepis jednoho řádku s odpočtem; nevzniká druhý confirm/input framework.
+
 ## v2.10.4
 
 - FIX Firewall Manager 0.5.3: neaktivní UFW dry-run používá syntakticky správné pořadí `ufw --dry-run --force enable`. UFW parser zpracovává `--dry-run` před `--force`; opačné pořadí z 0.5.2 skončilo na fyzickém VM testu chybou `ERROR: Invalid syntax` ještě před živým enable.

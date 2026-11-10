@@ -19,6 +19,7 @@ import tempfile
 from typing import Callable
 from uuid import uuid4
 
+from .ack import clear_pending_ack, create_pending_ack
 from .compiler import (
     CandidateResult,
     CompiledFirewall,
@@ -41,6 +42,7 @@ class ApplyPaths:
     before6: Path = Path("/etc/ufw/before6.rules")
     state: Path = Path("/var/lib/jb_sys_apps/firewall/state.json")
     backups: Path = Path("/var/lib/jb_sys_apps/firewall/backups")
+    pending_ack: Path = Path("/run/jb_sys_apps/firewall/pending_ack.json")
 
 
 @dataclass(frozen=True)
@@ -63,7 +65,7 @@ class ApplyResult:
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-Acknowledge = Callable[[int], bool]
+Acknowledge = Callable[[str, int], bool]
 
 
 def _run(
@@ -452,12 +454,19 @@ def apply_local_config(
     )
 
     mutation_started = False
+    token = ""
     try:
         # Recheck after arming the timer: another administrator/process may
         # have touched UFW while the rollback unit was being created.
         _assert_source_unchanged(paths.before4, before4)
         if before6 is not None:
             _assert_source_unchanged(paths.before6, before6)
+
+        token = create_pending_ack(
+            paths.pending_ack,
+            seconds=rollback_seconds,
+            rollback_unit=unit,
+        )
 
         if plan.ipv4.changed:
             mutation_started = True
@@ -482,7 +491,7 @@ def apply_local_config(
         if inspect_ufw_service().status != "active":
             raise FirewallApplyError("UFW did not become/remain active after Apply.")
 
-        accepted = bool(acknowledge(rollback_seconds))
+        accepted = bool(acknowledge(token, rollback_seconds))
         if not accepted:
             _cancel_rollback(unit, runner=runner)
             _restore_backup(
@@ -529,6 +538,9 @@ def apply_local_config(
             except Exception:
                 pass
         raise
+    finally:
+        if token:
+            clear_pending_ack(token, path=paths.pending_ack)
 
 
 def disable_ufw(*, runner: Runner = _run) -> None:
