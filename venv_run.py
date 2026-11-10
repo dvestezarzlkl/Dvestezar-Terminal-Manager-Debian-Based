@@ -54,6 +54,12 @@ _language_started = perf_counter()
 setLng(cfg.LANGUAGE)
 log.info("Startup bootstrap language setup: done in %.3fs", perf_counter() - _language_started)
 
+# Firewall acknowledgement must bypass the interactive menu/session lock so it
+# can be executed from the newly opened SSH connection while Apply is waiting.
+if sys.argv[1:2] == ["ufw"]:
+    from libs.app.menus.app_40_firewall.headless import main as firewall_headless_main
+    sys.exit(firewall_headless_main(sys.argv[2:]))
+
 _term_import_started = perf_counter()
 from libs.JBLibs.term import reset, cls
 log.info("Startup bootstrap terminal import: done in %.3fs", perf_counter() - _term_import_started)

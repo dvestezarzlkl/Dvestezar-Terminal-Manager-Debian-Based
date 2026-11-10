@@ -16,9 +16,11 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from typing import Callable
 from uuid import uuid4
 
+from .ack import clear_pending_ack, create_pending_ack
 from .compiler import (
     CandidateResult,
     CompiledFirewall,
@@ -41,6 +43,7 @@ class ApplyPaths:
     before6: Path = Path("/etc/ufw/before6.rules")
     state: Path = Path("/var/lib/jb_sys_apps/firewall/state.json")
     backups: Path = Path("/var/lib/jb_sys_apps/firewall/backups")
+    pending_ack: Path = Path("/run/jb_sys_apps/firewall/pending_ack.json")
 
 
 @dataclass(frozen=True)
@@ -63,7 +66,7 @@ class ApplyResult:
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-Acknowledge = Callable[[int], bool]
+Acknowledge = Callable[[str, float], bool]
 
 
 def _run(
@@ -258,11 +261,16 @@ def _arm_rollback(
     was_active: bool,
     seconds: int,
     runner: Runner,
-) -> str:
+) -> tuple[str, float]:
     if not 15 <= seconds <= 600:
         raise FirewallApplyError("Rollback timeout must be 15..600 seconds.")
     systemd_run = _binary("systemd-run")
     unit = "jb-sys-apps-ufw-rollback-" + uuid4().hex[:12]
+    # Use a conservative wall-clock deadline captured before systemd-run.
+    # The actual timer cannot expire earlier than this estimate because it is
+    # created only by the command below; UI and headless ACK therefore never
+    # advertise more time than the independent rollback really has.
+    expires_at = time.time() + float(seconds)
     runner(
         [
             systemd_run,
@@ -279,13 +287,13 @@ def _arm_rollback(
         check=True,
         timeout=20,
     )
-    return unit
+    return unit, expires_at
 
 
 def _cancel_rollback(unit: str, *, runner: Runner) -> None:
     systemctl = _binary("systemctl")
     runner(
-        [systemctl, "stop", f"{unit}.timer"],
+        [systemctl, "stop", f"{unit}.timer", f"{unit}.service"],
         check=False,
         timeout=15,
     )
@@ -440,7 +448,7 @@ def apply_local_config(
         "before4": plan.ipv4.changed,
         "before6": bool(plan.ipv6 is not None and plan.ipv6.changed),
     }
-    unit = _arm_rollback(
+    unit, rollback_expires_at = _arm_rollback(
         paths,
         backup,
         existed,
@@ -452,12 +460,19 @@ def apply_local_config(
     )
 
     mutation_started = False
+    token = ""
     try:
         # Recheck after arming the timer: another administrator/process may
         # have touched UFW while the rollback unit was being created.
         _assert_source_unchanged(paths.before4, before4)
         if before6 is not None:
             _assert_source_unchanged(paths.before6, before6)
+
+        token = create_pending_ack(
+            paths.pending_ack,
+            expires_at=rollback_expires_at,
+            rollback_unit=unit,
+        )
 
         if plan.ipv4.changed:
             mutation_started = True
@@ -482,7 +497,7 @@ def apply_local_config(
         if inspect_ufw_service().status != "active":
             raise FirewallApplyError("UFW did not become/remain active after Apply.")
 
-        accepted = bool(acknowledge(rollback_seconds))
+        accepted = bool(acknowledge(token, rollback_expires_at))
         if not accepted:
             _cancel_rollback(unit, runner=runner)
             _restore_backup(
@@ -529,6 +544,9 @@ def apply_local_config(
             except Exception:
                 pass
         raise
+    finally:
+        if token:
+            clear_pending_ack(token, path=paths.pending_ack)
 
 
 def disable_ufw(*, runner: Runner = _run) -> None:

@@ -1,20 +1,23 @@
 """Firewall Manager UI: desired-state editor, preview and guarded manual UFW Apply."""
 from __future__ import annotations
 
+from math import ceil
 from pathlib import Path
 import re
+from time import time
 
 from .lng.default import *
-from libs.JBLibs.helper import loadLng
+from libs.JBLibs.helper import loadLng, sleep_ms
 loadLng()
 
 from libs.JBLibs.c_menu import (
     c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn,
 )
 from libs.JBLibs.input import anyKey, confirm, selectFile
-from libs.JBLibs.term import en_color, text_color
+from libs.JBLibs.term import clearRow, en_color, savePos, text_color
 
-from .apply import FirewallApplyError, apply_local_config, disable_ufw
+from .ack import is_pending_acknowledged
+from .apply import ApplyPaths, FirewallApplyError, apply_local_config, disable_ufw
 from .compiler import (
     CandidateResult,
     CompiledFirewall,
@@ -37,7 +40,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.5.3"
+    _VERSION_ = "0.6.0"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -109,11 +112,35 @@ class menu(c_menu):
             c_menu_item(TXT_FW_IMPORT_LEGACY, "l", self.import_legacy_config),
         ]
 
-    def _acknowledge_live_apply(self, seconds: int) -> bool:
-        return confirm(
-            TXT_FW_APPLY_ACK.format(seconds=seconds),
-            minMessageWidth=self.minMenuWidth,
-        )
+    def _acknowledge_live_apply(self, token: str, expires_at: float) -> bool:
+        initial_seconds = max(0, ceil(expires_at - time()))
+        print(TXT_FW_APPLY_ACK.format(token=token, seconds=initial_seconds))
+        last_remaining: int | None = None
+        savePos()
+        while True:
+            if is_pending_acknowledged(
+                token,
+                path=ApplyPaths().pending_ack,
+            ):
+                clearRow(1)
+                print(TXT_FW_APPLY_ACK_RECEIVED)
+                return True
+
+            remaining = max(0, ceil(expires_at - time()))
+            if remaining <= 0:
+                clearRow(1)
+                print(TXT_FW_APPLY_ACK_TIMEOUT)
+                return False
+
+            if remaining != last_remaining:
+                clearRow(1)
+                print(
+                    TXT_FW_APPLY_ACK_WAIT.format(seconds=remaining),
+                    end="",
+                    flush=True,
+                )
+                last_remaining = remaining
+            sleep_ms(100)
 
     def _build_preview(
         self,

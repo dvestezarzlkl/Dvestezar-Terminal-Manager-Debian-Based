@@ -277,6 +277,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             before6=before6,
             state=root / "var" / "state.json",
             backups=root / "var" / "backups",
+            pending_ack=root / "run" / "pending_ack.json",
         )
 
     @staticmethod
@@ -326,7 +327,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             ):
                 result = apply_local_config(
                     config(),
-                    acknowledge=lambda seconds: True,
+                    acknowledge=lambda token, seconds: True,
                     paths=paths,
                     runner=self._runner(calls),
                 )
@@ -335,6 +336,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             self.assertTrue(result.changed_files)
             self.assertFalse(result.activated)
             self.assertTrue(paths.state.is_file())
+            self.assertFalse(paths.pending_ack.exists())
             arm = next(
                 i for i, call in enumerate(calls)
                 if call and call[0].endswith("/systemd-run")
@@ -349,6 +351,13 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             )
             self.assertLess(arm, dry)
             self.assertLess(dry, live)
+            self.assertTrue(any(
+                call[0].endswith("/systemctl")
+                and call[1] == "stop"
+                and call[2].endswith(".timer")
+                and call[3].endswith(".service")
+                for call in calls
+            ))
 
     def test_inactive_apply_enables_and_rejected_ack_restores_original_files(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -369,7 +378,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             ):
                 result = apply_local_config(
                     config(),
-                    acknowledge=lambda seconds: False,
+                    acknowledge=lambda token, seconds: False,
                     paths=paths,
                     runner=self._runner(calls),
                 )
@@ -413,7 +422,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 ):
                     apply_local_config(
                         config(),
-                        acknowledge=lambda seconds: True,
+                        acknowledge=lambda token, seconds: True,
                         paths=paths,
                         runner=runner,
                     )
@@ -445,7 +454,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             ):
                 result = apply_local_config(
                     config(),
-                    acknowledge=lambda seconds: True,
+                    acknowledge=lambda token, seconds: True,
                     paths=paths,
                     runner=self._runner(calls),
                 )
