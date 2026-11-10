@@ -4,7 +4,7 @@ from __future__ import annotations
 from math import ceil
 from pathlib import Path
 import re
-from time import monotonic
+from time import time
 
 from .lng.default import *
 from libs.JBLibs.helper import loadLng, sleep_ms
@@ -112,9 +112,9 @@ class menu(c_menu):
             c_menu_item(TXT_FW_IMPORT_LEGACY, "l", self.import_legacy_config),
         ]
 
-    def _acknowledge_live_apply(self, token: str, seconds: int) -> bool:
-        print(TXT_FW_APPLY_ACK.format(token=token, seconds=seconds))
-        deadline = monotonic() + seconds
+    def _acknowledge_live_apply(self, token: str, expires_at: float) -> bool:
+        initial_seconds = max(0, ceil(expires_at - time()))
+        print(TXT_FW_APPLY_ACK.format(token=token, seconds=initial_seconds))
         last_remaining: int | None = None
         savePos()
         while True:
@@ -126,7 +126,7 @@ class menu(c_menu):
                 print(TXT_FW_APPLY_ACK_RECEIVED)
                 return True
 
-            remaining = max(0, ceil(deadline - monotonic()))
+            remaining = max(0, ceil(expires_at - time()))
             if remaining <= 0:
                 clearRow(1)
                 print(TXT_FW_APPLY_ACK_TIMEOUT)

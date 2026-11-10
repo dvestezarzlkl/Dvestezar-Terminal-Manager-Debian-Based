@@ -106,15 +106,18 @@ def _write_pending(path: Path, data: dict) -> None:
 def create_pending_ack(
     path: Path,
     *,
-    seconds: int,
+    expires_at: float,
     rollback_unit: str,
     env: Mapping[str, str] | None = None,
     now: float | None = None,
 ) -> str:
-    if not 15 <= seconds <= 600:
-        raise FirewallAckError("Firewall acknowledgement timeout must be 15..600 seconds.")
-
     created = time.time() if now is None else float(now)
+    deadline = float(expires_at)
+    ttl = deadline - created
+    if ttl <= _MIN_FINALIZE_SECONDS or ttl > 600:
+        raise FirewallAckError(
+            "Firewall acknowledgement deadline is outside the safe window."
+        )
     if path.exists():
         existing = _read_pending(path)
         expires = float(existing.get("expires_at", 0.0))
@@ -136,7 +139,7 @@ def create_pending_ack(
         {
             "version": 1,
             "created_at": created,
-            "expires_at": created + float(seconds),
+            "expires_at": deadline,
             "token_hash": _token_digest(token),
             "rollback_unit": str(rollback_unit),
             "origin_session": asdict(origin),

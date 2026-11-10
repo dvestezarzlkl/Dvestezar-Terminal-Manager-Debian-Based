@@ -43,7 +43,7 @@ class FirewallAckTests(unittest.TestCase):
             ):
                 token = create_pending_ack(
                     path,
-                    seconds=90,
+                    expires_at=1090.0,
                     rollback_unit="jb-test",
                     env=self._origin(),
                     now=1000.0,
@@ -75,7 +75,7 @@ class FirewallAckTests(unittest.TestCase):
             ):
                 token = create_pending_ack(
                     path,
-                    seconds=90,
+                    expires_at=1090.0,
                     rollback_unit="jb-test",
                     env=self._origin(),
                     now=1000.0,
@@ -102,7 +102,7 @@ class FirewallAckTests(unittest.TestCase):
             ):
                 token = create_pending_ack(
                     path,
-                    seconds=90,
+                    expires_at=1090.0,
                     rollback_unit="jb-test",
                     env=self._origin(),
                     now=1000.0,
@@ -128,7 +128,7 @@ class FirewallAckTests(unittest.TestCase):
             ):
                 token = create_pending_ack(
                     path,
-                    seconds=90,
+                    expires_at=1090.0,
                     rollback_unit="jb-test",
                     env={},
                     now=1000.0,
@@ -152,7 +152,7 @@ class FirewallAckTests(unittest.TestCase):
             ):
                 token = create_pending_ack(
                     path,
-                    seconds=90,
+                    expires_at=1090.0,
                     rollback_unit="jb-test",
                     env=self._origin(),
                     now=1000.0,

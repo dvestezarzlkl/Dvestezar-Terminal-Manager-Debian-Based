@@ -16,6 +16,7 @@ import shutil
 import stat
 import subprocess
 import tempfile
+import time
 from typing import Callable
 from uuid import uuid4
 
@@ -65,7 +66,7 @@ class ApplyResult:
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
-Acknowledge = Callable[[str, int], bool]
+Acknowledge = Callable[[str, float], bool]
 
 
 def _run(
@@ -260,11 +261,16 @@ def _arm_rollback(
     was_active: bool,
     seconds: int,
     runner: Runner,
-) -> str:
+) -> tuple[str, float]:
     if not 15 <= seconds <= 600:
         raise FirewallApplyError("Rollback timeout must be 15..600 seconds.")
     systemd_run = _binary("systemd-run")
     unit = "jb-sys-apps-ufw-rollback-" + uuid4().hex[:12]
+    # Use a conservative wall-clock deadline captured before systemd-run.
+    # The actual timer cannot expire earlier than this estimate because it is
+    # created only by the command below; UI and headless ACK therefore never
+    # advertise more time than the independent rollback really has.
+    expires_at = time.time() + float(seconds)
     runner(
         [
             systemd_run,
@@ -281,7 +287,7 @@ def _arm_rollback(
         check=True,
         timeout=20,
     )
-    return unit
+    return unit, expires_at
 
 
 def _cancel_rollback(unit: str, *, runner: Runner) -> None:
@@ -442,7 +448,7 @@ def apply_local_config(
         "before4": plan.ipv4.changed,
         "before6": bool(plan.ipv6 is not None and plan.ipv6.changed),
     }
-    unit = _arm_rollback(
+    unit, rollback_expires_at = _arm_rollback(
         paths,
         backup,
         existed,
@@ -464,7 +470,7 @@ def apply_local_config(
 
         token = create_pending_ack(
             paths.pending_ack,
-            seconds=rollback_seconds,
+            expires_at=rollback_expires_at,
             rollback_unit=unit,
         )
 
@@ -491,7 +497,7 @@ def apply_local_config(
         if inspect_ufw_service().status != "active":
             raise FirewallApplyError("UFW did not become/remain active after Apply.")
 
-        accepted = bool(acknowledge(token, rollback_seconds))
+        accepted = bool(acknowledge(token, rollback_expires_at))
         if not accepted:
             _cancel_rollback(unit, runner=runner)
             _restore_backup(
