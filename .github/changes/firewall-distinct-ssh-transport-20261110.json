@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "test(firewall): require a distinct SSH transport for acknowledgement",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/ack.py",
+      "expected": 1,
+      "old": "_MIN_FINALIZE_SECONDS = 1.0",
+      "new": "_MIN_FINALIZE_SECONDS = 5.0"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/ack.py",
+      "expected": 1,
+      "old": "    if current == origin:\n        raise FirewallAckError(\n            \"This is the original session; open a new SSH connection.\"\n        )",
+      "new": "    if origin.ssh_connection and current.ssh_connection == origin.ssh_connection:\n        raise FirewallAckError(\n            \"This is the original SSH transport; open a new SSH connection.\"\n        )"
+    },
+    {
+      "path": "tests/test_hub_firewall_ack.py",
+      "expected": 1,
+      "old": "    def test_confirmation_requires_ssh_session(self):",
+      "new": "    def test_same_ssh_transport_with_different_tty_is_rejected(self):\n        with tempfile.TemporaryDirectory() as tmp:\n            path = self._pending(Path(tmp))\n            with patch(\n                \"libs.app.menus.app_40_firewall.ack.secrets.token_hex\",\n                return_value=\"33445566\",\n            ):\n                token = create_pending_ack(\n                    path,\n                    seconds=90,\n                    rollback_unit=\"jb-test\",\n                    env=self._origin(),\n                    now=1000.0,\n                )\n\n            same_transport = dict(self._origin())\n            same_transport[\"SSH_TTY\"] = \"/dev/pts/99\"\n            with patch.object(os, \"geteuid\", return_value=0):\n                with self.assertRaisesRegex(FirewallAckError, \"original SSH transport\"):\n                    acknowledge_pending(\n                        token,\n                        path=path,\n                        env=same_transport,\n                        now=1001.0,\n                    )\n\n    def test_confirmation_requires_ssh_session(self):"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Token je jednorázový a po expiraci neplatí.",
+      "new": "- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Potvrzení vyžaduje jiné `SSH_CONNECTION` (nový SSH transport), nestačí pouze jiné TTY; posledních 5 s před rollbackem už token není přijat. Token je jednorázový a po expiraci neplatí."
+    }
+  ]
+}
