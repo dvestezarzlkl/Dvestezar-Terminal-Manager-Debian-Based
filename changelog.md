@@ -3,7 +3,7 @@
 ## v2.11.0
 
 - SAFETY Firewall Manager 0.6.0 nahrazuje původní `Y/N` potvrzení po live Apply jednorázovým cross-session tokenem. Původní terminál zobrazí `sys_apps ufw <token>` a živý 90s odpočet; potvrzení přijme pouze nová SSH session, nikoli původní spojení ani lokální konzole.
-- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Token je jednorázový a po expiraci neplatí.
+- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Potvrzení vyžaduje jiné `SSH_CONNECTION` (nový SSH transport), nestačí pouze jiné TTY; posledních 5 s před rollbackem už token není přijat. Token je jednorázový a po expiraci neplatí.
 - SAFETY rollback zůstává nezávislý systemd timer a autorita při ztrátě spojení/procesu. Headless příkaz pouze označí ověřenou novou SSH session; původní Apply teprve potom zruší rollback, znovu ověří live candidate a uloží finální apply state. Pozdní potvrzení už nemůže být zaměněno za platné `Y` po timeoutu.
 - UX čekání používá existující JBLibs terminal primitives pro přepis jednoho řádku s odpočtem; nevzniká druhý confirm/input framework.
 - TEST CI nyní skutečně kompiluje a spouští Firewall Manager regresní testy (`test_hub_firewall`, `test_hub_firewall_apply`, `test_hub_firewall_ack`); předchozí Hub workflow firewall cesty sledoval, ale tyto testy v explicitním unittest seznamu chyběly.

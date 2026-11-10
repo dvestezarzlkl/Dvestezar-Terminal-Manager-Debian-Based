@@ -93,6 +93,32 @@ class FirewallAckTests(unittest.TestCase):
                         now=1001.0,
                     )
 
+    def test_same_ssh_transport_with_different_tty_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = self._pending(Path(tmp))
+            with patch(
+                "libs.app.menus.app_40_firewall.ack.secrets.token_hex",
+                return_value="33445566",
+            ):
+                token = create_pending_ack(
+                    path,
+                    seconds=90,
+                    rollback_unit="jb-test",
+                    env=self._origin(),
+                    now=1000.0,
+                )
+
+            same_transport = dict(self._origin())
+            same_transport["SSH_TTY"] = "/dev/pts/99"
+            with patch.object(os, "geteuid", return_value=0):
+                with self.assertRaisesRegex(FirewallAckError, "original SSH transport"):
+                    acknowledge_pending(
+                        token,
+                        path=path,
+                        env=same_transport,
+                        now=1001.0,
+                    )
+
     def test_confirmation_requires_ssh_session(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._pending(Path(tmp))

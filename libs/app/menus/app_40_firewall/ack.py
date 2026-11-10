@@ -15,7 +15,7 @@ from typing import Mapping
 
 
 _TOKEN_RE = re.compile(r"^[A-F0-9]{8}$")
-_MIN_FINALIZE_SECONDS = 1.0
+_MIN_FINALIZE_SECONDS = 5.0
 
 
 class FirewallAckError(RuntimeError):
@@ -186,9 +186,9 @@ def acknowledge_pending(
         ssh_connection=str(origin_raw.get("ssh_connection", "")).strip(),
         ssh_tty=str(origin_raw.get("ssh_tty", "")).strip(),
     )
-    if current == origin:
+    if origin.ssh_connection and current.ssh_connection == origin.ssh_connection:
         raise FirewallAckError(
-            "This is the original session; open a new SSH connection."
+            "This is the original SSH transport; open a new SSH connection."
         )
 
     already = bool(data.get("acknowledged"))
