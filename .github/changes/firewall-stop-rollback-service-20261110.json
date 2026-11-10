@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): stop rollback service with timer",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "    runner(\n        [systemctl, \"stop\", f\"{unit}.timer\"],\n        check=False,\n        timeout=15,\n    )",
+      "new": "    runner(\n        [systemctl, \"stop\", f\"{unit}.timer\", f\"{unit}.service\"],\n        check=False,\n        timeout=15,\n    )"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "            self.assertLess(arm, dry)\n            self.assertLess(dry, live)\n",
+      "new": "            self.assertLess(arm, dry)\n            self.assertLess(dry, live)\n            self.assertTrue(any(\n                call[0].endswith(\"/systemctl\")\n                and call[1] == \"stop\"\n                and call[2].endswith(\".timer\")\n                and call[3].endswith(\".service\")\n                for call in calls\n            ))\n"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "- SAFETY rollback zůstává nezávislý systemd timer a autorita při ztrátě spojení/procesu. Token i živý odpočet používají stejný konzervativní deadline zachycený při armování systemd timeru, takže UI nikdy nepřidává nových 90 s až po dry-run/live enable. Headless příkaz pouze označí ověřenou novou SSH session; původní Apply teprve potom zruší rollback, znovu ověří live candidate a uloží finální apply state.",
+      "new": "- SAFETY rollback zůstává nezávislý systemd timer a autorita při ztrátě spojení/procesu. Token i živý odpočet používají stejný konzervativní deadline zachycený při armování systemd timeru, takže UI nikdy nepřidává nových 90 s až po dry-run/live enable. Při finalizaci/ručním restore se zastaví timer i případně již startující rollback service; teprve potom se znovu ověří live candidate a uloží finální apply state."
+    }
+  ]
+}
