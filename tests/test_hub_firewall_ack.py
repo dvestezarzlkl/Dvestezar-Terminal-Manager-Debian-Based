@@ -84,7 +84,7 @@ class FirewallAckTests(unittest.TestCase):
             with patch.object(os, "geteuid", return_value=0):
                 with self.assertRaisesRegex(
                     FirewallAckError,
-                    "original session",
+                    "original SSH transport",
                 ):
                     acknowledge_pending(
                         token,
