@@ -351,6 +351,13 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             )
             self.assertLess(arm, dry)
             self.assertLess(dry, live)
+            self.assertTrue(any(
+                call[0].endswith("/systemctl")
+                and call[1] == "stop"
+                and call[2].endswith(".timer")
+                and call[3].endswith(".service")
+                for call in calls
+            ))
 
     def test_inactive_apply_enables_and_rejected_ack_restores_original_files(self):
         with tempfile.TemporaryDirectory() as tmp:

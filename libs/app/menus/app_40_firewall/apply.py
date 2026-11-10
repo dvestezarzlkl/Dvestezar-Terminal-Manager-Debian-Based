@@ -293,7 +293,7 @@ def _arm_rollback(
 def _cancel_rollback(unit: str, *, runner: Runner) -> None:
     systemctl = _binary("systemctl")
     runner(
-        [systemctl, "stop", f"{unit}.timer"],
+        [systemctl, "stop", f"{unit}.timer", f"{unit}.service"],
         check=False,
         timeout=15,
     )
