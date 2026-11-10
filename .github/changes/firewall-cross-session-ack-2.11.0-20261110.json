@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): require acknowledgement from new SSH session",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "from uuid import uuid4\n\nfrom .compiler import (",
+      "new": "from uuid import uuid4\n\nfrom .ack import clear_pending_ack, create_pending_ack\nfrom .compiler import ("
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "    state: Path = Path(\"/var/lib/jb_sys_apps/firewall/state.json\")\n    backups: Path = Path(\"/var/lib/jb_sys_apps/firewall/backups\")",
+      "new": "    state: Path = Path(\"/var/lib/jb_sys_apps/firewall/state.json\")\n    backups: Path = Path(\"/var/lib/jb_sys_apps/firewall/backups\")\n    pending_ack: Path = Path(\"/run/jb_sys_apps/firewall/pending_ack.json\")"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "Acknowledge = Callable[[int], bool]",
+      "new": "Acknowledge = Callable[[str, int], bool]"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "    mutation_started = False\n    try:\n        # Recheck after arming the timer: another administrator/process may",
+      "new": "    mutation_started = False\n    token = \"\"\n    try:\n        # Recheck after arming the timer: another administrator/process may"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "        if before6 is not None:\n            _assert_source_unchanged(paths.before6, before6)\n\n        if plan.ipv4.changed:",
+      "new": "        if before6 is not None:\n            _assert_source_unchanged(paths.before6, before6)\n\n        token = create_pending_ack(\n            paths.pending_ack,\n            seconds=rollback_seconds,\n            rollback_unit=unit,\n        )\n\n        if plan.ipv4.changed:"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "        accepted = bool(acknowledge(rollback_seconds))",
+      "new": "        accepted = bool(acknowledge(token, rollback_seconds))"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "        raise\n\n\ndef disable_ufw",
+      "new": "        raise\n    finally:\n        if token:\n            clear_pending_ack(token, path=paths.pending_ack)\n\n\ndef disable_ufw"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "from __future__ import annotations\n\nfrom pathlib import Path\nimport re",
+      "new": "from __future__ import annotations\n\nfrom math import ceil\nfrom pathlib import Path\nimport re\nfrom time import monotonic"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "from libs.JBLibs.helper import loadLng\nloadLng()",
+      "new": "from libs.JBLibs.helper import loadLng, sleep_ms\nloadLng()"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "from libs.JBLibs.term import en_color, text_color\n\nfrom .apply import FirewallApplyError, apply_local_config, disable_ufw",
+      "new": "from libs.JBLibs.term import clearRow, en_color, savePos, text_color\n\nfrom .ack import is_pending_acknowledged\nfrom .apply import ApplyPaths, FirewallApplyError, apply_local_config, disable_ufw"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "    _VERSION_ = \"0.5.3\"",
+      "new": "    _VERSION_ = \"0.6.0\""
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "    def _acknowledge_live_apply(self, seconds: int) -> bool:\n        return confirm(\n            TXT_FW_APPLY_ACK.format(seconds=seconds),\n            minMessageWidth=self.minMenuWidth,\n        )",
+      "new": "    def _acknowledge_live_apply(self, token: str, seconds: int) -> bool:\n        print(TXT_FW_APPLY_ACK.format(token=token, seconds=seconds))\n        deadline = monotonic() + seconds\n        last_remaining: int | None = None\n        savePos()\n        while True:\n            if is_pending_acknowledged(\n                token,\n                path=ApplyPaths().pending_ack,\n            ):\n                clearRow(1)\n                print(TXT_FW_APPLY_ACK_RECEIVED)\n                return True\n\n            remaining = max(0, ceil(deadline - monotonic()))\n            if remaining <= 0:\n                clearRow(1)\n                print(TXT_FW_APPLY_ACK_TIMEOUT)\n                return False\n\n            if remaining != last_remaining:\n                clearRow(1)\n                print(\n                    TXT_FW_APPLY_ACK_WAIT.format(seconds=remaining),\n                    end=\"\",\n                    flush=True,\n                )\n                last_remaining = remaining\n            sleep_ms(100)"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "expected": 1,
+      "old": "TXT_FW_APPLY_ACK = \"UFW is live. Open a NEW second SSH/management connection and verify a fresh login succeeds. Only then confirm within {seconds}s; without confirmation the previous state is restored automatically.\"",
+      "new": "TXT_FW_APPLY_ACK = \"UFW is live. Open a NEW SSH connection and run this command from the new session:\\n\\n    sys_apps ufw {token}\\n\\nThe independent rollback remains armed for {seconds}s.\"\nTXT_FW_APPLY_ACK_WAIT = \"Waiting for confirmation from the new SSH session: {seconds}s\"\nTXT_FW_APPLY_ACK_RECEIVED = \"New SSH session confirmed; finalizing firewall state.\"\nTXT_FW_APPLY_ACK_TIMEOUT = \"Confirmation timeout expired; restoring the previous firewall state.\"\nTXT_FW_ACK_CLI_USAGE = \"Usage: sys_apps ufw <token>\"\nTXT_FW_ACK_CLI_OK = \"Firewall acknowledgement accepted from this SSH session ({seconds}s remaining).\"\nTXT_FW_ACK_CLI_FAIL = \"Firewall acknowledgement failed: {reason}\""
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "expected": 1,
+      "old": "TXT_FW_APPLY_ACK = \"UFW je aplikované. Otevřete NOVÉ druhé SSH/správcovské připojení a ověřte, že se skutečně přihlásí. Teprve potom potvrďte do {seconds} s; bez potvrzení se konfigurace automaticky vrátí.\"",
+      "new": "TXT_FW_APPLY_ACK = \"UFW je aplikované. Otevřete NOVÉ SSH připojení a v nové session spusťte:\\n\\n    sys_apps ufw {token}\\n\\nNezávislý rollback zůstává aktivní po dobu {seconds} s.\"\nTXT_FW_APPLY_ACK_WAIT = \"Čekám na potvrzení z nové SSH session: {seconds} s\"\nTXT_FW_APPLY_ACK_RECEIVED = \"Nová SSH session potvrzena; dokončuji stav firewallu.\"\nTXT_FW_APPLY_ACK_TIMEOUT = \"Čas pro potvrzení vypršel; vracím předchozí stav firewallu.\"\nTXT_FW_ACK_CLI_USAGE = \"Použití: sys_apps ufw <token>\"\nTXT_FW_ACK_CLI_OK = \"Firewall byl potvrzen z této nové SSH session (zbývá {seconds} s).\"\nTXT_FW_ACK_CLI_FAIL = \"Firewall nelze potvrdit: {reason}\""
+    },
+    {
+      "path": "venv_run.py",
+      "expected": 1,
+      "old": "setLng(cfg.LANGUAGE)\nlog.info(\"Startup bootstrap language setup: done in %.3fs\", perf_counter() - _language_started)\n\n_term_import_started = perf_counter()",
+      "new": "setLng(cfg.LANGUAGE)\nlog.info(\"Startup bootstrap language setup: done in %.3fs\", perf_counter() - _language_started)\n\n# Firewall acknowledgement must bypass the interactive menu/session lock so it\n# can be executed from the newly opened SSH connection while Apply is waiting.\nif sys.argv[1:2] == [\"ufw\"]:\n    from libs.app.menus.app_40_firewall.headless import main as firewall_headless_main\n    sys.exit(firewall_headless_main(sys.argv[2:]))\n\n_term_import_started = perf_counter()"
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "expected": 1,
+      "old": "VERSION = \"2.10.4\"",
+      "new": "VERSION = \"2.11.0\""
+    },
+    {
+      "path": "readme.md",
+      "expected": 1,
+      "old": "v2.10.4",
+      "new": "v2.11.0"
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "expected": 1,
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.5.3\")",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.6.0\")"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "            state=root / \"var\" / \"state.json\",\n            backups=root / \"var\" / \"backups\",",
+      "new": "            state=root / \"var\" / \"state.json\",\n            backups=root / \"var\" / \"backups\",\n            pending_ack=root / \"run\" / \"pending_ack.json\","
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 4,
+      "old": "acknowledge=lambda seconds:",
+      "new": "acknowledge=lambda token, seconds:"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "            self.assertTrue(paths.state.is_file())\n            arm = next(",
+      "new": "            self.assertTrue(paths.state.is_file())\n            self.assertFalse(paths.pending_ack.exists())\n            arm = next("
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Module 0.5.3 owns local desired state",
+      "new": "- Module 0.6.0 owns local desired state"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require live management acknowledgement and verify candidate hashes before committing local apply state.",
+      "new": "- Manual Apply must preserve unrelated UFW lines, stage/validate deterministic candidates, back up every touched file, arm an independent time-limited rollback before live activation, run UFW dry-run validation, apply atomically, require acknowledgement from a newly opened SSH session through the one-time `sys_apps ufw <token>` headless command, and verify candidate hashes before committing local apply state. The acknowledgement command must bypass the normal menu lock, reject the original SSH session, reject non-SSH invocation, and fail after the rollback deadline."
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "expected": 1,
+      "old": "Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.10.4 / Firewall Manager 0.5.3 (2026-11-09). Hub/hourly auto-apply and production/new21 takeover remain disabled. VM testing fixed the IPv6 UFW chain namespace mismatch (`before6.rules` requires `ufw6-before-*`) and the inactive dry-run CLI ordering (`ufw --dry-run --force enable`); preflight validates the exact full IPv4/IPv6 candidate files before mutation.",
+      "new": "Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.11.0 / Firewall Manager 0.6.0 (2026-11-10). Hub/hourly auto-apply and production/new21 takeover remain disabled. VM testing fixed the IPv6 UFW chain namespace mismatch and inactive dry-run CLI ordering. Live Apply now uses a one-time cross-session acknowledgement: the original terminal shows `sys_apps ufw <token>` with a 90 s countdown and only a different newly opened SSH session may acknowledge the pending transaction."
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "# Changelog\n\n## v2.10.4\n",
+      "new": "# Changelog\n\n## v2.11.0\n\n- SAFETY Firewall Manager 0.6.0 nahrazuje původní `Y/N` potvrzení po live Apply jednorázovým cross-session tokenem. Původní terminál zobrazí `sys_apps ufw <token>` a živý 90s odpočet; potvrzení přijme pouze nová SSH session, nikoli původní spojení ani lokální konzole.\n- ADD `sys_apps ufw <token>` je lehká headless cesta spuštěná před interaktivním menu lockem. Pending stav je root-only v `/run/jb_sys_apps/firewall/pending_ack.json`, ukládá hash tokenu, deadline, rollback unit a identitu původní SSH session. Token je jednorázový a po expiraci neplatí.\n- SAFETY rollback zůstává nezávislý systemd timer a autorita při ztrátě spojení/procesu. Headless příkaz pouze označí ověřenou novou SSH session; původní Apply teprve potom zruší rollback, znovu ověří live candidate a uloží finální apply state. Pozdní potvrzení už nemůže být zaměněno za platné `Y` po timeoutu.\n- UX čekání používá existující JBLibs terminal primitives pro přepis jednoho řádku s odpočtem; nevzniká druhý confirm/input framework.\n\n## v2.10.4\n"
+    }
+  ]
+}
