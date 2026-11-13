@@ -126,6 +126,7 @@ TXT_FW_NATIVE_RULES_EMPTY = "Nejsou nastavena žádná číslovaná nativní UFW
 TXT_FW_NATIVE_RULE_DELETE_CONFIRM = "Smazat nativní UFW pravidlo [{number}] {rule}?"
 TXT_FW_NATIVE_RULE_DELETED = "Smazáno: {rule}. Vyberte další pravidlo nebo ESC pro návrat."
 TXT_FW_NATIVE_RULE_DELETE_LAST = "Vybrané UFW pravidlo bylo smazáno; žádná číslovaná nativní UFW pravidla nezůstala."
+TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = "Potvrzení z nového SSH nebylo dokončeno; smazání nativního UFW pravidla bylo vráceno. Záloha: {backup}"
 TXT_FW_NATIVE_RULES_FAIL = "Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}"
 TXT_FW_ACTIVATE = "UFW není aktivní - aktivovat a aplikovat lokální konfiguraci (chráněný rollback)"
 TXT_FW_APPLY_CONFIRM = "Aplikovat lokální firewall.json do UFW? Před reloadem bude vytvořena záloha a aktivován časovaný rollback."

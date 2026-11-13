@@ -309,9 +309,10 @@ class menu(c_menu):
                 continue
 
             try:
-                remaining = delete_numbered_ufw_rule(
+                delete_result = delete_numbered_ufw_rule(
                     rule,
                     snapshot=rules,
+                    acknowledge=self._acknowledge_live_apply,
                 )
             except FirewallApplyError as exc:
                 return onSelReturn().errRet(
@@ -319,7 +320,11 @@ class menu(c_menu):
                 )
 
             self.menuRecycle = True
-            if not remaining:
+            if delete_result.status == "ROLLED_BACK":
+                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK.format(
+                    backup=delete_result.backup_dir
+                ))
+            if not delete_result.remaining:
                 return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)
             message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)
 
