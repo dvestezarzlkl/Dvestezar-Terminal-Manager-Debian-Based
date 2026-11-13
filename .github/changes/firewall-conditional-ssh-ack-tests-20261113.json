@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "commit_message": "test(firewall): cover conditional SSH acknowledgement",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "                remaining = delete_numbered_ufw_rule(\n                    rule,\n                    snapshot=rules,\n                )",
+      "new": "                delete_result = delete_numbered_ufw_rule(\n                    rule,\n                    snapshot=rules,\n                    acknowledge=self._acknowledge_live_apply,\n                )"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "            self.menuRecycle = True\n            if not remaining:\n                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)\n            message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)",
+      "new": "            self.menuRecycle = True\n            if delete_result.status == \"ROLLED_BACK\":\n                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK.format(\n                    backup=delete_result.backup_dir\n                ))\n            if not delete_result.remaining:\n                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)\n            message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULE_DELETE_LAST = \"The selected UFW rule was deleted; no native numbered UFW rules remain.\"\nTXT_FW_NATIVE_RULES_FAIL",
+      "new": "TXT_FW_NATIVE_RULE_DELETE_LAST = \"The selected UFW rule was deleted; no native numbered UFW rules remain.\"\nTXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = \"Fresh SSH confirmation was not completed; the native UFW delete was rolled back. Backup: {backup}\"\nTXT_FW_NATIVE_RULES_FAIL"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULE_DELETE_LAST = \"Vybrané UFW pravidlo bylo smazáno; žádná číslovaná nativní UFW pravidla nezůstala.\"\nTXT_FW_NATIVE_RULES_FAIL",
+      "new": "TXT_FW_NATIVE_RULE_DELETE_LAST = \"Vybrané UFW pravidlo bylo smazáno; žádná číslovaná nativní UFW pravidla nezůstala.\"\nTXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = \"Potvrzení z nového SSH nebylo dokončeno; smazání nativního UFW pravidla bylo vráceno. Záloha: {backup}\"\nTXT_FW_NATIVE_RULES_FAIL"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "    UfwNumberedRule,\n    apply_local_config,",
+      "new": "    UfwNumberedRule,\n    apply_local_config,"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "from libs.app.menus.app_40_firewall.policy import FirewallPolicyError\n",
+      "new": "from libs.app.menus.app_40_firewall.policy import FirewallPolicyError\nfrom libs.app.menus.app_40_firewall.ssh_safety import SshManagementPath\n"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "        return ApplyPaths(\n            before4=before4,\n            before6=before6,\n            state=root / \"var\" / \"state.json\",\n            backups=root / \"var\" / \"backups\",\n            pending_ack=root / \"run\" / \"pending_ack.json\",\n        )",
+      "new": "        user4 = etc / \"user.rules\"\n        user6 = etc / \"user6.rules\"\n        user4.write_text(\"# user v4\\n\", encoding=\"utf-8\")\n        user6.write_text(\"# user v6\\n\", encoding=\"utf-8\")\n        return ApplyPaths(\n            before4=before4,\n            before6=before6,\n            state=root / \"var\" / \"state.json\",\n            backups=root / \"var\" / \"backups\",\n            pending_ack=root / \"run\" / \"pending_ack.json\",\n            user4=user4,\n            user6=user6,\n        )"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "    def test_inactive_apply_enables_and_rejected_ack_restores_original_files(self):",
+      "new": "    def test_active_non_ssh_change_skips_fresh_ssh_ack(self):\n        with tempfile.TemporaryDirectory() as tmp:\n            paths = self._paths(Path(tmp))\n            calls: list[list[str]] = []\n            acknowledgements: list[tuple[str, float]] = []\n            statuses = [\n                SimpleNamespace(detected=True, status=\"active\"),\n                SimpleNamespace(detected=True, status=\"active\"),\n                SimpleNamespace(detected=True, status=\"active\"),\n            ]\n            with patch.object(\n                firewall_apply, \"_binary\", side_effect=lambda name: f\"/usr/bin/{name}\"\n            ), patch.object(\n                firewall_apply, \"inspect_ufw_service\", side_effect=statuses\n            ), patch.object(\n                firewall_apply,\n                \"current_ssh_path\",\n                return_value=SshManagementPath(\n                    server_port=22,\n                    client_ip=\"192.168.88.10\",\n                    client_port=51000,\n                    server_ip=\"192.168.88.46\",\n                ),\n            ), patch.object(\n                firewall_apply.os, \"fchown\", return_value=None\n            ):\n                result = apply_local_config(\n                    config(),\n                    acknowledge=lambda token, expires: acknowledgements.append((token, expires)) or True,\n                    paths=paths,\n                    runner=self._runner(calls),\n                )\n\n            self.assertEqual(result.status, \"APPLIED\")\n            self.assertEqual(acknowledgements, [])\n            self.assertFalse(paths.pending_ack.exists())\n            self.assertTrue(any(\n                call[-2:] == [\"/usr/bin/ufw\", \"reload\"]\n                for call in calls\n            ))\n\n    def test_active_ssh_port_change_requires_fresh_ssh_ack(self):\n        cfg = FirewallConfig(rules=(\n            FirewallRule(\n                \"b\" * 32,\n                \"standard\",\n                True,\n                \"ssh deny test\",\n                direction=\"input\",\n                action=\"deny\",\n                protocol=\"tcp\",\n                dst_ports=\"22\",\n            ),\n        ))\n        with tempfile.TemporaryDirectory() as tmp:\n            paths = self._paths(Path(tmp))\n            calls: list[list[str]] = []\n            acknowledgements: list[tuple[str, float]] = []\n            statuses = [\n                SimpleNamespace(detected=True, status=\"active\"),\n                SimpleNamespace(detected=True, status=\"active\"),\n                SimpleNamespace(detected=True, status=\"active\"),\n            ]\n            with patch.object(\n                firewall_apply, \"_binary\", side_effect=lambda name: f\"/usr/bin/{name}\"\n            ), patch.object(\n                firewall_apply, \"inspect_ufw_service\", side_effect=statuses\n            ), patch.object(\n                firewall_apply,\n                \"current_ssh_path\",\n                return_value=SshManagementPath(\n                    server_port=22,\n                    client_ip=\"192.168.88.10\",\n                    client_port=51000,\n                    server_ip=\"192.168.88.46\",\n                ),\n            ), patch.object(\n                firewall_apply.os, \"fchown\", return_value=None\n            ):\n                result = apply_local_config(\n                    cfg,\n                    acknowledge=lambda token, expires: acknowledgements.append((token, expires)) or True,\n                    paths=paths,\n                    runner=self._runner(calls),\n                )\n\n            self.assertEqual(result.status, \"APPLIED\")\n            self.assertEqual(len(acknowledgements), 1)\n            self.assertTrue(acknowledgements[0][0])\n            self.assertFalse(paths.pending_ack.exists())\n\n    def test_inactive_apply_enables_and_rejected_ack_restores_original_files(self):"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "            remaining = delete_numbered_ufw_rule(\n                snapshot[0], snapshot=snapshot, runner=runner\n            )\n\n        self.assertEqual(\n            remaining,\n            (UfwNumberedRule(1, \"22/tcp (v6) ALLOW IN Anywhere (v6)\"),),\n        )",
+      "new": "            with patch.object(\n                firewall_apply,\n                \"current_ssh_path\",\n                return_value=SshManagementPath(\n                    server_port=2222,\n                    client_ip=\"192.168.88.10\",\n                    client_port=51000,\n                    server_ip=\"192.168.88.46\",\n                ),\n            ):\n                result = delete_numbered_ufw_rule(\n                    snapshot[0],\n                    snapshot=snapshot,\n                    acknowledge=lambda token, expires: True,\n                    paths=paths,\n                    runner=runner,\n                )\n\n        self.assertEqual(result.status, \"DELETED\")\n        self.assertFalse(result.ssh_ack_required)\n        self.assertEqual(\n            result.remaining,\n            (UfwNumberedRule(1, \"22/tcp (v6) ALLOW IN Anywhere (v6)\"),),\n        )"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "    def test_native_ufw_delete_aborts_if_numbered_snapshot_changed(self):",
+      "new": "    def test_native_ssh_allow_delete_requires_ack_and_rolls_back_when_rejected(self):\n        before = \"\\n\".join((\n            \"Status: active\",\n            \"[ 1] 22/tcp ALLOW IN Anywhere\",\n        ))\n        after = \"Status: active\\n\"\n        status_outputs = iter((before, before, after))\n        calls: list[list[str]] = []\n\n        def runner(args, **kwargs):\n            calls.append(list(args))\n            if args[-2:] == [\"status\", \"numbered\"]:\n                return subprocess.CompletedProcess(args, 0, next(status_outputs), \"\")\n            return subprocess.CompletedProcess(args, 0, \"\", \"\")\n\n        with tempfile.TemporaryDirectory() as tmp:\n            paths = self._paths(Path(tmp))\n            original4 = paths.user4.read_text(encoding=\"utf-8\")\n            with patch.object(\n                firewall_apply, \"_binary\", side_effect=lambda name: f\"/usr/bin/{name}\"\n            ), patch.object(\n                firewall_apply,\n                \"current_ssh_path\",\n                return_value=SshManagementPath(\n                    server_port=22,\n                    client_ip=\"192.168.88.10\",\n                    client_port=51000,\n                    server_ip=\"192.168.88.46\",\n                ),\n            ):\n                snapshot = list_numbered_ufw_rules(runner=runner)\n                result = delete_numbered_ufw_rule(\n                    snapshot[0],\n                    snapshot=snapshot,\n                    acknowledge=lambda token, expires: False,\n                    paths=paths,\n                    runner=runner,\n                )\n\n            self.assertEqual(result.status, \"ROLLED_BACK\")\n            self.assertTrue(result.ssh_ack_required)\n            self.assertEqual(paths.user4.read_text(encoding=\"utf-8\"), original4)\n            self.assertTrue(any(\n                call[0].endswith(\"/systemd-run\") for call in calls\n            ))\n            self.assertTrue(any(\n                call[-3:] == [\"/usr/bin/ufw\", \"--force\", \"delete\", \"1\"]\n                for call in calls\n            ))\n\n    def test_native_ufw_delete_aborts_if_numbered_snapshot_changed(self):"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "                delete_numbered_ufw_rule(\n                    snapshot[0], snapshot=snapshot, runner=runner\n                )",
+      "new": "                delete_numbered_ufw_rule(\n                    snapshot[0],\n                    snapshot=snapshot,\n                    acknowledge=lambda token, expires: True,\n                    paths=self._paths(Path(tempfile.mkdtemp())),\n                    runner=runner,\n                )"
+    }
+  ]
+}
