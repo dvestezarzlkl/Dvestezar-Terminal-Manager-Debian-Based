@@ -108,7 +108,7 @@ def _binary(name: str) -> str:
     return found
 
 
-_UFW_NUMBERED_RULE_RE = re.compile(r"^\\s*\\[\\s*(\\d+)\\]\\s+(.+?)\\s*$")
+_UFW_NUMBERED_RULE_RE = re.compile(r"^\s*\[\s*(\d+)\]\s+(.+?)\s*$")
 
 
 def _parse_numbered_ufw_rules(output: str) -> tuple[UfwNumberedRule, ...]:

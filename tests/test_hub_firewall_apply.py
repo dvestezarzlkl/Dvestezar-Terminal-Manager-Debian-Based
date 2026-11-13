@@ -548,7 +548,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
     def test_native_ufw_parser_fails_closed_on_malformed_numbered_line(self):
         def runner(args, **kwargs):
             return subprocess.CompletedProcess(
-                args, 0, "Status: active\\n[ xx] broken rule\\n", ""
+                args, 0, "Status: active\n[ xx] broken rule\n", ""
             )
 
         with patch.object(
