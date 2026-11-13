@@ -99,20 +99,20 @@ def parse_console_command(text: str) -> UfwConsoleCommand:
     raw = str(text).strip()
     if not raw:
         raise UfwConsoleError("Command is empty.")
+    lowered = raw.lower()
 
-    if raw.startswith(":info "):
+    if lowered.startswith(":info "):
         profile = raw[6:].strip()
         if not profile:
             raise UfwConsoleError("Usage: :info <profile>")
         return UfwConsoleCommand("info", profile)
 
-    if raw.startswith(":list p "):
+    if lowered.startswith(":list p "):
         query = raw[8:].strip()
         if not query:
             raise UfwConsoleError("Usage: :list p <port|profile>")
         return UfwConsoleCommand("list-port", query)
 
-    lowered = raw.lower()
     if lowered == ":help":
         return UfwConsoleCommand("help")
     if lowered == ":srv":
@@ -278,8 +278,18 @@ def filter_table_rules(output: str, specs: tuple[UfwPortSpec, ...]) -> tuple[str
 
 
 def native_rule_matches_specs(text: str, specs: tuple[UfwPortSpec, ...]) -> bool:
-    lowered = str(text).lower()
-    for match in re.finditer(r"(?<!\d)(\d+)(?::(\d+))?(?:/(tcp|udp))?", lowered):
+    # `ufw status numbered` is columnar: To | Action | From. Only inspect
+    # the To column so a source address such as 192.168.88.80 is never
+    # mistaken for destination port 80.
+    match_rule = re.match(
+        r"^(?P<to>.+?)\s+(?:ALLOW|DENY|REJECT|LIMIT)\s+(?:IN|OUT)\s+.+$",
+        str(text).strip(),
+        re.IGNORECASE,
+    )
+    if match_rule is None:
+        return False
+    target = match_rule.group("to").replace("(v6)", "").strip().lower()
+    for match in re.finditer(r"(?<!\d)(\d+)(?::(\d+))?(?:/(tcp|udp))?", target):
         lo = int(match.group(1))
         hi = int(match.group(2) or lo)
         proto = match.group(3)

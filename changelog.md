@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.13.0
+
+- ADD Firewall Manager 0.8.0 rozšiřuje `UFW pravidla` na malou bezpečnou konzoli. Číslo pravidla zachovává guarded Delete, `add p ...` přidává ALLOW port s volitelným source/destination/proto a `add srv <profile>` přidává existující UFW application profile. Přesný UFW příkaz se vždy zobrazí před potvrzením; před mutací proběhne `ufw --dry-run` a po ní read-back číslovaného seznamu.
+- ADD read-only namespace: `:help`, `:srv` (`ufw app list`), `:info <profile>` (`ufw app info <profile>`), `:ver`, `:list` a `:list p <port|profile>`. Profil s mezerami je podporován jako celý zbytek příkazu.
+- DIAG `:list p` spojuje skutečné listenery z `ss`, nativní UFW numbered rules a live IPv4/IPv6 filter pravidla z `iptables-save` / `ip6tables-save`; při názvu UFW profilu nejdřív načte `ufw app info` a rozpozná jeho TCP/UDP porty/rozsahy.
+- SAFETY `:` příkazy jsou striktně read-only; native Edit se nezavádí. Přidávání je pouze ALLOW a používá argumentové pole bez shellu. Standardní dlouhodobá policy zůstává v `firewall.json`; nativní konzole slouží pro rychlou host-level UFW správu, profily a diagnostiku.
+
 ## v2.12.0
 
 - ADD Firewall Manager 0.7.0 přidává jednoduchou položku `UFW pravidla` pro úklid nativních/legacy pravidel z `ufw status numbered`. Seznam používá přímo číslování UFW a podporuje pouze explicitně potvrzené mazání; Add/Edit zůstává výhradně v lokálním `firewall.json`.

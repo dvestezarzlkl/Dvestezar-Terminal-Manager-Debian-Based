@@ -13,11 +13,16 @@ from libs.app.menus.app_40_firewall.apply import (
     ApplyPaths,
     FirewallApplyError,
     UfwNumberedRule,
+    add_native_ufw_rule,
     apply_local_config,
     build_apply_plan,
     delete_numbered_ufw_rule,
+    diagnose_ufw_port,
     disable_ufw,
     list_numbered_ufw_rules,
+    ufw_app_info,
+    ufw_app_list,
+    ufw_version,
 )
 from libs.app.menus.app_40_firewall.compiler import (
     build_candidate,
@@ -30,6 +35,15 @@ from libs.app.menus.app_40_firewall.config import (
 )
 from libs.app.menus.app_40_firewall.policy import FirewallPolicyError
 from libs.app.menus.app_40_firewall.ssh_safety import SshManagementPath
+from libs.app.menus.app_40_firewall.ufw_console import (
+    UfwAddPort,
+    UfwAddService,
+    UfwPortSpec,
+    build_ufw_add_args,
+    native_rule_matches_specs,
+    parse_console_command,
+    parse_ufw_app_ports,
+)
 
 
 def base_before() -> str:
@@ -557,6 +571,173 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 )
             self.assertEqual(result.status, "NO_CHANGE")
             self.assertEqual(calls, [])
+
+    def test_native_console_parser_supports_help_profiles_and_add_forms(self):
+        self.assertEqual(parse_console_command(":srv").kind, "services")
+        info = parse_console_command(":INFO Apache Full")
+        self.assertEqual((info.kind, info.value), ("info", "Apache Full"))
+        query = parse_console_command(":list p Apache Full")
+        self.assertEqual((query.kind, query.value), ("list-port", "Apache Full"))
+
+        add_port = parse_console_command(
+            "add p 3000 from 192.168.88.0/24 to 192.168.88.46 proto tcp"
+        )
+        self.assertEqual(add_port.kind, "add-port")
+        self.assertEqual(
+            add_port.value,
+            UfwAddPort(
+                3000,
+                "tcp",
+                "192.168.88.0/24",
+                "192.168.88.46",
+            ),
+        )
+        self.assertEqual(
+            build_ufw_add_args(add_port.value),
+            [
+                "allow", "from", "192.168.88.0/24",
+                "to", "192.168.88.46",
+                "port", "3000", "proto", "tcp",
+            ],
+        )
+
+        service = parse_console_command("add srv Apache Full")
+        self.assertEqual(service.kind, "add-service")
+        self.assertEqual(service.value, UfwAddService("Apache Full"))
+        self.assertEqual(
+            build_ufw_add_args(service.value),
+            ["allow", "Apache Full"],
+        )
+
+    def test_ufw_app_profiles_and_version_use_exact_commands(self):
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["app", "list"]:
+                return subprocess.CompletedProcess(args, 0, "Available applications:\\n  OpenSSH\\n  Apache Full\\n", "")
+            if len(args) >= 4 and args[-3:-1] == ["app", "info"]:
+                return subprocess.CompletedProcess(args, 0, "Profile: Apache Full\\nPorts:\\n  80,443/tcp\\n", "")
+            if args[-1:] == ["--version"]:
+                return subprocess.CompletedProcess(args, 0, "ufw 0.36.2\\n", "")
+            raise AssertionError(args)
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            self.assertIn("Apache Full", ufw_app_list(runner=runner))
+            self.assertIn("80,443/tcp", ufw_app_info("Apache Full", runner=runner))
+            self.assertEqual(ufw_version(runner=runner), "ufw 0.36.2")
+
+        self.assertIn(["/usr/sbin/ufw", "app", "list"], calls)
+        self.assertIn(["/usr/sbin/ufw", "app", "info", "Apache Full"], calls)
+        self.assertIn(["/usr/sbin/ufw", "--version"], calls)
+
+    def test_native_add_dry_runs_then_verifies_numbered_readback(self):
+        before = "\\n".join((
+            "Status: active",
+            "[ 1] 22/tcp ALLOW IN Anywhere",
+        ))
+        after = "\\n".join((
+            "Status: active",
+            "[ 1] 22/tcp ALLOW IN Anywhere",
+            "[ 2] 3000/tcp ALLOW IN Anywhere",
+        ))
+        status_outputs = iter((before, after))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(args, 0, next(status_outputs), "")
+            if "--dry-run" in args:
+                return subprocess.CompletedProcess(args, 0, "dry-run", "")
+            if args[-2:] == ["allow", "3000/tcp"]:
+                return subprocess.CompletedProcess(args, 0, "Rule added", "")
+            raise AssertionError(args)
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            result = add_native_ufw_rule(
+                UfwAddPort(3000, "tcp"),
+                runner=runner,
+            )
+
+        self.assertEqual(result.status, "ADDED")
+        self.assertIn(
+            ["/usr/sbin/ufw", "--dry-run", "allow", "3000/tcp"],
+            calls,
+        )
+        self.assertIn(
+            ["/usr/sbin/ufw", "allow", "3000/tcp"],
+            calls,
+        )
+
+    def test_profile_port_diagnostics_combines_listeners_ufw_and_live_tables(self):
+        calls: list[list[str]] = []
+        app_info = "Profile: Apache Full\\nPorts:\\n  80,443/tcp\\n"
+        numbered = "\\n".join((
+            "Status: active",
+            "[ 1] Apache Full ALLOW IN Anywhere",
+            "[ 2] 3000/tcp ALLOW IN Anywhere",
+        ))
+        ss_output = "\\n".join((
+            "tcp LISTEN 0 511 0.0.0.0:80 0.0.0.0:* users:((\\\"apache2\\",pid=10,fd=3))",
+            "tcp LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:* users:((\\\"gitea\\",pid=11,fd=4))",
+        ))
+        ipv4 = "-A ufw-before-input -p tcp --dport 80 -j ACCEPT\\n-A ufw-before-input -p tcp --dport 3000 -j ACCEPT\\n"
+        ipv6 = "-A ufw6-before-input -p tcp --dport 443 -j ACCEPT\\n"
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-3:-1] == ["app", "info"]:
+                return subprocess.CompletedProcess(args, 0, app_info, "")
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(args, 0, numbered, "")
+            if args[0].endswith("/ss"):
+                return subprocess.CompletedProcess(args, 0, ss_output, "")
+            if args[0].endswith("/iptables-save"):
+                return subprocess.CompletedProcess(args, 0, ipv4, "")
+            if args[0].endswith("/ip6tables-save"):
+                return subprocess.CompletedProcess(args, 0, ipv6, "")
+            raise AssertionError(args)
+
+        with patch.object(
+            firewall_apply, "_binary", side_effect=lambda name: f"/usr/sbin/{name}"
+        ):
+            diag = diagnose_ufw_port("Apache Full", runner=runner)
+
+        self.assertEqual(
+            diag.specs,
+            (UfwPortSpec(80, 80, "tcp"), UfwPortSpec(443, 443, "tcp")),
+        )
+        self.assertEqual(len(diag.listeners), 1)
+        self.assertIn(":80 ", diag.listeners[0])
+        self.assertEqual([rule.number for rule in diag.native_rules], [1])
+        self.assertEqual(len(diag.ipv4_rules), 1)
+        self.assertIn("--dport 80", diag.ipv4_rules[0])
+        self.assertEqual(len(diag.ipv6_rules), 1)
+        self.assertIn("--dport 443", diag.ipv6_rules[0])
+
+    def test_native_port_match_does_not_treat_source_ip_octet_as_port(self):
+        specs = (UfwPortSpec(80, 80, "tcp"),)
+        self.assertTrue(
+            native_rule_matches_specs("80/tcp ALLOW IN Anywhere", specs)
+        )
+        self.assertFalse(
+            native_rule_matches_specs("Anywhere ALLOW IN 192.168.88.80", specs)
+        )
+
+    def test_ufw_app_port_parser_supports_comma_and_range_specs(self):
+        self.assertEqual(
+            parse_ufw_app_ports("Ports:\\n  80,443/tcp\\n  10000:10010/udp\\n"),
+            (
+                UfwPortSpec(80, 80, "tcp"),
+                UfwPortSpec(443, 443, "tcp"),
+                UfwPortSpec(10000, 10010, "udp"),
+            ),
+        )
 
     def test_numbered_ufw_rules_are_parsed_and_deleted_from_stable_snapshot(self):
         before = "\n".join((
