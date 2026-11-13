@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): add native UFW console backend",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "from dataclasses import dataclass\nfrom datetime import datetime",
+      "new": "from collections import Counter\nfrom dataclasses import dataclass\nfrom datetime import datetime"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "from .ssh_safety import (\n",
+      "new": "from .ufw_console import (\n    UfwAddPort,\n    UfwAddService,\n    UfwPortSpec,\n    build_ufw_add_args,\n    filter_ss_listeners,\n    filter_table_rules,\n    native_rule_matches_specs,\n    port_specs_for_query,\n)\nfrom .ssh_safety import (\n"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "class UfwDeleteResult:\n    status: str\n    remaining: tuple[UfwNumberedRule, ...]\n    backup_dir: str\n    ssh_ack_required: bool\n\n\nRunner =",
+      "new": "class UfwDeleteResult:\n    status: str\n    remaining: tuple[UfwNumberedRule, ...]\n    backup_dir: str\n    ssh_ack_required: bool\n\n\n@dataclass(frozen=True)\nclass UfwAddResult:\n    status: str\n    rules: tuple[UfwNumberedRule, ...]\n    command: tuple[str, ...]\n    output: str = \"\"\n\n\n@dataclass(frozen=True)\nclass UfwPortDiagnostics:\n    query: str\n    profile_info: str\n    specs: tuple[UfwPortSpec, ...]\n    listeners: tuple[str, ...]\n    native_rules: tuple[UfwNumberedRule, ...]\n    ipv4_rules: tuple[str, ...]\n    ipv6_rules: tuple[str, ...]\n\n\nRunner ="
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "def _discover_ssh_paths(*, runner: Runner) -> tuple[SshManagementPath, ...]:",
+      "new": "def ufw_app_list(*, runner: Runner = _run) -> str:\n    ufw = _binary(\"ufw\")\n    result = runner([ufw, \"app\", \"list\"], check=True, timeout=20)\n    return (result.stdout or \"\").strip()\n\n\ndef ufw_app_info(profile: str, *, runner: Runner = _run) -> str:\n    name = str(profile).strip()\n    if not name:\n        raise FirewallApplyError(\"UFW application profile name is empty.\")\n    ufw = _binary(\"ufw\")\n    result = runner([ufw, \"app\", \"info\", name], check=True, timeout=20)\n    return (result.stdout or \"\").strip()\n\n\ndef ufw_version(*, runner: Runner = _run) -> str:\n    ufw = _binary(\"ufw\")\n    result = runner([ufw, \"--version\"], check=True, timeout=15)\n    return (result.stdout or result.stderr or \"\").strip()\n\n\ndef add_native_ufw_rule(\n    spec: UfwAddPort | UfwAddService,\n    *,\n    runner: Runner = _run,\n) -> UfwAddResult:\n    if isinstance(spec, UfwAddService):\n        # Fail before mutation if the requested profile does not exist.\n        ufw_app_info(spec.profile, runner=runner)\n\n    before = list_numbered_ufw_rules(runner=runner)\n    ufw = _binary(\"ufw\")\n    args = build_ufw_add_args(spec)\n    runner([ufw, \"--dry-run\", *args], check=True, timeout=20)\n    result = runner([ufw, *args], check=True, timeout=30)\n    after = list_numbered_ufw_rules(runner=runner)\n\n    before_counts = Counter(item.text for item in before)\n    after_counts = Counter(item.text for item in after)\n    if before_counts - after_counts:\n        raise FirewallApplyError(\n            \"Native UFW rule set lost an existing rule during add; inspect UFW state.\"\n        )\n    status = \"NO_CHANGE\" if after == before else \"ADDED\"\n    return UfwAddResult(\n        status=status,\n        rules=after,\n        command=tuple([ufw, *args]),\n        output=(result.stdout or result.stderr or \"\").strip(),\n    )\n\n\ndef diagnose_ufw_port(\n    query: str,\n    *,\n    runner: Runner = _run,\n) -> UfwPortDiagnostics:\n    target = str(query).strip()\n    if not target:\n        raise FirewallApplyError(\"Port/profile query is empty.\")\n\n    profile_info = \"\"\n    if not target.isdigit():\n        profile_info = ufw_app_info(target, runner=runner)\n    try:\n        specs = port_specs_for_query(target, profile_info or None)\n    except ValueError as exc:\n        raise FirewallApplyError(str(exc)) from exc\n\n    ss = _binary(\"ss\")\n    ss_result = runner([ss, \"-H\", \"-lntup\"], check=True, timeout=20)\n    listeners = filter_ss_listeners(ss_result.stdout or \"\", specs)\n\n    native = list_numbered_ufw_rules(runner=runner)\n    native_matches = tuple(\n        rule for rule in native\n        if (\n            (not target.isdigit() and target.lower() in rule.text.lower())\n            or native_rule_matches_specs(rule.text, specs)\n        )\n    )\n\n    ipv4_rules: tuple[str, ...] = ()\n    ipv6_rules: tuple[str, ...] = ()\n    iptables_save = _binary(\"iptables-save\")\n    result4 = runner([iptables_save, \"-t\", \"filter\"], check=True, timeout=20)\n    ipv4_rules = filter_table_rules(result4.stdout or \"\", specs)\n\n    try:\n        ip6tables_save = _binary(\"ip6tables-save\")\n        result6 = runner([ip6tables_save, \"-t\", \"filter\"], check=True, timeout=20)\n        ipv6_rules = filter_table_rules(result6.stdout or \"\", specs)\n    except FirewallApplyError:\n        ipv6_rules = ()\n\n    return UfwPortDiagnostics(\n        query=target,\n        profile_info=profile_info,\n        specs=specs,\n        listeners=listeners,\n        native_rules=native_matches,\n        ipv4_rules=ipv4_rules,\n        ipv6_rules=ipv6_rules,\n    )\n\n\ndef _discover_ssh_paths(*, runner: Runner) -> tuple[SshManagementPath, ...]:"
+    }
+  ]
+}
