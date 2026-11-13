@@ -4,26 +4,34 @@ from __future__ import annotations
 from math import ceil
 from pathlib import Path
 import re
+import shlex
 from time import time
 
 from .lng.default import *
 from libs.JBLibs.helper import loadLng, sleep_ms
 loadLng()
 
+from libs.app import cfg as app_cfg
+
 from libs.JBLibs.c_menu import (
     c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn,
 )
-from libs.JBLibs.input import anyKey, confirm, select, select_item, selectFile
+from libs.JBLibs.input import anyKey, confirm, get_input, select, select_item, selectFile
 from libs.JBLibs.term import clearRow, en_color, savePos, text_color
 
 from .ack import is_pending_acknowledged
 from .apply import (
     ApplyPaths,
     FirewallApplyError,
+    add_native_ufw_rule,
     apply_local_config,
     delete_numbered_ufw_rule,
+    diagnose_ufw_port,
     disable_ufw,
     list_numbered_ufw_rules,
+    ufw_app_info,
+    ufw_app_list,
+    ufw_version,
 )
 from .compiler import (
     CandidateResult,
@@ -39,6 +47,13 @@ from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
 from .hub_sync import sync_local_rules_best_effort
 from .menu_rules import FirewallRulesMenu
 from .policy import FirewallPolicyError, inspect_before_rules
+from .ufw_console import (
+    UfwAddPort,
+    UfwAddService,
+    UfwConsoleError,
+    build_ufw_add_args,
+    parse_console_command,
+)
 
 _MENU_NAME_ = TXT_FW_MENU
 _HUB_PROVIDER_KEY_ = HUB_PROVIDER_KEY
@@ -47,7 +62,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.7.0"
+    _VERSION_ = "0.8.0"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -268,8 +283,45 @@ class menu(c_menu):
         self.menuRecycle = True
         return onSelReturn(ok=TXT_FW_DISABLE_OK)
 
+    @staticmethod
+    def _format_native_rules(rules) -> str:
+        if not rules:
+            return TXT_FW_NATIVE_RULES_EMPTY
+        return "\n".join(
+            f"[{rule.number:>2}] {rule.text}" for rule in rules
+        )
+
+    @staticmethod
+    def _format_port_diagnostics(diag) -> str:
+        specs = ", ".join(
+            (
+                f"{spec.start}/{spec.protocol}"
+                if spec.start == spec.end
+                else f"{spec.start}:{spec.end}/{spec.protocol}"
+            )
+            for spec in diag.specs
+        ) or "-"
+        lines = [
+            TXT_FW_CONSOLE_DIAG_QUERY.format(query=diag.query),
+            TXT_FW_CONSOLE_DIAG_PORTS.format(ports=specs),
+        ]
+        if diag.profile_info:
+            lines.extend(("", TXT_FW_CONSOLE_DIAG_PROFILE, diag.profile_info))
+        lines.extend(("", TXT_FW_CONSOLE_DIAG_LISTEN))
+        lines.extend(diag.listeners or ("-",))
+        lines.extend(("", TXT_FW_CONSOLE_DIAG_NATIVE))
+        lines.extend(
+            (f"[{rule.number}] {rule.text}" for rule in diag.native_rules)
+            if diag.native_rules else ("-",)
+        )
+        lines.extend(("", TXT_FW_CONSOLE_DIAG_IPV4))
+        lines.extend(diag.ipv4_rules or ("-",))
+        lines.extend(("", TXT_FW_CONSOLE_DIAG_IPV6))
+        lines.extend(diag.ipv6_rules or ("-",))
+        return "\n".join(lines)
+
     def manage_native_ufw_rules(self, selItem: c_menu_item) -> onSelReturn:
-        message = TXT_FW_NATIVE_RULES_HINT
+        message = TXT_FW_NATIVE_CONSOLE_READY
         while True:
             try:
                 rules = list_numbered_ufw_rules()
@@ -278,55 +330,126 @@ class menu(c_menu):
                     TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
                 )
 
-            if not rules:
-                return onSelReturn(ok=TXT_FW_NATIVE_RULES_EMPTY)
-
-            selected = select(
-                message,
-                [
-                    select_item(
-                        rule.text,
-                        choice=str(rule.number),
-                        data=rule,
-                    )
-                    for rule in rules
-                ],
-                minMessageWidth=self.minMenuWidth,
-                title=TXT_FW_NATIVE_RULES_TITLE,
+            action = TXT_FW_NATIVE_CONSOLE_PROMPT.format(
+                rules=self._format_native_rules(rules),
+                message=message,
             )
-            if selected.item is None:
+            raw = get_input(
+                action,
+                False,
+                maxLen=512,
+                minMessageWidth=self.minMenuWidth,
+            )
+            if raw is None:
                 return onSelReturn()
 
-            rule = selected.item.data
-            if not confirm(
-                TXT_FW_NATIVE_RULE_DELETE_CONFIRM.format(
-                    number=rule.number,
-                    rule=rule.text,
-                ),
-                minMessageWidth=self.minMenuWidth,
-            ):
-                message = TXT_FW_NATIVE_RULES_HINT
+            try:
+                command = parse_console_command(raw)
+            except UfwConsoleError as exc:
+                message = TXT_FW_CONSOLE_ERROR.format(reason=str(exc))
+                continue
+
+            if command.kind == "help":
+                message = TXT_FW_CONSOLE_HELP
+                continue
+            if command.kind == "list":
+                message = TXT_FW_CONSOLE_LIST_REFRESHED
                 continue
 
             try:
-                delete_result = delete_numbered_ufw_rule(
-                    rule,
-                    snapshot=rules,
-                    acknowledge=self._acknowledge_live_apply,
-                )
-            except FirewallApplyError as exc:
-                return onSelReturn().errRet(
-                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
-                )
+                if command.kind == "services":
+                    message = ufw_app_list() or TXT_FW_CONSOLE_EMPTY_OUTPUT
+                    continue
+                if command.kind == "info":
+                    message = ufw_app_info(str(command.value)) or TXT_FW_CONSOLE_EMPTY_OUTPUT
+                    continue
+                if command.kind == "version":
+                    message = TXT_FW_CONSOLE_VERSION.format(
+                        sysapps=app_cfg.VERSION,
+                        firewall=self._VERSION_,
+                        ufw=ufw_version() or "-",
+                    )
+                    continue
+                if command.kind == "list-port":
+                    message = self._format_port_diagnostics(
+                        diagnose_ufw_port(str(command.value))
+                    )
+                    continue
 
-            self.menuRecycle = True
-            if delete_result.status == "ROLLED_BACK":
-                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK.format(
-                    backup=delete_result.backup_dir
-                ))
-            if not delete_result.remaining:
-                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)
-            message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)
+                if command.kind == "delete":
+                    number = int(command.value)
+                    rule = next(
+                        (item for item in rules if item.number == number),
+                        None,
+                    )
+                    if rule is None:
+                        message = TXT_FW_CONSOLE_RULE_NOT_FOUND.format(number=number)
+                        continue
+                    if not confirm(
+                        TXT_FW_NATIVE_RULE_DELETE_CONFIRM.format(
+                            number=rule.number,
+                            rule=rule.text,
+                        ),
+                        minMessageWidth=self.minMenuWidth,
+                    ):
+                        message = TXT_FW_CANCELLED
+                        continue
+                    delete_result = delete_numbered_ufw_rule(
+                        rule,
+                        snapshot=rules,
+                        acknowledge=self._acknowledge_live_apply,
+                    )
+                    self.menuRecycle = True
+                    if delete_result.status == "ROLLED_BACK":
+                        message = TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK.format(
+                            backup=delete_result.backup_dir
+                        )
+                    else:
+                        message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)
+                    continue
+
+                if command.kind in {"add-port", "add-service"}:
+                    spec = command.value
+                    args = build_ufw_add_args(spec)
+                    if isinstance(spec, UfwAddPort):
+                        summary = TXT_FW_CONSOLE_ADD_PORT_SUMMARY.format(
+                            port=spec.port,
+                            proto=spec.protocol,
+                            source=spec.source or "*",
+                            destination=spec.destination or "*",
+                        )
+                    elif isinstance(spec, UfwAddService):
+                        summary = TXT_FW_CONSOLE_ADD_SERVICE_SUMMARY.format(
+                            profile=spec.profile,
+                        )
+                    else:
+                        raise UfwConsoleError("Unsupported add command.")
+
+                    preview = shlex.join(["ufw", *args])
+                    if not confirm(
+                        TXT_FW_CONSOLE_ADD_CONFIRM.format(
+                            summary=summary,
+                            command=preview,
+                        ),
+                        minMessageWidth=self.minMenuWidth,
+                    ):
+                        message = TXT_FW_CANCELLED
+                        continue
+                    add_result = add_native_ufw_rule(spec)
+                    self.menuRecycle = True
+                    if add_result.status == "NO_CHANGE":
+                        message = TXT_FW_CONSOLE_ADD_NO_CHANGE.format(
+                            output=add_result.output or "-",
+                        )
+                    else:
+                        message = TXT_FW_CONSOLE_ADD_OK.format(
+                            output=add_result.output or "-",
+                        )
+                    continue
+
+                message = TXT_FW_CONSOLE_ERROR.format(reason="Unknown command.")
+            except (FirewallApplyError, UfwConsoleError) as exc:
+                message = TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
 
     def import_legacy_config(self, selItem: c_menu_item) -> onSelReturn:
         """Import one legacy VPN policy; merge with an existing v2 config."""
