@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): verify native UFW delete after rollback cancellation",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/ssh_safety.py",
+      "expected": 1,
+      "old": "from ipaddress import ip_address, ip_network\nimport re",
+      "new": "from ipaddress import ip_address, ip_network\nimport os\nimport re"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/ssh_safety.py",
+      "expected": 1,
+      "old": "    source = __import__(\"os\").environ if env is None else env",
+      "new": "    source = os.environ if env is None else env"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "        _cancel_rollback(unit, runner=runner)\n        return UfwDeleteResult(\"DELETED\", remaining, str(backup), require_ack)",
+      "new": "        _cancel_rollback(unit, runner=runner)\n        final_rules = list_numbered_ufw_rules(runner=runner)\n        if tuple(item.text for item in final_rules) != expected_texts:\n            _restore_native_backup(paths, backup, existed, ufw=ufw, runner=runner)\n            raise FirewallApplyError(\n                \"Rollback fired or native UFW state changed before finalization.\"\n            )\n        return UfwDeleteResult(\"DELETED\", final_rules, str(backup), require_ack)"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "        status_outputs = iter((before, before, before, after))\n        calls: list[list[str]] = []\n\n        def runner(args, **kwargs):\n            calls.append(list(args))\n            if args[-2:] == [\"status\", \"numbered\"]:\n                return subprocess.CompletedProcess(\n                    args, 0, next(status_outputs), \"\"\n                )",
+      "new": "        status_outputs = iter((before, before, before, after, after))\n        calls: list[list[str]] = []\n\n        def runner(args, **kwargs):\n            calls.append(list(args))\n            if args[-2:] == [\"status\", \"numbered\"]:\n                return subprocess.CompletedProcess(\n                    args, 0, next(status_outputs), \"\"\n                )"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "- SAFETY mazání nativního `ALLOW/LIMIT IN` pravidla, které může krýt používaný SSH port, používá stejný cross-session token a předem armovaný rollback `/etc/ufw/user.rules` + `user6.rules`. Nesouvisející delete se po ověření dokončí bez tokenu, ale rollback je i tak armovaný po dobu samotné mutace.",
+      "new": "- SAFETY mazání nativního `ALLOW/LIMIT IN` pravidla, které může krýt používaný SSH port, používá stejný cross-session token a předem armovaný rollback `/etc/ufw/user.rules` + `user6.rules`. Nesouvisející delete se po ověření dokončí bez tokenu, ale rollback je i tak armovaný po dobu samotné mutace; po zastavení timer/service se číslovaný stav ještě jednou načte, aby pozdní rollback nemohl být zaměněn za úspěšné smazání."
+    }
+  ]
+}
