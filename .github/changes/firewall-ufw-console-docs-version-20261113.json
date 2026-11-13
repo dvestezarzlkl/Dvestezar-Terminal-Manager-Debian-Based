@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "commit_message": "docs(firewall): define native UFW console contract",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULES_HINT = \"Delete-only cleanup of native UFW rules. Add/edit rules in firewall.json instead.\"",
+      "new": "TXT_FW_NATIVE_RULES_HINT = \"Native UFW console. Use rule number to delete, add ... to add, or :help.\""
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULES_FAIL = \"Native UFW rule operation failed safely: {reason}\"\nTXT_FW_ACTIVATE =",
+      "new": "TXT_FW_NATIVE_RULES_FAIL = \"Native UFW rule operation failed safely: {reason}\"\nTXT_FW_NATIVE_CONSOLE_READY = \"Enter a rule number to delete it, use add ... to add a rule, or :help for examples.\"\nTXT_FW_NATIVE_CONSOLE_PROMPT = \"Current native UFW rules:\\n{rules}\\n\\n{message}\"\nTXT_FW_CONSOLE_HELP = \"\"\"Commands:\\n  add p <port>\\n  add p <port> proto <tcp|udp>\\n  add p <port> from <ip/cidr>\\n  add p <port> from <ip/cidr> to <ip/cidr> proto <tcp|udp>\\n  add srv <profile>\\n\\nRead-only helpers:\\n  :help\\n  :srv                 ufw app list\\n  :info <profile>      ufw app info <profile>\\n  :ver\\n  :list\\n  :list p <port|profile>\\n\\nAliases: port=p, service=srv. Enter a displayed rule number to delete it.\"\"\"\nTXT_FW_CONSOLE_ERROR = \"Command error: {reason}\"\nTXT_FW_CONSOLE_LIST_REFRESHED = \"Native UFW rule list refreshed.\"\nTXT_FW_CONSOLE_EMPTY_OUTPUT = \"(no output)\"\nTXT_FW_CONSOLE_RULE_NOT_FOUND = \"Native UFW rule [{number}] does not exist in the current list.\"\nTXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\n{ufw}\"\nTXT_FW_CONSOLE_ADD_PORT_SUMMARY = \"ALLOW IN {proto} {source} -> {destination}:{port}\"\nTXT_FW_CONSOLE_ADD_SERVICE_SUMMARY = \"ALLOW UFW application profile: {profile}\"\nTXT_FW_CONSOLE_ADD_CONFIRM = \"Add this native UFW rule?\\n\\n{summary}\\n\\nCommand:\\n  {command}\"\nTXT_FW_CONSOLE_ADD_OK = \"Native UFW rule added. UFW output: {output}\"\nTXT_FW_CONSOLE_ADD_NO_CHANGE = \"UFW reported no numbered-rule change (possibly already present). Output: {output}\"\nTXT_FW_CONSOLE_DIAG_QUERY = \"Query: {query}\"\nTXT_FW_CONSOLE_DIAG_PORTS = \"Resolved ports: {ports}\"\nTXT_FW_CONSOLE_DIAG_PROFILE = \"UFW application profile:\"\nTXT_FW_CONSOLE_DIAG_LISTEN = \"LISTEN (ss):\"\nTXT_FW_CONSOLE_DIAG_NATIVE = \"Native UFW rules:\"\nTXT_FW_CONSOLE_DIAG_IPV4 = \"Live IPv4 filter rules:\"\nTXT_FW_CONSOLE_DIAG_IPV6 = \"Live IPv6 filter rules:\"\nTXT_FW_ACTIVATE ="
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULES_HINT = \"Pouze mazání nativních UFW pravidel. Přidání/editace patří do firewall.json.\"",
+      "new": "TXT_FW_NATIVE_RULES_HINT = \"Konzole nativních UFW pravidel. Číslo = smazat, add ... = přidat, :help = nápověda.\""
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "expected": 1,
+      "old": "TXT_FW_NATIVE_RULES_FAIL = \"Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}\"\nTXT_FW_ACTIVATE =",
+      "new": "TXT_FW_NATIVE_RULES_FAIL = \"Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}\"\nTXT_FW_NATIVE_CONSOLE_READY = \"Zadejte číslo pravidla pro smazání, add ... pro přidání nebo :help pro příklady.\"\nTXT_FW_NATIVE_CONSOLE_PROMPT = \"Aktuální nativní UFW pravidla:\\n{rules}\\n\\n{message}\"\nTXT_FW_CONSOLE_HELP = \"\"\"Přidání:\\n  add p <port>\\n  add p <port> proto <tcp|udp>\\n  add p <port> from <ip/cidr>\\n  add p <port> from <ip/cidr> to <ip/cidr> proto <tcp|udp>\\n  add srv <profile>\\n\\nRead-only pomoc:\\n  :help\\n  :srv                 ufw app list\\n  :info <profile>      ufw app info <profile>\\n  :ver\\n  :list\\n  :list p <port|profile>\\n\\nAlias: port=p, service=srv. Číslo zobrazeného pravidla = smazat.\"\"\"\nTXT_FW_CONSOLE_ERROR = \"Chyba příkazu: {reason}\"\nTXT_FW_CONSOLE_LIST_REFRESHED = \"Seznam nativních UFW pravidel byl obnoven.\"\nTXT_FW_CONSOLE_EMPTY_OUTPUT = \"(bez výstupu)\"\nTXT_FW_CONSOLE_RULE_NOT_FOUND = \"Nativní UFW pravidlo [{number}] v aktuálním seznamu neexistuje.\"\nTXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\n{ufw}\"\nTXT_FW_CONSOLE_ADD_PORT_SUMMARY = \"ALLOW IN {proto} {source} -> {destination}:{port}\"\nTXT_FW_CONSOLE_ADD_SERVICE_SUMMARY = \"ALLOW UFW aplikační profil: {profile}\"\nTXT_FW_CONSOLE_ADD_CONFIRM = \"Přidat toto nativní UFW pravidlo?\\n\\n{summary}\\n\\nPříkaz:\\n  {command}\"\nTXT_FW_CONSOLE_ADD_OK = \"Nativní UFW pravidlo bylo přidáno. Výstup UFW: {output}\"\nTXT_FW_CONSOLE_ADD_NO_CHANGE = \"Číslovaný seznam UFW se nezměnil (pravidlo už může existovat). Výstup: {output}\"\nTXT_FW_CONSOLE_DIAG_QUERY = \"Dotaz: {query}\"\nTXT_FW_CONSOLE_DIAG_PORTS = \"Rozpoznané porty: {ports}\"\nTXT_FW_CONSOLE_DIAG_PROFILE = \"UFW aplikační profil:\"\nTXT_FW_CONSOLE_DIAG_LISTEN = \"LISTEN (ss):\"\nTXT_FW_CONSOLE_DIAG_NATIVE = \"Nativní UFW pravidla:\"\nTXT_FW_CONSOLE_DIAG_IPV4 = \"Live IPv4 filter pravidla:\"\nTXT_FW_CONSOLE_DIAG_IPV6 = \"Live IPv6 filter pravidla:\"\nTXT_FW_ACTIVATE ="
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "expected": 1,
+      "old": "VERSION = \"2.12.0\"",
+      "new": "VERSION = \"2.13.0\""
+    },
+    {
+      "path": "readme.md",
+      "expected": 1,
+      "old": "v2.12.0",
+      "new": "v2.13.0"
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "expected": 1,
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.7.0\")",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.8.0\")"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "# Changelog\n\n## v2.12.0\n",
+      "new": "# Changelog\n\n## v2.13.0\n\n- ADD Firewall Manager 0.8.0 rozšiřuje `UFW pravidla` na malou bezpečnou konzoli. Číslo pravidla zachovává guarded Delete, `add p ...` přidává ALLOW port s volitelným source/destination/proto a `add srv <profile>` přidává existující UFW application profile. Přesný UFW příkaz se vždy zobrazí před potvrzením; před mutací proběhne `ufw --dry-run` a po ní read-back číslovaného seznamu.\n- ADD read-only namespace: `:help`, `:srv` (`ufw app list`), `:info <profile>` (`ufw app info <profile>`), `:ver`, `:list` a `:list p <port|profile>`. Profil s mezerami je podporován jako celý zbytek příkazu.\n- DIAG `:list p` spojuje skutečné listenery z `ss`, nativní UFW numbered rules a live IPv4/IPv6 filter pravidla z `iptables-save` / `ip6tables-save`; při názvu UFW profilu nejdřív načte `ufw app info` a rozpozná jeho TCP/UDP porty/rozsahy.\n- SAFETY `:` příkazy jsou striktně read-only; native Edit se nezavádí. Přidávání je pouze ALLOW a používá argumentové pole bez shellu. Standardní dlouhodobá policy zůstává v `firewall.json`; nativní konzole slouží pro rychlou host-level UFW správu, profily a diagnostiku.\n\n## v2.12.0\n"
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "expected": 1,
+      "old": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm** as SysApps 2.12.0 / Firewall Manager 0.7.0 (2026-11-13). Hub/hourly auto-apply and production/new21 takeover remain disabled. Activation of an inactive UFW always requires one-time `sys_apps ufw <token>` acknowledgement from a different SSH transport; active Apply requires it only when changed managed rules can affect the current SSH management tuple, otherwise the pre-armed rollback is cancelled immediately after successful verification. Native/legacy UFW rules can be listed through `ufw status numbered` and explicitly deleted; an SSH-relevant permissive delete uses the same token+rollback protection. Add/Edit remains exclusively owned by local `firewall.json`.",
+      "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm** as SysApps 2.13.0 / Firewall Manager 0.8.0 (2026-11-13). Hub/hourly auto-apply and production/new21 takeover remain disabled. Activation of an inactive UFW always requires one-time `sys_apps ufw <token>` acknowledgement from a different SSH transport; active Apply requires it only when changed managed rules can affect the current SSH management tuple. The native UFW console lists/deletes numbered rules, supports explicit confirmed ALLOW additions by port or existing `ufw app` profile, and exposes read-only `:srv`, `:info`, `:ver` and port/profile diagnostics. Native Edit is intentionally absent; durable managed policy remains owned by local `firewall.json`."
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Module 0.7.0 owns local desired state",
+      "new": "- Module 0.8.0 owns local desired state"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Native UFW rule cleanup is intentionally delete-only: list rules through `ufw status numbered`, never add/edit them from this path, and re-read the complete numbered snapshot immediately before `ufw --force delete <number>`. Any change in numbering/content must fail closed; after delete re-read and verify the expected remaining rule texts. Every native delete is wrapped in an independent backup/rollback of `user.rules` and `user6.rules`; deleting a permissive inbound rule that may cover the current SSH management port additionally requires the same fresh-SSH token before rollback cancellation.",
+      "new": "- Native UFW console owns lightweight host-level UFW operations only. Numbered Delete keeps the stable-snapshot + backup/rollback contract and SSH-relevant permissive deletes require fresh-SSH ACK. Add is allowed only as explicit `ALLOW` by one port or an existing `ufw app` profile; show the exact argument-vector-derived command, require confirmation, run UFW dry-run first, then verify numbered-rule read-back. Do not add native Edit or arbitrary raw UFW command execution; durable managed policy remains in `firewall.json`.\n- Native console commands prefixed with `:` are read-only. `:srv` maps to `ufw app list`, `:info <profile>` to `ufw app info <profile>`, and `:list p <port|profile>` may inspect `ss`, numbered UFW rules and live iptables/ip6tables filter rules. Never shell-evaluate console input; parse to validated argument arrays."
+    }
+  ]
+}
