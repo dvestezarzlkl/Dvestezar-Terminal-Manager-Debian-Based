@@ -573,7 +573,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             "[ 1] 22/tcp (v6)                ALLOW IN    Anywhere (v6)",
             "",
         ))
-        status_outputs = iter((before, before, before, after))
+        status_outputs = iter((before, before, before, after, after))
         calls: list[list[str]] = []
 
         def runner(args, **kwargs):

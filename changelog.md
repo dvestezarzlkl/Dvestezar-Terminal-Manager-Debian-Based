@@ -6,7 +6,7 @@
 - SAFETY před `ufw --force delete <number>` se znovu načte celý číslovaný snapshot a musí byte-semanticky odpovídat zobrazenému seznamu; jakákoli změna pořadí/obsahu delete zablokuje. Po smazání se stav znovu načte a ověří očekávaný zbytek, protože UFW pravidla okamžitě přečísluje.
 - UX po úspěšném smazání se číslovaný seznam znovu zobrazí, takže lze bezpečně uklidit více nativních pravidel bez vytváření druhého firewall editoru.
 - SAFETY fresh-SSH token už není vyžadován po každém aktivním Apply. Při zapnutí neaktivního UFW zůstává povinný vždy; při změně aktivního UFW se vyžaduje jen tehdy, když změněná SysApps pravidla mohou matchnout aktuální `SSH_CONNECTION`. Bez SSH runtime kontextu se použijí porty z `sshd -T`; pokud management cestu nelze spolehlivě určit, rozhodnutí je fail-closed a token se vyžádá.
-- SAFETY mazání nativního `ALLOW/LIMIT IN` pravidla, které může krýt používaný SSH port, používá stejný cross-session token a předem armovaný rollback `/etc/ufw/user.rules` + `user6.rules`. Nesouvisející delete se po ověření dokončí bez tokenu, ale rollback je i tak armovaný po dobu samotné mutace.
+- SAFETY mazání nativního `ALLOW/LIMIT IN` pravidla, které může krýt používaný SSH port, používá stejný cross-session token a předem armovaný rollback `/etc/ufw/user.rules` + `user6.rules`. Nesouvisející delete se po ověření dokončí bez tokenu, ale rollback je i tak armovaný po dobu samotné mutace; po zastavení timer/service se číslovaný stav ještě jednou načte, aby pozdní rollback nemohl být zaměněn za úspěšné smazání.
 
 ## v2.11.0
 

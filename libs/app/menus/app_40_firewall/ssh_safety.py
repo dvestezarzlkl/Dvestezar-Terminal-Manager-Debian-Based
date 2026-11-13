@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from ipaddress import ip_address, ip_network
+import os
 import re
 from typing import Iterable, Mapping
 
@@ -26,7 +27,7 @@ class SshManagementPath:
 def current_ssh_path(
     env: Mapping[str, str] | None = None,
 ) -> SshManagementPath | None:
-    source = __import__("os").environ if env is None else env
+    source = os.environ if env is None else env
     raw = str(source.get("SSH_CONNECTION", "")).strip()
     parts = raw.split()
     if len(parts) != 4:

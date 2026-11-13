@@ -249,7 +249,13 @@ def delete_numbered_ufw_rule(
             return UfwDeleteResult("ROLLED_BACK", snapshot, str(backup), True)
 
         _cancel_rollback(unit, runner=runner)
-        return UfwDeleteResult("DELETED", remaining, str(backup), require_ack)
+        final_rules = list_numbered_ufw_rules(runner=runner)
+        if tuple(item.text for item in final_rules) != expected_texts:
+            _restore_native_backup(paths, backup, existed, ufw=ufw, runner=runner)
+            raise FirewallApplyError(
+                "Rollback fired or native UFW state changed before finalization."
+            )
+        return UfwDeleteResult("DELETED", final_rules, str(backup), require_ack)
     except Exception:
         _cancel_rollback(unit, runner=runner)
         if mutation_started:
