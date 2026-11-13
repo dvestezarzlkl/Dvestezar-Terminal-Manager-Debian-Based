@@ -615,11 +615,21 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         def runner(args, **kwargs):
             calls.append(list(args))
             if args[-2:] == ["app", "list"]:
-                return subprocess.CompletedProcess(args, 0, "Available applications:\\n  OpenSSH\\n  Apache Full\\n", "")
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    "Available applications:\n  OpenSSH\n  Apache Full\n",
+                    "",
+                )
             if len(args) >= 4 and args[-3:-1] == ["app", "info"]:
-                return subprocess.CompletedProcess(args, 0, "Profile: Apache Full\\nPorts:\\n  80,443/tcp\\n", "")
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    "Profile: Apache Full\nPorts:\n  80,443/tcp\n",
+                    "",
+                )
             if args[-1:] == ["--version"]:
-                return subprocess.CompletedProcess(args, 0, "ufw 0.36.2\\n", "")
+                return subprocess.CompletedProcess(args, 0, "ufw 0.36.2\n", "")
             raise AssertionError(args)
 
         with patch.object(
@@ -634,11 +644,11 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         self.assertIn(["/usr/sbin/ufw", "--version"], calls)
 
     def test_native_add_dry_runs_then_verifies_numbered_readback(self):
-        before = "\\n".join((
+        before = "\n".join((
             "Status: active",
             "[ 1] 22/tcp ALLOW IN Anywhere",
         ))
-        after = "\\n".join((
+        after = "\n".join((
             "Status: active",
             "[ 1] 22/tcp ALLOW IN Anywhere",
             "[ 2] 3000/tcp ALLOW IN Anywhere",
@@ -676,18 +686,21 @@ class FirewallApplyTransactionTests(unittest.TestCase):
 
     def test_profile_port_diagnostics_combines_listeners_ufw_and_live_tables(self):
         calls: list[list[str]] = []
-        app_info = "Profile: Apache Full\\nPorts:\\n  80,443/tcp\\n"
-        numbered = "\\n".join((
+        app_info = "Profile: Apache Full\nPorts:\n  80,443/tcp\n"
+        numbered = "\n".join((
             "Status: active",
             "[ 1] Apache Full ALLOW IN Anywhere",
             "[ 2] 3000/tcp ALLOW IN Anywhere",
         ))
-        ss_output = "\\n".join((
-            "tcp LISTEN 0 511 0.0.0.0:80 0.0.0.0:* users:((\\\"apache2\\",pid=10,fd=3))",
-            "tcp LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:* users:((\\\"gitea\\",pid=11,fd=4))",
+        ss_output = "\n".join((
+            'tcp LISTEN 0 511 0.0.0.0:80 0.0.0.0:* users:(("apache2",pid=10,fd=3))',
+            'tcp LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:* users:(("gitea",pid=11,fd=4))',
         ))
-        ipv4 = "-A ufw-before-input -p tcp --dport 80 -j ACCEPT\\n-A ufw-before-input -p tcp --dport 3000 -j ACCEPT\\n"
-        ipv6 = "-A ufw6-before-input -p tcp --dport 443 -j ACCEPT\\n"
+        ipv4 = (
+            "-A ufw-before-input -p tcp --dport 80 -j ACCEPT\n"
+            "-A ufw-before-input -p tcp --dport 3000 -j ACCEPT\n"
+        )
+        ipv6 = "-A ufw6-before-input -p tcp --dport 443 -j ACCEPT\n"
 
         def runner(args, **kwargs):
             calls.append(list(args))
@@ -731,7 +744,9 @@ class FirewallApplyTransactionTests(unittest.TestCase):
 
     def test_ufw_app_port_parser_supports_comma_and_range_specs(self):
         self.assertEqual(
-            parse_ufw_app_ports("Ports:\\n  80,443/tcp\\n  10000:10010/udp\\n"),
+            parse_ufw_app_ports(
+                "Ports:\n  80,443/tcp\n  10000:10010/udp\n"
+            ),
             (
                 UfwPortSpec(80, 80, "tcp"),
                 UfwPortSpec(443, 443, "tcp"),
