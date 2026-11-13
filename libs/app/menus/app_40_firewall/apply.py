@@ -11,6 +11,7 @@ from hashlib import sha256
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import stat
@@ -65,6 +66,12 @@ class ApplyResult:
     backup_dir: str = ""
 
 
+@dataclass(frozen=True)
+class UfwNumberedRule:
+    number: int
+    text: str
+
+
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 Acknowledge = Callable[[str, float], bool]
 
@@ -99,6 +106,79 @@ def _binary(name: str) -> str:
     if not found:
         raise FirewallApplyError(f"Required command is not available: {name}")
     return found
+
+
+_UFW_NUMBERED_RULE_RE = re.compile(r"^\\s*\\[\\s*(\\d+)\\]\\s+(.+?)\\s*$")
+
+
+def _parse_numbered_ufw_rules(output: str) -> tuple[UfwNumberedRule, ...]:
+    rules: list[UfwNumberedRule] = []
+    for raw_line in output.splitlines():
+        if not raw_line.lstrip().startswith("["):
+            continue
+        match = _UFW_NUMBERED_RULE_RE.match(raw_line)
+        if match is None:
+            raise FirewallApplyError(
+                f"Cannot safely parse numbered UFW rule: {raw_line.strip()}"
+            )
+        number = int(match.group(1))
+        text = re.sub(r"\\s+", " ", match.group(2).strip())
+        if not text:
+            raise FirewallApplyError("Numbered UFW rule has an empty description.")
+        rules.append(UfwNumberedRule(number, text))
+
+    expected = list(range(1, len(rules) + 1))
+    if [rule.number for rule in rules] != expected:
+        raise FirewallApplyError(
+            "Numbered UFW rule list is not sequential; refusing mutation."
+        )
+    return tuple(rules)
+
+
+def list_numbered_ufw_rules(
+    *,
+    runner: Runner = _run,
+) -> tuple[UfwNumberedRule, ...]:
+    ufw = _binary("ufw")
+    result = runner(
+        [ufw, "status", "numbered"],
+        check=True,
+        timeout=20,
+    )
+    return _parse_numbered_ufw_rules(result.stdout or "")
+
+
+def delete_numbered_ufw_rule(
+    rule: UfwNumberedRule,
+    *,
+    snapshot: tuple[UfwNumberedRule, ...],
+    runner: Runner = _run,
+) -> tuple[UfwNumberedRule, ...]:
+    if rule not in snapshot:
+        raise FirewallApplyError("Selected UFW rule is not part of the displayed snapshot.")
+
+    current = list_numbered_ufw_rules(runner=runner)
+    if current != snapshot:
+        raise FirewallApplyError(
+            "UFW rule list changed after selection; reload the list and choose again."
+        )
+
+    ufw = _binary("ufw")
+    runner(
+        [ufw, "--force", "delete", str(rule.number)],
+        check=True,
+        timeout=30,
+    )
+
+    remaining = list_numbered_ufw_rules(runner=runner)
+    expected_texts = tuple(
+        item.text for item in snapshot if item.number != rule.number
+    )
+    if tuple(item.text for item in remaining) != expected_texts:
+        raise FirewallApplyError(
+            "UFW rule list changed unexpectedly after delete; inspect UFW state."
+        )
+    return remaining
 
 
 def _read_regular(path: Path, *, required: bool) -> str | None:

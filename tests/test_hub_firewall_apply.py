@@ -12,9 +12,12 @@ from libs.app.menus.app_40_firewall import apply as firewall_apply
 from libs.app.menus.app_40_firewall.apply import (
     ApplyPaths,
     FirewallApplyError,
+    UfwNumberedRule,
     apply_local_config,
     build_apply_plan,
+    delete_numbered_ufw_rule,
     disable_ufw,
+    list_numbered_ufw_rules,
 )
 from libs.app.menus.app_40_firewall.compiler import (
     build_candidate,
@@ -460,6 +463,101 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 )
             self.assertEqual(result.status, "NO_CHANGE")
             self.assertEqual(calls, [])
+
+    def test_numbered_ufw_rules_are_parsed_and_deleted_from_stable_snapshot(self):
+        before = "\n".join((
+            "Status: active",
+            "",
+            "     To                         Action      From",
+            "[ 1] 22/tcp                     ALLOW IN    Anywhere",
+            "[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)",
+            "",
+        ))
+        after = "\n".join((
+            "Status: active",
+            "",
+            "[ 1] 22/tcp (v6)                ALLOW IN    Anywhere (v6)",
+            "",
+        ))
+        status_outputs = iter((before, before, after))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(
+                    args, 0, next(status_outputs), ""
+                )
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            snapshot = list_numbered_ufw_rules(runner=runner)
+            self.assertEqual(snapshot, (
+                UfwNumberedRule(1, "22/tcp ALLOW IN Anywhere"),
+                UfwNumberedRule(2, "22/tcp (v6) ALLOW IN Anywhere (v6)"),
+            ))
+            remaining = delete_numbered_ufw_rule(
+                snapshot[0], snapshot=snapshot, runner=runner
+            )
+
+        self.assertEqual(
+            remaining,
+            (UfwNumberedRule(1, "22/tcp (v6) ALLOW IN Anywhere (v6)"),),
+        )
+        self.assertIn(
+            ["/usr/sbin/ufw", "--force", "delete", "1"],
+            calls,
+        )
+
+    def test_native_ufw_delete_aborts_if_numbered_snapshot_changed(self):
+        displayed = "\n".join((
+            "Status: active",
+            "[ 1] 22/tcp ALLOW IN Anywhere",
+            "[ 2] 80/tcp ALLOW IN Anywhere",
+        ))
+        changed = "\n".join((
+            "Status: active",
+            "[ 1] 80/tcp ALLOW IN Anywhere",
+        ))
+        status_outputs = iter((displayed, changed))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(
+                    args, 0, next(status_outputs), ""
+                )
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            snapshot = list_numbered_ufw_rules(runner=runner)
+            with self.assertRaisesRegex(
+                FirewallApplyError, "changed after selection"
+            ):
+                delete_numbered_ufw_rule(
+                    snapshot[0], snapshot=snapshot, runner=runner
+                )
+
+        self.assertFalse(any("delete" in call for call in calls))
+
+    def test_native_ufw_parser_fails_closed_on_malformed_numbered_line(self):
+        def runner(args, **kwargs):
+            return subprocess.CompletedProcess(
+                args, 0, "Status: active\\n[ xx] broken rule\\n", ""
+            )
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            with self.assertRaisesRegex(
+                FirewallApplyError, "Cannot safely parse"
+            ):
+                list_numbered_ufw_rules(runner=runner)
 
     def test_disable_is_explicit_and_verified(self):
         calls: list[list[str]] = []

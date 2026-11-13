@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.12.0
+
+- ADD Firewall Manager 0.7.0 přidává jednoduchou položku `UFW pravidla` pro úklid nativních/legacy pravidel z `ufw status numbered`. Seznam používá přímo číslování UFW a podporuje pouze explicitně potvrzené mazání; Add/Edit zůstává výhradně v lokálním `firewall.json`.
+- SAFETY před `ufw --force delete <number>` se znovu načte celý číslovaný snapshot a musí byte-semanticky odpovídat zobrazenému seznamu; jakákoli změna pořadí/obsahu delete zablokuje. Po smazání se stav znovu načte a ověří očekávaný zbytek, protože UFW pravidla okamžitě přečísluje.
+- UX po úspěšném smazání se číslovaný seznam znovu zobrazí, takže lze bezpečně uklidit více nativních pravidel bez vytváření druhého firewall editoru.
+
 ## v2.11.0
 
 - SAFETY Firewall Manager 0.6.0 nahrazuje původní `Y/N` potvrzení po live Apply jednorázovým cross-session tokenem. Původní terminál zobrazí `sys_apps ufw <token>` a živý 90s odpočet; potvrzení přijme pouze nová SSH session, nikoli původní spojení ani lokální konzole.

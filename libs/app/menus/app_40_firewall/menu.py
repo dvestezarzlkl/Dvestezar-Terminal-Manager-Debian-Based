@@ -13,11 +13,18 @@ loadLng()
 from libs.JBLibs.c_menu import (
     c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn,
 )
-from libs.JBLibs.input import anyKey, confirm, selectFile
+from libs.JBLibs.input import anyKey, confirm, select, select_item, selectFile
 from libs.JBLibs.term import clearRow, en_color, savePos, text_color
 
 from .ack import is_pending_acknowledged
-from .apply import ApplyPaths, FirewallApplyError, apply_local_config, disable_ufw
+from .apply import (
+    ApplyPaths,
+    FirewallApplyError,
+    apply_local_config,
+    delete_numbered_ufw_rule,
+    disable_ufw,
+    list_numbered_ufw_rules,
+)
 from .compiler import (
     CandidateResult,
     CompiledFirewall,
@@ -40,7 +47,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.6.0"
+    _VERSION_ = "0.7.0"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -103,6 +110,11 @@ class menu(c_menu):
                 text_color(TXT_FW_DISABLE, en_color.BRIGHT_RED),
                 "d",
                 self.disable_runtime,
+            ),
+            c_menu_item(
+                TXT_FW_NATIVE_RULES,
+                "u",
+                self.manage_native_ufw_rules,
             ),
             c_menu_title_label(TXT_FW_SECTION_INSPECT),
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
@@ -255,6 +267,61 @@ class menu(c_menu):
             return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
         self.menuRecycle = True
         return onSelReturn(ok=TXT_FW_DISABLE_OK)
+
+    def manage_native_ufw_rules(self, selItem: c_menu_item) -> onSelReturn:
+        message = TXT_FW_NATIVE_RULES_HINT
+        while True:
+            try:
+                rules = list_numbered_ufw_rules()
+            except FirewallApplyError as exc:
+                return onSelReturn().errRet(
+                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
+                )
+
+            if not rules:
+                return onSelReturn(ok=TXT_FW_NATIVE_RULES_EMPTY)
+
+            selected = select(
+                message,
+                [
+                    select_item(
+                        rule.text,
+                        choice=str(rule.number),
+                        data=rule,
+                    )
+                    for rule in rules
+                ],
+                minMessageWidth=self.minMenuWidth,
+                title=TXT_FW_NATIVE_RULES_TITLE,
+            )
+            if selected.item is None:
+                return onSelReturn()
+
+            rule = selected.item.data
+            if not confirm(
+                TXT_FW_NATIVE_RULE_DELETE_CONFIRM.format(
+                    number=rule.number,
+                    rule=rule.text,
+                ),
+                minMessageWidth=self.minMenuWidth,
+            ):
+                message = TXT_FW_NATIVE_RULES_HINT
+                continue
+
+            try:
+                remaining = delete_numbered_ufw_rule(
+                    rule,
+                    snapshot=rules,
+                )
+            except FirewallApplyError as exc:
+                return onSelReturn().errRet(
+                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
+                )
+
+            self.menuRecycle = True
+            if not remaining:
+                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)
+            message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)
 
     def import_legacy_config(self, selItem: c_menu_item) -> onSelReturn:
         """Import one legacy VPN policy; merge with an existing v2 config."""
