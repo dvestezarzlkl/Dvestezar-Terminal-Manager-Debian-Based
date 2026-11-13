@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): add delete-only native UFW rule cleanup",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "from pathlib import Path\nimport shlex",
+      "new": "from pathlib import Path\nimport re\nimport shlex"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "class ApplyResult:\n    status: str\n    changed_files: bool\n    activated: bool\n    backup_dir: str = \"\"\n\n\nRunner = Callable[..., subprocess.CompletedProcess[str]]",
+      "new": "class ApplyResult:\n    status: str\n    changed_files: bool\n    activated: bool\n    backup_dir: str = \"\"\n\n\n@dataclass(frozen=True)\nclass UfwNumberedRule:\n    number: int\n    text: str\n\n\nRunner = Callable[..., subprocess.CompletedProcess[str]]"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "expected": 1,
+      "old": "def _read_regular(path: Path, *, required: bool) -> str | None:",
+      "new": "_UFW_NUMBERED_RULE_RE = re.compile(r\"^\\\\s*\\\\[\\\\s*(\\\\d+)\\\\]\\\\s+(.+?)\\\\s*$\")\n\n\ndef _parse_numbered_ufw_rules(output: str) -> tuple[UfwNumberedRule, ...]:\n    rules: list[UfwNumberedRule] = []\n    for raw_line in output.splitlines():\n        if not raw_line.lstrip().startswith(\"[\"):\n            continue\n        match = _UFW_NUMBERED_RULE_RE.match(raw_line)\n        if match is None:\n            raise FirewallApplyError(\n                f\"Cannot safely parse numbered UFW rule: {raw_line.strip()}\"\n            )\n        number = int(match.group(1))\n        text = re.sub(r\"\\\\s+\", \" \", match.group(2).strip())\n        if not text:\n            raise FirewallApplyError(\"Numbered UFW rule has an empty description.\")\n        rules.append(UfwNumberedRule(number, text))\n\n    expected = list(range(1, len(rules) + 1))\n    if [rule.number for rule in rules] != expected:\n        raise FirewallApplyError(\n            \"Numbered UFW rule list is not sequential; refusing mutation.\"\n        )\n    return tuple(rules)\n\n\ndef list_numbered_ufw_rules(\n    *,\n    runner: Runner = _run,\n) -> tuple[UfwNumberedRule, ...]:\n    ufw = _binary(\"ufw\")\n    result = runner(\n        [ufw, \"status\", \"numbered\"],\n        check=True,\n        timeout=20,\n    )\n    return _parse_numbered_ufw_rules(result.stdout or \"\")\n\n\ndef delete_numbered_ufw_rule(\n    rule: UfwNumberedRule,\n    *,\n    snapshot: tuple[UfwNumberedRule, ...],\n    runner: Runner = _run,\n) -> tuple[UfwNumberedRule, ...]:\n    if rule not in snapshot:\n        raise FirewallApplyError(\"Selected UFW rule is not part of the displayed snapshot.\")\n\n    current = list_numbered_ufw_rules(runner=runner)\n    if current != snapshot:\n        raise FirewallApplyError(\n            \"UFW rule list changed after selection; reload the list and choose again.\"\n        )\n\n    ufw = _binary(\"ufw\")\n    runner(\n        [ufw, \"--force\", \"delete\", str(rule.number)],\n        check=True,\n        timeout=30,\n    )\n\n    remaining = list_numbered_ufw_rules(runner=runner)\n    expected_texts = tuple(\n        item.text for item in snapshot if item.number != rule.number\n    )\n    if tuple(item.text for item in remaining) != expected_texts:\n        raise FirewallApplyError(\n            \"UFW rule list changed unexpectedly after delete; inspect UFW state.\"\n        )\n    return remaining\n\n\ndef _read_regular(path: Path, *, required: bool) -> str | None:"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "from libs.JBLibs.input import anyKey, confirm, selectFile",
+      "new": "from libs.JBLibs.input import anyKey, confirm, select, select_item, selectFile"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "from .apply import ApplyPaths, FirewallApplyError, apply_local_config, disable_ufw",
+      "new": "from .apply import (\n    ApplyPaths,\n    FirewallApplyError,\n    apply_local_config,\n    delete_numbered_ufw_rule,\n    disable_ufw,\n    list_numbered_ufw_rules,\n)"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "    _VERSION_ = \"0.6.0\"",
+      "new": "    _VERSION_ = \"0.7.0\""
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "            c_menu_item(\n                text_color(TXT_FW_DISABLE, en_color.BRIGHT_RED),\n                \"d\",\n                self.disable_runtime,\n            ),\n            c_menu_title_label(TXT_FW_SECTION_INSPECT),",
+      "new": "            c_menu_item(\n                text_color(TXT_FW_DISABLE, en_color.BRIGHT_RED),\n                \"d\",\n                self.disable_runtime,\n            ),\n            c_menu_item(\n                TXT_FW_NATIVE_RULES,\n                \"u\",\n                self.manage_native_ufw_rules,\n            ),\n            c_menu_title_label(TXT_FW_SECTION_INSPECT),"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "expected": 1,
+      "old": "    def disable_runtime(self, selItem: c_menu_item) -> onSelReturn:\n        if not confirm(TXT_FW_DISABLE_CONFIRM, minMessageWidth=self.minMenuWidth):\n            return onSelReturn().errRet(TXT_FW_CANCELLED)\n        try:\n            disable_ufw()\n        except FirewallApplyError as exc:\n            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))\n        self.menuRecycle = True\n        return onSelReturn(ok=TXT_FW_DISABLE_OK)\n\n    def import_legacy_config",
+      "new": "    def disable_runtime(self, selItem: c_menu_item) -> onSelReturn:\n        if not confirm(TXT_FW_DISABLE_CONFIRM, minMessageWidth=self.minMenuWidth):\n            return onSelReturn().errRet(TXT_FW_CANCELLED)\n        try:\n            disable_ufw()\n        except FirewallApplyError as exc:\n            return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))\n        self.menuRecycle = True\n        return onSelReturn(ok=TXT_FW_DISABLE_OK)\n\n    def manage_native_ufw_rules(self, selItem: c_menu_item) -> onSelReturn:\n        message = TXT_FW_NATIVE_RULES_HINT\n        while True:\n            try:\n                rules = list_numbered_ufw_rules()\n            except FirewallApplyError as exc:\n                return onSelReturn().errRet(\n                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))\n                )\n\n            if not rules:\n                return onSelReturn(ok=TXT_FW_NATIVE_RULES_EMPTY)\n\n            selected = select(\n                message,\n                [\n                    select_item(\n                        rule.text,\n                        choice=str(rule.number),\n                        data=rule,\n                    )\n                    for rule in rules\n                ],\n                minMessageWidth=self.minMenuWidth,\n                title=TXT_FW_NATIVE_RULES_TITLE,\n            )\n            if selected.item is None:\n                return onSelReturn()\n\n            rule = selected.item.data\n            if not confirm(\n                TXT_FW_NATIVE_RULE_DELETE_CONFIRM.format(\n                    number=rule.number,\n                    rule=rule.text,\n                ),\n                minMessageWidth=self.minMenuWidth,\n            ):\n                message = TXT_FW_NATIVE_RULES_HINT\n                continue\n\n            try:\n                remaining = delete_numbered_ufw_rule(\n                    rule,\n                    snapshot=rules,\n                )\n            except FirewallApplyError as exc:\n                return onSelReturn().errRet(\n                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))\n                )\n\n            self.menuRecycle = True\n            if not remaining:\n                return onSelReturn(ok=TXT_FW_NATIVE_RULE_DELETE_LAST)\n            message = TXT_FW_NATIVE_RULE_DELETED.format(rule=rule.text)\n\n    def import_legacy_config"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "expected": 1,
+      "old": "TXT_FW_DISABLE = \"Disable UFW\"\nTXT_FW_ACTIVATE =",
+      "new": "TXT_FW_DISABLE = \"Disable UFW\"\nTXT_FW_NATIVE_RULES = \"UFW rules\"\nTXT_FW_NATIVE_RULES_TITLE = \"Native UFW rules\"\nTXT_FW_NATIVE_RULES_HINT = \"Delete-only cleanup of native UFW rules. Add/edit rules in firewall.json instead.\"\nTXT_FW_NATIVE_RULES_EMPTY = \"No native numbered UFW rules are present.\"\nTXT_FW_NATIVE_RULE_DELETE_CONFIRM = \"Delete native UFW rule [{number}] {rule}?\"\nTXT_FW_NATIVE_RULE_DELETED = \"Deleted: {rule}. Select another rule or press ESC to return.\"\nTXT_FW_NATIVE_RULE_DELETE_LAST = \"The selected UFW rule was deleted; no native numbered UFW rules remain.\"\nTXT_FW_NATIVE_RULES_FAIL = \"Native UFW rule operation failed safely: {reason}\"\nTXT_FW_ACTIVATE ="
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "expected": 1,
+      "old": "TXT_FW_DISABLE = \"Vypnout UFW\"\nTXT_FW_ACTIVATE =",
+      "new": "TXT_FW_DISABLE = \"Vypnout UFW\"\nTXT_FW_NATIVE_RULES = \"UFW pravidla\"\nTXT_FW_NATIVE_RULES_TITLE = \"Nativní UFW pravidla\"\nTXT_FW_NATIVE_RULES_HINT = \"Pouze mazání nativních UFW pravidel. Přidání/editace patří do firewall.json.\"\nTXT_FW_NATIVE_RULES_EMPTY = \"Nejsou nastavena žádná číslovaná nativní UFW pravidla.\"\nTXT_FW_NATIVE_RULE_DELETE_CONFIRM = \"Smazat nativní UFW pravidlo [{number}] {rule}?\"\nTXT_FW_NATIVE_RULE_DELETED = \"Smazáno: {rule}. Vyberte další pravidlo nebo ESC pro návrat.\"\nTXT_FW_NATIVE_RULE_DELETE_LAST = \"Vybrané UFW pravidlo bylo smazáno; žádná číslovaná nativní UFW pravidla nezůstala.\"\nTXT_FW_NATIVE_RULES_FAIL = \"Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}\"\nTXT_FW_ACTIVATE ="
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "expected": 1,
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.6.0\")",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.7.0\")"
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "expected": 1,
+      "old": "            [\"e\", \"a\", \"d\", \"i\", \"s\", \"p\", \"l\"],",
+      "new": "            [\"e\", \"a\", \"d\", \"u\", \"i\", \"s\", \"p\", \"l\"],"
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "expected": 1,
+      "old": "        self.assertTrue(hasattr(firewall_menu.menu, \"disable_runtime\"))",
+      "new": "        self.assertTrue(hasattr(firewall_menu.menu, \"disable_runtime\"))\n        self.assertTrue(hasattr(firewall_menu.menu, \"manage_native_ufw_rules\"))"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "    ApplyPaths,\n    FirewallApplyError,\n    apply_local_config,\n    build_apply_plan,\n    disable_ufw,\n)",
+      "new": "    ApplyPaths,\n    FirewallApplyError,\n    UfwNumberedRule,\n    apply_local_config,\n    build_apply_plan,\n    delete_numbered_ufw_rule,\n    disable_ufw,\n    list_numbered_ufw_rules,\n)"
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "expected": 1,
+      "old": "    def test_disable_is_explicit_and_verified(self):",
+      "new": "    def test_numbered_ufw_rules_are_parsed_and_deleted_from_stable_snapshot(self):\n        before = \"\\n\".join((\n            \"Status: active\",\n            \"\",\n            \"     To                         Action      From\",\n            \"[ 1] 22/tcp                     ALLOW IN    Anywhere\",\n            \"[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)\",\n            \"\",\n        ))\n        after = \"\\n\".join((\n            \"Status: active\",\n            \"\",\n            \"[ 1] 22/tcp (v6)                ALLOW IN    Anywhere (v6)\",\n            \"\",\n        ))\n        status_outputs = iter((before, before, after))\n        calls: list[list[str]] = []\n\n        def runner(args, **kwargs):\n            calls.append(list(args))\n            if args[-2:] == [\"status\", \"numbered\"]:\n                return subprocess.CompletedProcess(\n                    args, 0, next(status_outputs), \"\"\n                )\n            return subprocess.CompletedProcess(args, 0, \"\", \"\")\n\n        with patch.object(\n            firewall_apply, \"_binary\", return_value=\"/usr/sbin/ufw\"\n        ):\n            snapshot = list_numbered_ufw_rules(runner=runner)\n            self.assertEqual(snapshot, (\n                UfwNumberedRule(1, \"22/tcp ALLOW IN Anywhere\"),\n                UfwNumberedRule(2, \"22/tcp (v6) ALLOW IN Anywhere (v6)\"),\n            ))\n            remaining = delete_numbered_ufw_rule(\n                snapshot[0], snapshot=snapshot, runner=runner\n            )\n\n        self.assertEqual(\n            remaining,\n            (UfwNumberedRule(1, \"22/tcp (v6) ALLOW IN Anywhere (v6)\"),),\n        )\n        self.assertIn(\n            [\"/usr/sbin/ufw\", \"--force\", \"delete\", \"1\"],\n            calls,\n        )\n\n    def test_native_ufw_delete_aborts_if_numbered_snapshot_changed(self):\n        displayed = \"\\n\".join((\n            \"Status: active\",\n            \"[ 1] 22/tcp ALLOW IN Anywhere\",\n            \"[ 2] 80/tcp ALLOW IN Anywhere\",\n        ))\n        changed = \"\\n\".join((\n            \"Status: active\",\n            \"[ 1] 80/tcp ALLOW IN Anywhere\",\n        ))\n        status_outputs = iter((displayed, changed))\n        calls: list[list[str]] = []\n\n        def runner(args, **kwargs):\n            calls.append(list(args))\n            if args[-2:] == [\"status\", \"numbered\"]:\n                return subprocess.CompletedProcess(\n                    args, 0, next(status_outputs), \"\"\n                )\n            return subprocess.CompletedProcess(args, 0, \"\", \"\")\n\n        with patch.object(\n            firewall_apply, \"_binary\", return_value=\"/usr/sbin/ufw\"\n        ):\n            snapshot = list_numbered_ufw_rules(runner=runner)\n            with self.assertRaisesRegex(\n                FirewallApplyError, \"changed after selection\"\n            ):\n                delete_numbered_ufw_rule(\n                    snapshot[0], snapshot=snapshot, runner=runner\n                )\n\n        self.assertFalse(any(\"delete\" in call for call in calls))\n\n    def test_native_ufw_parser_fails_closed_on_malformed_numbered_line(self):\n        def runner(args, **kwargs):\n            return subprocess.CompletedProcess(\n                args, 0, \"Status: active\\\\n[ xx] broken rule\\\\n\", \"\"\n            )\n\n        with patch.object(\n            firewall_apply, \"_binary\", return_value=\"/usr/sbin/ufw\"\n        ):\n            with self.assertRaisesRegex(\n                FirewallApplyError, \"Cannot safely parse\"\n            ):\n                list_numbered_ufw_rules(runner=runner)\n\n    def test_disable_is_explicit_and_verified(self):"
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "expected": 1,
+      "old": "VERSION = \"2.11.0\"",
+      "new": "VERSION = \"2.12.0\""
+    },
+    {
+      "path": "readme.md",
+      "expected": 1,
+      "old": "v2.11.0",
+      "new": "v2.12.0"
+    },
+    {
+      "path": "changelog.md",
+      "expected": 1,
+      "old": "# Changelog\n\n## v2.11.0\n",
+      "new": "# Changelog\n\n## v2.12.0\n\n- ADD Firewall Manager 0.7.0 přidává jednoduchou položku `UFW pravidla` pro úklid nativních/legacy pravidel z `ufw status numbered`. Seznam používá přímo číslování UFW a podporuje pouze explicitně potvrzené mazání; Add/Edit zůstává výhradně v lokálním `firewall.json`.\n- SAFETY před `ufw --force delete <number>` se znovu načte celý číslovaný snapshot a musí byte-semanticky odpovídat zobrazenému seznamu; jakákoli změna pořadí/obsahu delete zablokuje. Po smazání se stav znovu načte a ověří očekávaný zbytek, protože UFW pravidla okamžitě přečísluje.\n- UX po úspěšném smazání se číslovaný seznam znovu zobrazí, takže lze bezpečně uklidit více nativních pravidel bez vytváření druhého firewall editoru.\n\n## v2.11.0\n"
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "expected": 1,
+      "old": "Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.11.0 / Firewall Manager 0.6.0 (2026-11-10). Hub/hourly auto-apply and production/new21 takeover remain disabled. VM testing fixed the IPv6 UFW chain namespace mismatch and inactive dry-run CLI ordering. Live Apply now uses a one-time cross-session acknowledgement: the original terminal shows `sys_apps ufw <token>` with a 90 s countdown and only a different newly opened SSH session may acknowledge the pending transaction.",
+      "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm** as SysApps 2.12.0 / Firewall Manager 0.7.0 (2026-11-13). Hub/hourly auto-apply and production/new21 takeover remain disabled. Live Apply uses a one-time `sys_apps ufw <token>` acknowledgement from a different SSH transport. Native/legacy UFW rules can now be listed through `ufw status numbered` and explicitly deleted from the Firewall Manager; Add/Edit remains exclusively owned by local `firewall.json`."
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Module 0.6.0 owns local desired state",
+      "new": "- Module 0.7.0 owns local desired state"
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "expected": 1,
+      "old": "- Automatic Hub/hourly Apply remains forbidden in 0.5.0.",
+      "new": "- Native UFW rule cleanup is intentionally delete-only: list rules through `ufw status numbered`, never add/edit them from this path, and re-read the complete numbered snapshot immediately before `ufw --force delete <number>`. Any change in numbering/content must fail closed; after delete re-read and verify the expected remaining rule texts.\n- Automatic Hub/hourly Apply remains forbidden in 0.5.0."
+    }
+  ]
+}
