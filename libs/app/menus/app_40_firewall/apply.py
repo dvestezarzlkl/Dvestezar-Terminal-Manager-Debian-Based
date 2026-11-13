@@ -139,7 +139,7 @@ def _parse_numbered_ufw_rules(output: str) -> tuple[UfwNumberedRule, ...]:
                 f"Cannot safely parse numbered UFW rule: {raw_line.strip()}"
             )
         number = int(match.group(1))
-        text = re.sub(r"\\s+", " ", match.group(2).strip())
+        text = re.sub(r"\s+", " ", match.group(2).strip())
         if not text:
             raise FirewallApplyError("Numbered UFW rule has an empty description.")
         rules.append(UfwNumberedRule(number, text))
