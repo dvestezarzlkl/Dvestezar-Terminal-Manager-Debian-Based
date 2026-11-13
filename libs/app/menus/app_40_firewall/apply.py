@@ -32,6 +32,13 @@ from .compiler import (
 from .config import FirewallConfig, normalize_config
 from .hub_provider import inspect_ufw_service
 from .policy import FirewallPolicyError
+from .ssh_safety import (
+    SshManagementPath,
+    configured_ssh_paths,
+    current_ssh_path,
+    managed_change_requires_ssh_ack,
+    native_rule_requires_ssh_ack,
+)
 
 
 class FirewallApplyError(RuntimeError):
@@ -45,6 +52,8 @@ class ApplyPaths:
     state: Path = Path("/var/lib/jb_sys_apps/firewall/state.json")
     backups: Path = Path("/var/lib/jb_sys_apps/firewall/backups")
     pending_ack: Path = Path("/run/jb_sys_apps/firewall/pending_ack.json")
+    user4: Path = Path("/etc/ufw/user.rules")
+    user6: Path = Path("/etc/ufw/user6.rules")
 
 
 @dataclass(frozen=True)
@@ -70,6 +79,14 @@ class ApplyResult:
 class UfwNumberedRule:
     number: int
     text: str
+
+
+@dataclass(frozen=True)
+class UfwDeleteResult:
+    status: str
+    remaining: tuple[UfwNumberedRule, ...]
+    backup_dir: str
+    ssh_ack_required: bool
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
@@ -148,12 +165,27 @@ def list_numbered_ufw_rules(
     return _parse_numbered_ufw_rules(result.stdout or "")
 
 
+def _discover_ssh_paths(*, runner: Runner) -> tuple[SshManagementPath, ...]:
+    active = current_ssh_path()
+    if active is not None:
+        return (active,)
+    try:
+        sshd = _binary("sshd")
+        result = runner([sshd, "-T"], check=True, timeout=15)
+    except FirewallApplyError:
+        return ()
+    return configured_ssh_paths(result.stdout or "")
+
+
 def delete_numbered_ufw_rule(
     rule: UfwNumberedRule,
     *,
     snapshot: tuple[UfwNumberedRule, ...],
+    acknowledge: Acknowledge,
+    rollback_seconds: int = 90,
+    paths: ApplyPaths = ApplyPaths(),
     runner: Runner = _run,
-) -> tuple[UfwNumberedRule, ...]:
+) -> UfwDeleteResult:
     if rule not in snapshot:
         raise FirewallApplyError("Selected UFW rule is not part of the displayed snapshot.")
 
@@ -163,22 +195,72 @@ def delete_numbered_ufw_rule(
             "UFW rule list changed after selection; reload the list and choose again."
         )
 
+    ssh_paths = _discover_ssh_paths(runner=runner)
+    require_ack = native_rule_requires_ssh_ack(rule.text, ssh_paths)
     ufw = _binary("ufw")
-    runner(
-        [ufw, "--force", "delete", str(rule.number)],
-        check=True,
-        timeout=30,
+    before_user4 = _read_regular(paths.user4, required=False)
+    before_user6 = _read_regular(paths.user6, required=False)
+    backup, existed = _create_native_backup(paths)
+    unit, rollback_expires_at = _arm_native_rollback(
+        paths,
+        backup,
+        existed,
+        ufw=ufw,
+        seconds=rollback_seconds,
+        runner=runner,
     )
 
-    remaining = list_numbered_ufw_rules(runner=runner)
-    expected_texts = tuple(
-        item.text for item in snapshot if item.number != rule.number
-    )
-    if tuple(item.text for item in remaining) != expected_texts:
-        raise FirewallApplyError(
-            "UFW rule list changed unexpectedly after delete; inspect UFW state."
+    mutation_started = False
+    token = ""
+    try:
+        _assert_optional_source_unchanged(paths.user4, before_user4)
+        _assert_optional_source_unchanged(paths.user6, before_user6)
+        if list_numbered_ufw_rules(runner=runner) != snapshot:
+            raise FirewallApplyError(
+                "UFW rule list changed after selection; reload the list and choose again."
+            )
+
+        if require_ack:
+            token = create_pending_ack(
+                paths.pending_ack,
+                expires_at=rollback_expires_at,
+                rollback_unit=unit,
+            )
+
+        runner(
+            [ufw, "--force", "delete", str(rule.number)],
+            check=True,
+            timeout=30,
         )
-    return remaining
+        mutation_started = True
+
+        remaining = list_numbered_ufw_rules(runner=runner)
+        expected_texts = tuple(
+            item.text for item in snapshot if item.number != rule.number
+        )
+        if tuple(item.text for item in remaining) != expected_texts:
+            raise FirewallApplyError(
+                "UFW rule list changed unexpectedly after delete; inspect UFW state."
+            )
+
+        if require_ack and not acknowledge(token, rollback_expires_at):
+            _cancel_rollback(unit, runner=runner)
+            _restore_native_backup(paths, backup, existed, ufw=ufw, runner=runner)
+            return UfwDeleteResult("ROLLED_BACK", snapshot, str(backup), True)
+
+        _cancel_rollback(unit, runner=runner)
+        return UfwDeleteResult("DELETED", remaining, str(backup), require_ack)
+    except Exception:
+        _cancel_rollback(unit, runner=runner)
+        if mutation_started:
+            try:
+                _restore_native_backup(paths, backup, existed, ufw=ufw, runner=runner)
+            except Exception:
+                pass
+        raise
+    finally:
+        if token:
+            clear_pending_ack(token, path=paths.pending_ack)
 
 
 def _read_regular(path: Path, *, required: bool) -> str | None:
@@ -275,6 +357,106 @@ def _backup_file(path: Path, target: Path) -> bool:
         raise FirewallApplyError(f"Refusing backup of non-regular path: {path}")
     shutil.copy2(path, target)
     return True
+
+
+def _create_native_backup(paths: ApplyPaths) -> tuple[Path, dict[str, bool]]:
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    backup = paths.backups / f"native-{stamp}-{uuid4().hex[:8]}"
+    try:
+        backup.mkdir(parents=True, mode=0o700, exist_ok=False)
+        os.chmod(backup, 0o700)
+        existed = {
+            "user4": _backup_file(paths.user4, backup / "user.rules"),
+            "user6": _backup_file(paths.user6, backup / "user6.rules"),
+        }
+        (backup / "metadata.json").write_text(
+            json.dumps({
+                "created_at": datetime.now().astimezone().isoformat(),
+                "kind": "native_ufw_delete",
+                "files": existed,
+            }, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(backup / "metadata.json", 0o600)
+        return backup, existed
+    except OSError as exc:
+        raise FirewallApplyError("Cannot create native UFW rollback backup.") from exc
+
+
+def _native_rollback_script(
+    paths: ApplyPaths,
+    backup: Path,
+    existed: dict[str, bool],
+    *,
+    ufw: str,
+) -> str:
+    commands = ["set -eu"]
+    for key, source, target in (
+        ("user4", backup / "user.rules", paths.user4),
+        ("user6", backup / "user6.rules", paths.user6),
+    ):
+        if existed[key]:
+            commands.append(
+                "cp -p -- " + shlex.quote(str(source)) + " " + shlex.quote(str(target))
+            )
+        else:
+            commands.append("rm -f -- " + shlex.quote(str(target)))
+    commands.append(shlex.quote(ufw) + " reload")
+    return "; ".join(commands)
+
+
+def _arm_native_rollback(
+    paths: ApplyPaths,
+    backup: Path,
+    existed: dict[str, bool],
+    *,
+    ufw: str,
+    seconds: int,
+    runner: Runner,
+) -> tuple[str, float]:
+    if not 15 <= seconds <= 600:
+        raise FirewallApplyError("Rollback timeout must be 15..600 seconds.")
+    systemd_run = _binary("systemd-run")
+    unit = "jb-sys-apps-ufw-native-rollback-" + uuid4().hex[:12]
+    expires_at = time.time() + float(seconds)
+    runner(
+        [
+            systemd_run,
+            "--quiet",
+            "--unit", unit,
+            "--on-active", f"{seconds}s",
+            "--timer-property=AccuracySec=1s",
+            "/bin/bash", "-c",
+            _native_rollback_script(paths, backup, existed, ufw=ufw),
+        ],
+        check=True,
+        timeout=20,
+    )
+    return unit, expires_at
+
+
+def _restore_native_backup(
+    paths: ApplyPaths,
+    backup: Path,
+    existed: dict[str, bool],
+    *,
+    ufw: str,
+    runner: Runner,
+) -> None:
+    for key, source, target in (
+        ("user4", backup / "user.rules", paths.user4),
+        ("user6", backup / "user6.rules", paths.user6),
+    ):
+        try:
+            if existed[key]:
+                shutil.copy2(source, target)
+            elif target.exists():
+                target.unlink()
+        except OSError as exc:
+            raise FirewallApplyError(
+                f"Rollback could not restore {target}."
+            ) from exc
+    runner([ufw, "reload"], check=False, timeout=30)
 
 
 def _create_backup(paths: ApplyPaths, *, was_active: bool) -> tuple[Path, dict[str, bool]]:
@@ -425,6 +607,14 @@ def _assert_source_unchanged(path: Path, expected: str) -> None:
         )
 
 
+def _assert_optional_source_unchanged(path: Path, expected: str | None) -> None:
+    current = _read_regular(path, required=False)
+    if current != expected:
+        raise FirewallApplyError(
+            f"UFW file changed concurrently; refusing to mutate: {path}"
+        )
+
+
 def _file_hash(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
@@ -538,6 +728,16 @@ def apply_local_config(
         seconds=rollback_seconds,
         runner=runner,
     )
+    ssh_paths = _discover_ssh_paths(runner=runner)
+    require_ack = (
+        not was_active
+        or managed_change_requires_ssh_ack(
+            before4=before4,
+            before6=before6,
+            compiled=plan.compiled,
+            paths=ssh_paths,
+        )
+    )
 
     mutation_started = False
     token = ""
@@ -548,11 +748,12 @@ def apply_local_config(
         if before6 is not None:
             _assert_source_unchanged(paths.before6, before6)
 
-        token = create_pending_ack(
-            paths.pending_ack,
-            expires_at=rollback_expires_at,
-            rollback_unit=unit,
-        )
+        if require_ack:
+            token = create_pending_ack(
+                paths.pending_ack,
+                expires_at=rollback_expires_at,
+                rollback_unit=unit,
+            )
 
         if plan.ipv4.changed:
             mutation_started = True
@@ -577,7 +778,11 @@ def apply_local_config(
         if inspect_ufw_service().status != "active":
             raise FirewallApplyError("UFW did not become/remain active after Apply.")
 
-        accepted = bool(acknowledge(token, rollback_expires_at))
+        accepted = (
+            bool(acknowledge(token, rollback_expires_at))
+            if require_ack
+            else True
+        )
         if not accepted:
             _cancel_rollback(unit, runner=runner)
             _restore_backup(
