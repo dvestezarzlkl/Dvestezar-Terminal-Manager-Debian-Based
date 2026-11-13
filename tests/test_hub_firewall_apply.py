@@ -618,7 +618,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             (UfwNumberedRule(1, "22/tcp (v6) ALLOW IN Anywhere (v6)"),),
         )
         self.assertIn(
-            ["/usr/sbin/ufw", "--force", "delete", "1"],
+            ["/usr/bin/ufw", "--force", "delete", "1"],
             calls,
         )
 
