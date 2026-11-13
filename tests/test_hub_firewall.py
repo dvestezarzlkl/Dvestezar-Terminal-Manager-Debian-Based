@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.6.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.7.0")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -85,10 +85,11 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertEqual(actionable[0].choice, "e")
         self.assertEqual(
             [item.choice for item in actionable],
-            ["e", "a", "d", "i", "s", "p", "l"],
+            ["e", "a", "d", "u", "i", "s", "p", "l"],
         )
         self.assertTrue(hasattr(firewall_menu.menu, "apply_rules"))
         self.assertTrue(hasattr(firewall_menu.menu, "disable_runtime"))
+        self.assertTrue(hasattr(firewall_menu.menu, "manage_native_ufw_rules"))
 
     def test_menu_offers_only_guarded_activation_when_inactive(self):
         with patch.object(

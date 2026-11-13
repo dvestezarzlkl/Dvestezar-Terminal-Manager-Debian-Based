@@ -1,6 +1,6 @@
 # Firewall Manager — UFW / OpenVPN takeover design
 
-Status: **guarded manual UFW Apply implemented for VM verification** as SysApps 2.11.0 / Firewall Manager 0.6.0 (2026-11-10). Hub/hourly auto-apply and production/new21 takeover remain disabled. VM testing fixed the IPv6 UFW chain namespace mismatch and inactive dry-run CLI ordering. Live Apply now uses a one-time cross-session acknowledgement: the original terminal shows `sys_apps ufw <token>` with a 90 s countdown and only a different newly opened SSH session may acknowledge the pending transaction.
+Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm** as SysApps 2.12.0 / Firewall Manager 0.7.0 (2026-11-13). Hub/hourly auto-apply and production/new21 takeover remain disabled. Activation of an inactive UFW always requires one-time `sys_apps ufw <token>` acknowledgement from a different SSH transport; active Apply requires it only when changed managed rules can affect the current SSH management tuple, otherwise the pre-armed rollback is cancelled immediately after successful verification. Native/legacy UFW rules can be listed through `ufw status numbered` and explicitly deleted; an SSH-relevant permissive delete uses the same token+rollback protection. Add/Edit remains exclusively owned by local `firewall.json`.
 
 ## Read-only phase (SysApps 2.6.0)
 

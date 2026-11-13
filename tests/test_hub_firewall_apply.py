@@ -12,9 +12,12 @@ from libs.app.menus.app_40_firewall import apply as firewall_apply
 from libs.app.menus.app_40_firewall.apply import (
     ApplyPaths,
     FirewallApplyError,
+    UfwNumberedRule,
     apply_local_config,
     build_apply_plan,
+    delete_numbered_ufw_rule,
     disable_ufw,
+    list_numbered_ufw_rules,
 )
 from libs.app.menus.app_40_firewall.compiler import (
     build_candidate,
@@ -26,6 +29,7 @@ from libs.app.menus.app_40_firewall.config import (
     FirewallVpnServer,
 )
 from libs.app.menus.app_40_firewall.policy import FirewallPolicyError
+from libs.app.menus.app_40_firewall.ssh_safety import SshManagementPath
 
 
 def base_before() -> str:
@@ -272,12 +276,18 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         before6 = etc / "before6.rules"
         before4.write_text(base_before(), encoding="utf-8")
         before6.write_text(base_before6(), encoding="utf-8")
+        user4 = etc / "user.rules"
+        user6 = etc / "user6.rules"
+        user4.write_text("# user v4\n", encoding="utf-8")
+        user6.write_text("# user v6\n", encoding="utf-8")
         return ApplyPaths(
             before4=before4,
             before6=before6,
             state=root / "var" / "state.json",
             backups=root / "var" / "backups",
             pending_ack=root / "run" / "pending_ack.json",
+            user4=user4,
+            user6=user6,
         )
 
     @staticmethod
@@ -358,6 +368,93 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 and call[3].endswith(".service")
                 for call in calls
             ))
+
+    def test_active_non_ssh_change_skips_fresh_ssh_ack(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            calls: list[list[str]] = []
+            acknowledgements: list[tuple[str, float]] = []
+            statuses = [
+                SimpleNamespace(detected=True, status="active"),
+                SimpleNamespace(detected=True, status="active"),
+                SimpleNamespace(detected=True, status="active"),
+            ]
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply, "inspect_ufw_service", side_effect=statuses
+            ), patch.object(
+                firewall_apply,
+                "current_ssh_path",
+                return_value=SshManagementPath(
+                    server_port=22,
+                    client_ip="192.168.88.10",
+                    client_port=51000,
+                    server_ip="192.168.88.46",
+                ),
+            ), patch.object(
+                firewall_apply.os, "fchown", return_value=None
+            ):
+                result = apply_local_config(
+                    config(),
+                    acknowledge=lambda token, expires: acknowledgements.append((token, expires)) or True,
+                    paths=paths,
+                    runner=self._runner(calls),
+                )
+
+            self.assertEqual(result.status, "APPLIED")
+            self.assertEqual(acknowledgements, [])
+            self.assertFalse(paths.pending_ack.exists())
+
+    def test_active_ssh_port_change_requires_fresh_ssh_ack(self):
+        cfg = FirewallConfig(rules=(
+            FirewallRule(
+                "b" * 32,
+                "standard",
+                True,
+                "ssh deny test",
+                direction="input",
+                action="deny",
+                protocol="tcp",
+                dst_ports="22",
+            ),
+        ))
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            calls: list[list[str]] = []
+            acknowledgements: list[tuple[str, float]] = []
+            statuses = [
+                SimpleNamespace(detected=True, status="active"),
+                SimpleNamespace(detected=True, status="active"),
+                SimpleNamespace(detected=True, status="active"),
+            ]
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply, "inspect_ufw_service", side_effect=statuses
+            ), patch.object(
+                firewall_apply,
+                "current_ssh_path",
+                return_value=SshManagementPath(
+                    server_port=22,
+                    client_ip="192.168.88.10",
+                    client_port=51000,
+                    server_ip="192.168.88.46",
+                ),
+            ), patch.object(
+                firewall_apply.os, "fchown", return_value=None
+            ):
+                result = apply_local_config(
+                    cfg,
+                    acknowledge=lambda token, expires: acknowledgements.append((token, expires)) or True,
+                    paths=paths,
+                    runner=self._runner(calls),
+                )
+
+            self.assertEqual(result.status, "APPLIED")
+            self.assertEqual(len(acknowledgements), 1)
+            self.assertTrue(acknowledgements[0][0])
+            self.assertFalse(paths.pending_ack.exists())
 
     def test_inactive_apply_enables_and_rejected_ack_restores_original_files(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -460,6 +557,165 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 )
             self.assertEqual(result.status, "NO_CHANGE")
             self.assertEqual(calls, [])
+
+    def test_numbered_ufw_rules_are_parsed_and_deleted_from_stable_snapshot(self):
+        before = "\n".join((
+            "Status: active",
+            "",
+            "     To                         Action      From",
+            "[ 1] 22/tcp                     ALLOW IN    Anywhere",
+            "[ 2] 22/tcp (v6)                ALLOW IN    Anywhere (v6)",
+            "",
+        ))
+        after = "\n".join((
+            "Status: active",
+            "",
+            "[ 1] 22/tcp (v6)                ALLOW IN    Anywhere (v6)",
+            "",
+        ))
+        status_outputs = iter((before, before, before, after, after))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(
+                    args, 0, next(status_outputs), ""
+                )
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply,
+                "current_ssh_path",
+                return_value=SshManagementPath(
+                    server_port=2222,
+                    client_ip="192.168.88.10",
+                    client_port=51000,
+                    server_ip="192.168.88.46",
+                ),
+            ):
+                snapshot = list_numbered_ufw_rules(runner=runner)
+                self.assertEqual(snapshot, (
+                    UfwNumberedRule(1, "22/tcp ALLOW IN Anywhere"),
+                    UfwNumberedRule(2, "22/tcp (v6) ALLOW IN Anywhere (v6)"),
+                ))
+                result = delete_numbered_ufw_rule(
+                    snapshot[0],
+                    snapshot=snapshot,
+                    acknowledge=lambda token, expires: True,
+                    paths=paths,
+                    runner=runner,
+                )
+
+        self.assertEqual(result.status, "DELETED")
+        self.assertFalse(result.ssh_ack_required)
+        self.assertEqual(
+            result.remaining,
+            (UfwNumberedRule(1, "22/tcp (v6) ALLOW IN Anywhere (v6)"),),
+        )
+        self.assertIn(
+            ["/usr/bin/ufw", "--force", "delete", "1"],
+            calls,
+        )
+
+    def test_native_ssh_allow_delete_requires_ack_and_rolls_back_when_rejected(self):
+        before = "\n".join((
+            "Status: active",
+            "[ 1] 22/tcp ALLOW IN Anywhere",
+        ))
+        after = "Status: active\n"
+        status_outputs = iter((before, before, before, after))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(args, 0, next(status_outputs), "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            original4 = paths.user4.read_text(encoding="utf-8")
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply,
+                "current_ssh_path",
+                return_value=SshManagementPath(
+                    server_port=22,
+                    client_ip="192.168.88.10",
+                    client_port=51000,
+                    server_ip="192.168.88.46",
+                ),
+            ):
+                snapshot = list_numbered_ufw_rules(runner=runner)
+                result = delete_numbered_ufw_rule(
+                    snapshot[0],
+                    snapshot=snapshot,
+                    acknowledge=lambda token, expires: False,
+                    paths=paths,
+                    runner=runner,
+                )
+
+            self.assertEqual(result.status, "ROLLED_BACK")
+            self.assertTrue(result.ssh_ack_required)
+            self.assertEqual(paths.user4.read_text(encoding="utf-8"), original4)
+            self.assertTrue(any(call[0].endswith("/systemd-run") for call in calls))
+
+    def test_native_ufw_delete_aborts_if_numbered_snapshot_changed(self):
+        displayed = "\n".join((
+            "Status: active",
+            "[ 1] 22/tcp ALLOW IN Anywhere",
+            "[ 2] 80/tcp ALLOW IN Anywhere",
+        ))
+        changed = "\n".join((
+            "Status: active",
+            "[ 1] 80/tcp ALLOW IN Anywhere",
+        ))
+        status_outputs = iter((displayed, changed))
+        calls: list[list[str]] = []
+
+        def runner(args, **kwargs):
+            calls.append(list(args))
+            if args[-2:] == ["status", "numbered"]:
+                return subprocess.CompletedProcess(
+                    args, 0, next(status_outputs), ""
+                )
+            return subprocess.CompletedProcess(args, 0, "", "")
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            snapshot = list_numbered_ufw_rules(runner=runner)
+            with self.assertRaisesRegex(
+                FirewallApplyError, "changed after selection"
+            ):
+                delete_numbered_ufw_rule(
+                    snapshot[0],
+                    snapshot=snapshot,
+                    acknowledge=lambda token, expires: True,
+                    runner=runner,
+                )
+
+        self.assertFalse(any("delete" in call for call in calls))
+
+    def test_native_ufw_parser_fails_closed_on_malformed_numbered_line(self):
+        def runner(args, **kwargs):
+            return subprocess.CompletedProcess(
+                args, 0, "Status: active\n[ xx] broken rule\n", ""
+            )
+
+        with patch.object(
+            firewall_apply, "_binary", return_value="/usr/sbin/ufw"
+        ):
+            with self.assertRaisesRegex(
+                FirewallApplyError, "Cannot safely parse"
+            ):
+                list_numbered_ufw_rules(runner=runner)
 
     def test_disable_is_explicit_and_verified(self):
         calls: list[list[str]] = []
