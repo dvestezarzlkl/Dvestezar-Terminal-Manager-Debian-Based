@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.13.1
+
+- UX aktualizován submodul JBLibs na 1.2.33. Platná callable volba v `c_menu`, `select()` a `confirm()` nyní okamžitě před zahájením práce zobrazí lokalizovaný stav `Zpracovávám ... (zvoleno: ...)`; pomalá operace už nevypadá jako nezaregistrovaný stisk. Konkrétní volba může feedback vypnout nebo přepsat přes `processingText`, placeholder podporuje `{value}` i `%v%`.
+- FIX Firewall Manager 0.8.1: read-only `:list` v nativní UFW konzoli už není pouze refresh zprávy, kterou následný redraw přepíše. Zobrazí samostatný aktuální číslovaný seznam a čeká na `anyKey`, teprve potom se vrátí do konzole.
+- PROJECT sys_apps pracovní kontinuita je v `AGENTS.md` přesměrována z legacy `todo_md` na AI Memory + Workstate/Cowork a živý Redmine task state; `todo_md` zůstává pouze historický zdroj.
+
 ## v2.13.0
 
 - ADD Firewall Manager 0.8.0 rozšiřuje `UFW pravidla` na malou bezpečnou konzoli. Číslo pravidla zachovává guarded Delete, `add p ...` přidává ALLOW port s volitelným source/destination/proto a `add srv <profile>` přidává existující UFW application profile. Přesný UFW příkaz se vždy zobrazí před potvrzením; před mutací proběhne `ufw --dry-run` a po ní read-back číslovaného seznamu.
