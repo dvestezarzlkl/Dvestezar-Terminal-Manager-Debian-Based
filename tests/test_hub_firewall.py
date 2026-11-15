@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.8.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.8.1")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -90,6 +90,24 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertTrue(hasattr(firewall_menu.menu, "apply_rules"))
         self.assertTrue(hasattr(firewall_menu.menu, "disable_runtime"))
         self.assertTrue(hasattr(firewall_menu.menu, "manage_native_ufw_rules"))
+
+    def test_native_console_list_renders_explicit_view_and_waits(self):
+        screen = firewall_menu.menu()
+        rules = (
+            SimpleNamespace(number=1, text="22/tcp ALLOW IN Anywhere"),
+            SimpleNamespace(number=2, text="Apache ALLOW IN Anywhere"),
+        )
+        with patch.object(
+            firewall_menu, "list_numbered_ufw_rules", return_value=rules
+        ), patch.object(
+            firewall_menu, "get_input", side_effect=[":list", None]
+        ), patch.object(
+            screen, "_show_native_rules"
+        ) as show:
+            result = screen.manage_native_ufw_rules(None)
+
+        self.assertIsInstance(result, firewall_menu.onSelReturn)
+        show.assert_called_once_with(rules)
 
     def test_menu_offers_only_guarded_activation_when_inactive(self):
         with patch.object(

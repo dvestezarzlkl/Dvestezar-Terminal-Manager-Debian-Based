@@ -2,16 +2,17 @@
 
 ## inicializace práce
 
-- Hlavní pracovní vstup a runtime paměť projektu je `dvestezarzlkl/todo_md`, sekce `+SysApp_terminal` v `my_todo.md`.
-- Před zahájením každého úkolu načti `todo_md/AGENTS.md`, `todo_md/README.md`, aktuální sekci `+SysApp_terminal` a potom instrukce `AGENTS.md` v tomto repozitáři.
-- Pro každý upravovaný soubor zkontroluj také všechny bližší `AGENTS.md` v jeho nadřazených adresářích; lokální instrukce rozšiřují nebo zpřesňují kořenové instrukce.
-- Chat není jediná historie práce. Nové bugy, nápady, odskoky, stav řešení a bod návratu zapisuj průběžně do `todo_md` podle jeho instrukcí.
-- Hlavní repozitář, `dvestezarzlkl/JBLibs-python` i `dvestezarzlkl/todo_md` používají pro společnou práci cílovou větev `main`.
+- Pro dlouhodobý technický kontext, rozhodnutí a stabilní issue identity používej sdílenou ZLKL AI Memory. Stabilní identita problému je `memory.issueIdentity` / Memory `context_key`, ne interní databázové ID.
+- Aktuální task, workflow, prioritu a stav práce ber z Redmine, pokud pro práci existuje autoritativní Redmine úkol. Aktuální rozpracovaný checkpoint drž ve Workstate; pro předávání ChatGPT <-> Codex nebo mezi vlákny použij Cowork/DataStore. Git a aktuální source zůstávají autoritou pro přesné chování kódu.
+- `todo_md` není součást aktivního sys_apps workflow a nesmí se používat jako runtime paměť ani task tracker. Historický obsah lze číst pouze jako legacy zdroj, pokud je potřeba dohledat staré rozhodnutí.
+- Před zahájením pokračující práce načti relevantní AI Memory issueIdentity, aktuální Workstate/Cowork checkpoint a případný autoritativní Redmine úkol; potom načti kořenový a všechny bližší `AGENTS.md` pro upravované soubory.
+- Chat není jediná historie práce. Nové trvalé rozhodnutí nebo technický kontext zapisuj do AI Memory, aktuální rozpracovaný bod do Workstate/Cowork a změny task stavu do Redmine.
+- Hlavní repozitář a `dvestezarzlkl/JBLibs-python` používají pro společnou práci cílovou větev `main`.
 - Obecně použitelná funkčnost patří do `JBLibs-python`; následně aktualizuj odkaz submodulu `libs/JBLibs` v tomto repozitáři.
 
 ## runtime prostředí, lokální data a testy
 
-- Integrační a fyzické testy na cílovém terminálu může provést uživatel. Připrav přesný scénář nebo příkazy, výsledek nepovažuj za fyzicky ověřený, dokud jej uživatel nepotvrdí, a potvrzený výsledek zapiš do `todo_md`.
+- Integrační a fyzické testy na cílovém terminálu může provést uživatel. Připrav přesný scénář nebo příkazy, výsledek nepovažuj za fyzicky ověřený, dokud jej uživatel nepotvrdí; potvrzený trvalý technický výsledek zapiš do AI Memory, aktuální checkpoint do Workstate/Cowork a případný stav úkolu do Redmine.
 - Zdrojový kód `sys_apps` se na cílovém ani vývojovém/testovacím stroji přes SSH nikdy neupravuje, nepatchuje ani lokálně necommituje. Source změna musí nejdřív vzniknout v kanonickém Git repozitáři a na každý cílový, vývojový i testovací stroj se nasazuje pouze standardním SysApps Update mechanismem. Přímý přístup na zařízení používej jen pro diagnostiku, konfiguraci nebo runtime test chování. Standardní Update je povinná součást integračního ověření, protože současně testuje updater, Git historii, submoduly a instalační/update kontrakt aplikace.
 - `etc_jb_sys_apps` je unixový symlink na živou konfiguraci v systému. Obsah aktuálního `config.ini` nelze odvozovat z GitHubu; pokud je potřeba, vyžádej si od uživatele konkrétní obsah nebo výpis z terminálu.
 - `log` je unixový symlink na živý logovací adresář. Aktuální logy nejsou součástí repozitáře a při diagnostice je musí dodat uživatel.
@@ -68,7 +69,7 @@ Aplikace i pomocná výběrová menu jsou založená na `c_menu`. Hlavním prost
 
 `libs/app/menus/menu.md` je dokumentace struktury a funkcí menu, nikoliv hlavní wrapper nebo hlavní menu class.
 
-Pokud během vývoje vznikne potřeba samostatného nástroje nebo rozsáhlejšího submenu, navrhni jej jako novou podaplikaci, zapiš úkol do `todo_md` a vytvoř nový adresář `libs/app/menus/app_<poradi>_<nazev>` se souborem `menu.py`.
+Pokud během vývoje vznikne potřeba samostatného nástroje nebo rozsáhlejšího submenu, navrhni jej jako novou podaplikaci, aktuální task/evidenci veď v Redmine nebo Workstate a trvalé architektonické rozhodnutí v AI Memory; potom vytvoř nový adresář `libs/app/menus/app_<poradi>_<nazev>` se souborem `menu.py`.
 
 Aktuální podaplikace zahrnují mimo jiné UART tester, SSH manager, SFTP manager, Node-RED instance manager a self-updater.
 

@@ -15,6 +15,7 @@ from libs.app import cfg as app_cfg
 
 from libs.JBLibs.c_menu import (
     c_menu, c_menu_block_items, c_menu_item, c_menu_title_label, onSelReturn,
+    printBlock,
 )
 from libs.JBLibs.input import anyKey, confirm, get_input, select, select_item, selectFile
 from libs.JBLibs.term import clearRow, en_color, savePos, text_color
@@ -62,7 +63,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.8.0"
+    _VERSION_ = "0.8.1"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -291,6 +292,22 @@ class menu(c_menu):
             f"[{rule.number:>2}] {rule.text}" for rule in rules
         )
 
+    def _show_native_rules(self, rules) -> None:
+        block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+        block.append((TXT_FW_NATIVE_RULES_TITLE, "c"))
+        block.append("-")
+        if rules:
+            for rule in rules:
+                block.append((f"[{rule.number:>2}]", rule.text))
+        else:
+            block.append(TXT_FW_NATIVE_RULES_EMPTY)
+        printBlock(
+            block,
+            c_menu_block_items(),
+            min_width=self.minMenuWidth,
+        )
+        anyKey(minMessageWidth=self.minMenuWidth)
+
     @staticmethod
     def _format_port_diagnostics(diag) -> str:
         specs = ", ".join(
@@ -353,7 +370,8 @@ class menu(c_menu):
                 message = TXT_FW_CONSOLE_HELP
                 continue
             if command.kind == "list":
-                message = TXT_FW_CONSOLE_LIST_REFRESHED
+                self._show_native_rules(rules)
+                message = TXT_FW_NATIVE_CONSOLE_READY
                 continue
 
             try:
