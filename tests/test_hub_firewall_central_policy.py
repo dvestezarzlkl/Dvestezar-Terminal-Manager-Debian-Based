@@ -78,6 +78,33 @@ class HubFirewallCentralPolicyTests(unittest.TestCase):
             self.assertEqual(raw["rules"][0]["position"], 10)
             self.assertEqual(raw["vpn_servers"][0]["target_kind"], "group")
 
+    def test_cache_rejects_invalid_central_rule_before_write(self):
+        update = self._update()
+        bad_rule = HubCentralFirewallRule(
+            rule_uid="b" * 32,
+            target_kind="all",
+            position=1,
+            rule_type="standard",
+            enabled=True,
+            name="invalid-port-protocol",
+            direction="input",
+            action="allow",
+            protocol="icmp",
+            dst_ports="443",
+        )
+        invalid = HubFirewallPolicyUpdate(
+            machine_id=update.machine_id,
+            group_id=update.group_id,
+            generated_at=update.generated_at,
+            vpn_servers=update.vpn_servers,
+            rules=(bad_rule,),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "firewall_hub_policy.json"
+            with self.assertRaises(ValueError):
+                save_central_policy(invalid, path)
+            self.assertFalse(path.exists())
+
     def test_provider_applier_accepts_exactly_one_typed_update(self):
         update = self._update()
         with patch.object(provider, "save_central_policy") as save:
