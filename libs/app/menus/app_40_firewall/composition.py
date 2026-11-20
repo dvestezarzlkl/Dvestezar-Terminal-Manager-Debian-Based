@@ -127,7 +127,11 @@ def compose_firewall_policy(
         )
     if not isinstance(central, HubFirewallPolicyUpdate):
         raise FirewallCompositionError("Invalid central firewall policy.")
-    if machine_id and central.machine_id != machine_id:
+    if not machine_id:
+        raise FirewallCompositionError(
+            "Cannot verify central firewall policy machine identity."
+        )
+    if central.machine_id != machine_id:
         raise FirewallCompositionError(
             "Central firewall policy belongs to another machine."
         )
