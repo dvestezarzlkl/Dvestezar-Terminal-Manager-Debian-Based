@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.9.0")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.9.1")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -104,9 +104,24 @@ class HubFirewallCollectorTests(unittest.TestCase):
             ctx = firewall_menu.terminal_context(kwargs["context"])
             ctx.commands = kwargs["commands"]
             ctx.fnPrefix = kwargs["fnPrefix"]
-            self.assertIn("[ 1] 22/tcp ALLOW IN Anywhere", kwargs["header"](ctx))
+            header_rows = list(kwargs["header"](ctx))
+            self.assertIn(
+                ("UFW Live Terminal v0.9.1", "c"),
+                header_rows,
+            )
+            self.assertIn(
+                (firewall_menu.TXT_FW_NATIVE_RULES_TITLE, "c"),
+                header_rows,
+            )
+            self.assertIn(
+                ("[ 1]", "22/tcp ALLOW IN Anywhere"),
+                header_rows,
+            )
             self.assertIn(":list", str(list(ctx.help())))
-            self.assertIn("Apache ALLOW IN Anywhere", kwargs["commands"]["list"].fn(ctx, ""))
+            self.assertEqual(
+                kwargs["commands"]["list"].fn(ctx, ""),
+                firewall_menu.TXT_FW_CONSOLE_LIST_REFRESHED,
+            )
             return None
 
         with patch.object(

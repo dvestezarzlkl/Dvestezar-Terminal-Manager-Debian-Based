@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.14.1
+
+- UX Firewall Manager 0.9.1 přejmenovává položku menu na cyan `UFW Live Terminal` a konzole má vlastní horní hlavičku `UFW Live Terminal v...` s oddělenou sekcí aktuálních nativních pravidel.
+- UX `:list` už neduplikuje pravidla do výsledkové části; dynamický header provede nový read-back a příkaz pouze potvrdí obnovení seznamu.
+
 ## v2.14.0
 
 - ADD JBLibs 1.2.34 zavádí sdílené veřejné `terminal()` API pro plnohodnotné příkazové konzole: readline editace a historie, dynamický `header/footer`, statický `title`, aplikační context, deklarativní prefix dispatcher a automaticky generovaný help z `terminal_command` metadata.

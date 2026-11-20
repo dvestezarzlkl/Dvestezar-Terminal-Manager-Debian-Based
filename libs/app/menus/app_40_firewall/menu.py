@@ -66,7 +66,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.9.0"
+    _VERSION_ = "0.9.1"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -131,7 +131,7 @@ class menu(c_menu):
                 self.disable_runtime,
             ),
             c_menu_item(
-                TXT_FW_NATIVE_RULES,
+                text_color(TXT_FW_NATIVE_RULES, en_color.BRIGHT_CYAN),
                 "u",
                 self.manage_native_ufw_rules,
             ),
@@ -369,10 +369,10 @@ class menu(c_menu):
             return TXT_FW_CONSOLE_ERROR.format(
                 reason=f"Usage: {ctx.fnPrefix}list"
             )
-        try:
-            return self._format_native_rules(list_numbered_ufw_rules())
-        except FirewallApplyError as exc:
-            return TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
+        # The dynamic header performs the authoritative read-back on every
+        # terminal redraw. Returning only a status avoids duplicating the same
+        # numbered rules in the command-result area.
+        return TXT_FW_CONSOLE_LIST_REFRESHED
 
     def _native_console_list_port(self, ctx: terminal_context, args: str) -> str:
         if not args:
@@ -419,12 +419,27 @@ class menu(c_menu):
         }
 
         def render_header(ctx: terminal_context):
+            block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+            block.append((
+                TXT_FW_LIVE_TERMINAL_TITLE.format(version=self._VERSION_),
+                "c",
+            ))
+            block.append("-")
+            block.append((TXT_FW_NATIVE_RULES_TITLE, "c"))
+            block.append("-")
             try:
                 state["rules"] = list_numbered_ufw_rules()
-                return self._format_native_rules(state["rules"])
+                if state["rules"]:
+                    for rule in state["rules"]:
+                        block.append((f"[{rule.number:>2}]", rule.text))
+                else:
+                    block.append(TXT_FW_NATIVE_RULES_EMPTY)
             except FirewallApplyError as exc:
                 state["rules"] = ()
-                return TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
+                block.append(
+                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))
+                )
+            return block
 
         def render_footer(ctx: terminal_context):
             return state["message"]
@@ -433,7 +448,7 @@ class menu(c_menu):
         while True:
             raw = terminal(
                 header=render_header,
-                title=TXT_FW_NATIVE_RULES_TITLE,
+                title=None,
                 footer=render_footer,
                 defaultExit="q",
                 fnPrefix=":",
