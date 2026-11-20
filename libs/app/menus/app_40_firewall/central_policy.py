@@ -16,6 +16,8 @@ from libs.JBLibs.helper import getConfigPath
 from libs.app import g_def as defs
 from libs.app.hub.models import HubFirewallPolicyUpdate
 
+from .config import normalize_rule, normalize_vpn_server
+
 CACHE_NAME = "firewall_hub_policy.json"
 CACHE_VERSION = 1
 
@@ -48,6 +50,30 @@ def _validate(update: HubFirewallPolicyUpdate) -> None:
         if rule.rule_uid in rule_ids:
             raise FirewallCentralPolicyError("Duplicate central firewall rule UID.")
         rule_ids.add(rule.rule_uid)
+        try:
+            normalize_rule({
+                "rule_id": rule.rule_uid,
+                "kind": rule.rule_type,
+                "enabled": rule.enabled,
+                "name": rule.name,
+                "direction": rule.direction,
+                "action": rule.action,
+                "protocol": rule.protocol,
+                "source": rule.source,
+                "destination": rule.destination,
+                "destination_invert": rule.destination_invert,
+                "port_from": rule.port_from,
+                "port_to": rule.port_to,
+                "src_ports": rule.src_ports,
+                "dst_ports": rule.dst_ports,
+                "interface": rule.interface_name,
+                "ban_to": rule.ban_to or "",
+                "vpn_server_id": rule.vpn_server_uid,
+            })
+        except ValueError as exc:
+            raise FirewallCentralPolicyError(
+                f"Invalid central firewall rule {rule.rule_uid}."
+            ) from exc
 
     server_keys: set[tuple[str, str]] = set()
     for server in update.vpn_servers:
@@ -57,6 +83,18 @@ def _validate(update: HubFirewallPolicyUpdate) -> None:
         if key in server_keys:
             raise FirewallCentralPolicyError("Duplicate central VPN server in one scope.")
         server_keys.add(key)
+        try:
+            normalize_vpn_server({
+                "server_id": server.server_uid,
+                "name": server.name,
+                "ip": server.server_ip,
+                "mask": server.server_mask,
+                "interface": server.interface_name,
+            })
+        except ValueError as exc:
+            raise FirewallCentralPolicyError(
+                f"Invalid central VPN server {server.server_uid}."
+            ) from exc
 
 
 def save_central_policy(
