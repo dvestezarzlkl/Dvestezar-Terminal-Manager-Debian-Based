@@ -74,6 +74,7 @@ class HubFirewallCentralPolicyTests(unittest.TestCase):
             self.assertEqual(raw["version"], 1)
             self.assertEqual(raw["machine_id"], "machine-a")
             self.assertEqual(raw["group_id"], 7)
+            self.assertEqual(raw["generated_at"], "2026-11-20T12:00:00+00:00")
             self.assertEqual(raw["rules"][0]["target_kind"], "all")
             self.assertEqual(raw["rules"][0]["position"], 10)
             self.assertEqual(raw["vpn_servers"][0]["target_kind"], "group")
