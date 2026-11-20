@@ -20,5 +20,6 @@
       "new": "## v2.14.1\n\n- UX konzolová nápověda nyní zapisuje příkaz `':help'` v apostrofech, aby byla dvojtečka jednoznačně vidět jako součást příkazu.\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger apply workflow"
 }
