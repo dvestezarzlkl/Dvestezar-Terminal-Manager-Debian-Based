@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "commit_message": "ux(firewall): polish UFW Live Terminal layout",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    _VERSION_ = \"0.9.0\"\n",
+      "new": "    _VERSION_ = \"0.9.1\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "            c_menu_item(\n                TXT_FW_NATIVE_RULES,\n                \"u\",\n                self.manage_native_ufw_rules,\n            ),\n",
+      "new": "            c_menu_item(\n                text_color(TXT_FW_NATIVE_RULES, en_color.BRIGHT_CYAN),\n                \"u\",\n                self.manage_native_ufw_rules,\n            ),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    def _native_console_list(self, ctx: terminal_context, args: str) -> str:\n        if args:\n            return TXT_FW_CONSOLE_ERROR.format(\n                reason=f\"Usage: {ctx.fnPrefix}list\"\n            )\n        try:\n            return self._format_native_rules(list_numbered_ufw_rules())\n        except FirewallApplyError as exc:\n            return TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))\n",
+      "new": "    def _native_console_list(self, ctx: terminal_context, args: str) -> str:\n        if args:\n            return TXT_FW_CONSOLE_ERROR.format(\n                reason=f\"Usage: {ctx.fnPrefix}list\"\n            )\n        # The dynamic header performs the authoritative read-back on every\n        # terminal redraw. Returning only a status avoids duplicating the same\n        # numbered rules in the command-result area.\n        return TXT_FW_CONSOLE_LIST_REFRESHED\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "        def render_header(ctx: terminal_context):\n            try:\n                state[\"rules\"] = list_numbered_ufw_rules()\n                return self._format_native_rules(state[\"rules\"])\n            except FirewallApplyError as exc:\n                state[\"rules\"] = ()\n                return TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))\n",
+      "new": "        def render_header(ctx: terminal_context):\n            block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)\n            block.append((\n                TXT_FW_LIVE_TERMINAL_TITLE.format(version=self._VERSION_),\n                \"c\",\n            ))\n            block.append(\"-\")\n            block.append((TXT_FW_NATIVE_RULES_TITLE, \"c\"))\n            block.append(\"-\")\n            try:\n                state[\"rules\"] = list_numbered_ufw_rules()\n                if state[\"rules\"]:\n                    for rule in state[\"rules\"]:\n                        block.append((f\"[{rule.number:>2}]\", rule.text))\n                else:\n                    block.append(TXT_FW_NATIVE_RULES_EMPTY)\n            except FirewallApplyError as exc:\n                state[\"rules\"] = ()\n                block.append(\n                    TXT_FW_NATIVE_RULES_FAIL.format(reason=str(exc))\n                )\n            return block\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "                header=render_header,\n                title=TXT_FW_NATIVE_RULES_TITLE,\n                footer=render_footer,\n",
+      "new": "                header=render_header,\n                title=None,\n                footer=render_footer,\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "old": "TXT_FW_NATIVE_RULES = \"UFW pravidla\"\nTXT_FW_NATIVE_RULES_TITLE = \"Nativní UFW pravidla\"\n",
+      "new": "TXT_FW_NATIVE_RULES = \"UFW Live Terminal\"\nTXT_FW_LIVE_TERMINAL_TITLE = \"UFW Live Terminal v{version}\"\nTXT_FW_NATIVE_RULES_TITLE = \"Aktuální nativní UFW pravidla\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "old": "TXT_FW_CONSOLE_HELP_LIST = \"obnovit a zobrazit aktuální číslovaný seznam\"\n",
+      "new": "TXT_FW_CONSOLE_HELP_LIST = \"obnovit aktuální číslovaný seznam v hlavičce\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "old": "TXT_FW_NATIVE_RULES = \"UFW rules\"\nTXT_FW_NATIVE_RULES_TITLE = \"Native UFW rules\"\n",
+      "new": "TXT_FW_NATIVE_RULES = \"UFW Live Terminal\"\nTXT_FW_LIVE_TERMINAL_TITLE = \"UFW Live Terminal v{version}\"\nTXT_FW_NATIVE_RULES_TITLE = \"Current native UFW rules\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "old": "TXT_FW_CONSOLE_HELP_LIST = \"refresh and show current numbered rules\"\n",
+      "new": "TXT_FW_CONSOLE_HELP_LIST = \"refresh current numbered rules in the header\"\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.9.0\")\n",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.9.1\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "            self.assertIn(\"[ 1] 22/tcp ALLOW IN Anywhere\", kwargs[\"header\"](ctx))\n            self.assertIn(\":list\", str(list(ctx.help())))\n            self.assertIn(\"Apache ALLOW IN Anywhere\", kwargs[\"commands\"][\"list\"].fn(ctx, \"\"))\n            return None\n",
+      "new": "            header_rows = list(kwargs[\"header\"](ctx))\n            self.assertIn(\n                (\"UFW Live Terminal v0.9.1\", \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (\"Aktuální nativní UFW pravidla\", \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (\"[ 1]\", \"22/tcp ALLOW IN Anywhere\"),\n                header_rows,\n            )\n            self.assertIn(\":list\", str(list(ctx.help())))\n            self.assertEqual(\n                kwargs[\"commands\"][\"list\"].fn(ctx, \"\"),\n                firewall_menu.TXT_FW_CONSOLE_LIST_REFRESHED,\n            )\n            return None\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.14.0\"\n",
+      "new": "VERSION = \"2.14.1\"\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.14.0\n",
+      "new": "v2.14.1\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n",
+      "new": "# Changelog\n\n## v2.14.1\n\n- UX Firewall Manager 0.9.1 přejmenovává položku menu na cyan `UFW Live Terminal` a konzole má vlastní horní hlavičku `UFW Live Terminal v...` s oddělenou sekcí aktuálních nativních pravidel.\n- UX `:list` už neduplikuje pravidla do výsledkové části; dynamický header provede nový read-back a příkaz pouze potvrdí obnovení seznamu.\n\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.14.0 / Firewall Manager 0.9.0 moves the native UFW console onto shared JBLibs 1.2.34 `terminal()` API.",
+      "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.14.1 / Firewall Manager 0.9.1 uses the shared JBLibs 1.2.34 `terminal()` API and presents it as the cyan `UFW Live Terminal` with a versioned header and a separately rendered current-rule section.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Module 0.9.0 owns local desired state",
+      "new": "- Module 0.9.1 owns local desired state",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "Command results stay visible inside the terminal loop until the next input; do not reintroduce `anyKey` or a private input loop.",
+      "new": "Command results stay visible inside the terminal loop until the next input; the dynamic header owns the authoritative current numbered-rule view, so `:list` refreshes that header instead of duplicating rules in the result area. Do not reintroduce `anyKey` or a private input loop.",
+      "expected": 1
+    }
+  ]
+}
