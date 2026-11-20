@@ -629,7 +629,12 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                     "",
                 )
             if args[-1:] == ["--version"]:
-                return subprocess.CompletedProcess(args, 0, "ufw 0.36.2\n", "")
+                return subprocess.CompletedProcess(
+                    args,
+                    0,
+                    "ufw 0.36.2\nCopyright 2008-2023 Canonical Ltd.\n",
+                    "",
+                )
             raise AssertionError(args)
 
         with patch.object(
@@ -637,7 +642,7 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         ):
             self.assertIn("Apache Full", ufw_app_list(runner=runner))
             self.assertIn("80,443/tcp", ufw_app_info("Apache Full", runner=runner))
-            self.assertEqual(ufw_version(runner=runner), "ufw 0.36.2")
+            self.assertEqual(ufw_version(runner=runner), "0.36.2")
 
         self.assertIn(["/usr/sbin/ufw", "app", "list"], calls)
         self.assertIn(["/usr/sbin/ufw", "app", "info", "Apache Full"], calls)
