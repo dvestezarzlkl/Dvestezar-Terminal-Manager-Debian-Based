@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "commit_message": "feat(firewall): add central-local composed policy preview",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "from .config import (\n    FirewallConfig, FirewallConfigError, config_path,\n    import_legacy, load_config, merge_config, save_config,\n)\n",
+      "new": "from .config import (\n    FirewallConfig, FirewallConfigError, config_path,\n    import_legacy, load_config, merge_config, save_config,\n)\nfrom .central_policy import (\n    FirewallCentralPolicyError,\n    load_central_policy_update,\n)\nfrom .composition import (\n    FirewallCompositionError,\n    compose_firewall_policy,\n)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    _VERSION_ = \"0.10.0\"\n",
+      "new": "    _VERSION_ = \"0.11.0\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "            c_menu_item(TXT_FW_PREVIEW, \"p\", self.preview_local_config),\n",
+      "new": "            c_menu_item(TXT_FW_PREVIEW, \"p\", self.preview_local_config),\n            c_menu_item(\n                text_color(TXT_FW_COMPOSE_PREVIEW, en_color.BRIGHT_CYAN),\n                \"c\",\n                self.preview_composed_policy,\n            ),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    def _build_preview(\n        self,\n    ) -> tuple[\n        FirewallConfig,\n        CompiledFirewall,\n        CandidateResult,\n        CandidateResult | None,\n    ]:\n        cfg = load_config()\n        compiled = compile_firewall(cfg)\n        result4 = build_candidate(\n            _BEFORE_RULES.read_text(encoding=\"utf-8\"),\n            compiled.ipv4,\n            allow_openvpn=True,\n        )\n        result6: CandidateResult | None = None\n        if _BEFORE6_RULES.is_file():\n            result6 = build_candidate(\n                _BEFORE6_RULES.read_text(encoding=\"utf-8\"),\n                compiled.ipv6,\n                allow_openvpn=False,\n            )\n        elif compiled.explicit_ipv6:\n            raise FirewallPolicyError(\n                \"IPv6 rule exists but before6.rules is unavailable.\"\n            )\n        return cfg, compiled, result4, result6\n",
+      "new": "    def _build_preview_for_config(\n        self,\n        cfg: FirewallConfig,\n    ) -> tuple[\n        CompiledFirewall,\n        CandidateResult,\n        CandidateResult | None,\n    ]:\n        compiled = compile_firewall(cfg)\n        result4 = build_candidate(\n            _BEFORE_RULES.read_text(encoding=\"utf-8\"),\n            compiled.ipv4,\n            allow_openvpn=True,\n        )\n        result6: CandidateResult | None = None\n        if _BEFORE6_RULES.is_file():\n            result6 = build_candidate(\n                _BEFORE6_RULES.read_text(encoding=\"utf-8\"),\n                compiled.ipv6,\n                allow_openvpn=False,\n            )\n        elif compiled.explicit_ipv6:\n            raise FirewallPolicyError(\n                \"IPv6 rule exists but before6.rules is unavailable.\"\n            )\n        return compiled, result4, result6\n\n    def _build_preview(\n        self,\n    ) -> tuple[\n        FirewallConfig,\n        CompiledFirewall,\n        CandidateResult,\n        CandidateResult | None,\n    ]:\n        cfg = load_config()\n        compiled, result4, result6 = self._build_preview_for_config(cfg)\n        return cfg, compiled, result4, result6\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "        print(TXT_FW_PREVIEW_SAFE)\n\n    def apply_rules(self, selItem: c_menu_item) -> onSelReturn:\n",
+      "new": "        print(TXT_FW_PREVIEW_SAFE)\n\n    @staticmethod\n    def _compose_source_label(source) -> str:\n        return {\n            \"host_local\": TXT_FW_COMPOSE_SOURCE_LOCAL,\n            \"central_host\": TXT_FW_COMPOSE_SOURCE_HOST,\n            \"central_group\": TXT_FW_COMPOSE_SOURCE_GROUP,\n            \"central_all\": TXT_FW_COMPOSE_SOURCE_ALL,\n        }.get(source.key, source.key)\n\n    def preview_composed_policy(self, selItem: c_menu_item) -> onSelReturn:\n        \"\"\"Preview central + host-local effective desired state without Apply.\"\"\"\n        try:\n            local = load_config()\n            central = load_central_policy_update()\n            machine_id = str(\n                getattr(getattr(app_cfg, \"machineInfo\", None), \"machine_id\", \"\")\n                or \"\"\n            )\n            composed = compose_firewall_policy(\n                local,\n                central,\n                machine_id=machine_id,\n            )\n            compiled, result4, result6 = self._build_preview_for_config(\n                composed.config\n            )\n        except (\n            OSError,\n            UnicodeError,\n            FirewallPolicyError,\n            FirewallConfigError,\n            FirewallCentralPolicyError,\n            FirewallCompositionError,\n        ) as exc:\n            return onSelReturn().errRet(\n                TXT_FW_COMPOSE_FAIL.format(reason=str(exc))\n            )\n\n        block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)\n        block.append((TXT_FW_COMPOSE_TITLE, \"c\"))\n        block.append(\"-\")\n        block.append((\n            TXT_FW_COMPOSE_SOURCE_LOCAL,\n            str(composed.rule_count(\"host_local\")),\n        ))\n        block.append((\n            TXT_FW_COMPOSE_SOURCE_HOST,\n            str(composed.rule_count(\"central_host\")),\n        ))\n        block.append((\n            TXT_FW_COMPOSE_SOURCE_GROUP,\n            str(composed.rule_count(\"central_group\")),\n        ))\n        block.append((\n            TXT_FW_COMPOSE_SOURCE_ALL,\n            str(composed.rule_count(\"central_all\")),\n        ))\n        if central is None:\n            block.append(\"-\")\n            block.append(TXT_FW_COMPOSE_NO_CENTRAL)\n        else:\n            block.append((\n                TXT_FW_COMPOSE_GENERATED,\n                composed.central_generated_at,\n            ))\n            block.append((\n                TXT_FW_COMPOSE_GROUP,\n                str(composed.central_group_id)\n                if composed.central_group_id is not None\n                else \"-\",\n            ))\n\n        block.append(\"-\")\n        if not composed.config.rules:\n            block.append(TXT_FW_COMPOSE_NO_RULES)\n        else:\n            for index, (rule, source) in enumerate(\n                zip(composed.config.rules, composed.rule_sources),\n                start=1,\n            ):\n                state = \"ON\" if rule.enabled else \"OFF\"\n                label = self._compose_source_label(source)\n                name = rule.name or rule.rule_id[:8]\n                block.append((\n                    f\"{index:>2} [{label}]\",\n                    f\"{state} {rule.direction.upper()} \"\n                    f\"{rule.action.upper()} {rule.protocol.upper()} {name}\",\n                ))\n\n        printBlock(\n            block,\n            c_menu_block_items(),\n            eof=True,\n            min_width=self.minMenuWidth,\n        )\n        self._print_preview(compiled, result4, result6)\n        print(TXT_FW_COMPOSE_SAFE)\n        anyKey()\n        return onSelReturn()\n\n    def apply_rules(self, selItem: c_menu_item) -> onSelReturn:\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "old": "TXT_FW_PREVIEW = \"Porovnat lokální firewall.json se spravovanými UFW pravidly\"\n",
+      "new": "TXT_FW_PREVIEW = \"Porovnat lokální firewall.json se spravovanými UFW pravidly\"\nTXT_FW_COMPOSE_PREVIEW = \"Náhled efektivní Hub + lokální politiky (read-only)\"\nTXT_FW_COMPOSE_TITLE = \"Efektivní firewall politika - pouze náhled\"\nTXT_FW_COMPOSE_SOURCE_LOCAL = \"Host-local\"\nTXT_FW_COMPOSE_SOURCE_HOST = \"Central host\"\nTXT_FW_COMPOSE_SOURCE_GROUP = \"Central group\"\nTXT_FW_COMPOSE_SOURCE_ALL = \"Central all\"\nTXT_FW_COMPOSE_GENERATED = \"Central snapshot\"\nTXT_FW_COMPOSE_GROUP = \"Hub group ID\"\nTXT_FW_COMPOSE_NO_CENTRAL = \"Centrální cache není dostupná; náhled obsahuje pouze host-local pravidla.\"\nTXT_FW_COMPOSE_NO_RULES = \"Žádná efektivní pravidla.\"\nTXT_FW_COMPOSE_FAIL = \"Efektivní firewall politiku nelze sestavit: {reason}\"\nTXT_FW_COMPOSE_SAFE = \"Pouze náhled: Apply stále používá výhradně lokální firewall.json.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "old": "TXT_FW_PREVIEW = \"Compare local firewall.json with managed UFW rules (read-only)\"\n",
+      "new": "TXT_FW_PREVIEW = \"Compare local firewall.json with managed UFW rules (read-only)\"\nTXT_FW_COMPOSE_PREVIEW = \"Preview effective Hub + local policy (read-only)\"\nTXT_FW_COMPOSE_TITLE = \"Effective firewall policy - preview only\"\nTXT_FW_COMPOSE_SOURCE_LOCAL = \"Host-local\"\nTXT_FW_COMPOSE_SOURCE_HOST = \"Central host\"\nTXT_FW_COMPOSE_SOURCE_GROUP = \"Central group\"\nTXT_FW_COMPOSE_SOURCE_ALL = \"Central all\"\nTXT_FW_COMPOSE_GENERATED = \"Central snapshot\"\nTXT_FW_COMPOSE_GROUP = \"Hub group ID\"\nTXT_FW_COMPOSE_NO_CENTRAL = \"Central cache is unavailable; preview contains host-local rules only.\"\nTXT_FW_COMPOSE_NO_RULES = \"No effective rules.\"\nTXT_FW_COMPOSE_FAIL = \"Effective firewall policy cannot be composed: {reason}\"\nTXT_FW_COMPOSE_SAFE = \"Preview only: Apply still uses local firewall.json exclusively.\"\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "from tests.test_hub_firewall_central_policy import HubFirewallCentralPolicyTests\n",
+      "new": "from tests.test_hub_firewall_central_policy import HubFirewallCentralPolicyTests\nfrom tests.test_hub_firewall_composition import FirewallCompositionTests\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.10.0\")\n",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.11.0\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "            [\"e\", \"a\", \"d\", \"u\", \"i\", \"s\", \"p\", \"l\"],\n",
+      "new": "            [\"e\", \"a\", \"d\", \"u\", \"i\", \"s\", \"p\", \"c\", \"l\"],\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version=\"0.10.0\"), \"c\"),\n",
+      "new": "                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version=\"0.11.0\"), \"c\"),\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.15.0\"\n",
+      "new": "VERSION = \"2.16.0\"\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.15.0\n",
+      "new": "v2.16.0\n",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "v2.15.0\n",
+      "new": "v2.16.0\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n",
+      "new": "# Changelog\n\n## v2.16.0\n\n- ADD Firewall Manager 0.11.0 přidává pure kompozici centrální Hub cache s host-local `firewall.json`; provenance každého pravidla zůstává zachována a žádný zdroj se nepřepisuje.\n- POLICY běžná pravidla používají specificity precedence `host-local -> central host -> central group -> central all`; pořadí uvnitř central scope určuje schema 009 `position`. Existující compiler nadále drží bezpečnostní bloky `VPN BAN/izolace -> hard-source ALLOW -> standard`.\n- SAFE nové menu `Náhled efektivní Hub + lokální politiky` sestaví a porovná kandidátní pravidla read-only. Apply stále používá výhradně lokální `firewall.json`; centrální cache nemůže spustit UFW reload ani změnu.\n\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Module 0.9.1 owns local desired state in `/etc/jb_sys_apps/firewall.json` and may mutate UFW **only through the explicit guarded manual Apply/Enable/Disable workflow in `apply.py`**.",
+      "new": "- Module 0.11.0 owns local desired state in `/etc/jb_sys_apps/firewall.json` and may mutate UFW **only through the explicit guarded manual Apply/Enable/Disable workflow in `apply.py`**.",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- Local VPN servers and rules belong only to the current host. Hub collectors `firewall_vpn_servers` and `firewall_rules` may publish only `origin=host_local,target_kind=host` when schema >=008; they must never touch central host/group/all rows. Central delivery is separate: schema >=009 `firewall_central_policy` may read applicable `origin=central` all/group/host records and atomically cache them in `firewall_hub_policy.json`, but it must not merge them into user-owned `firewall.json` or call Apply/UFW.\n",
+      "new": "- Local VPN servers and rules belong only to the current host. Hub collectors `firewall_vpn_servers` and `firewall_rules` may publish only `origin=host_local,target_kind=host` when schema >=008; they must never touch central host/group/all rows. Central delivery is separate: schema >=009 `firewall_central_policy` may read applicable `origin=central` all/group/host records and atomically cache them in `firewall_hub_policy.json`, but it must not merge them into user-owned `firewall.json` or call Apply/UFW. Pure composition may combine the two sources transiently for preview using specificity order host-local -> central host -> central group -> central all. ID/machine/reference ambiguity must fail closed. Existing compiler safety ordering of OpenVPN BAN/isolation before hard-source ALLOW before standard rules remains authoritative.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.15.0 / Firewall Manager 0.10.0 adds a read-only central Hub policy delivery/cache stage on top of the verified host-local manager.",
+      "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.16.0 / Firewall Manager 0.11.0 adds read-only composition/preview of the cached central Hub policy with the verified host-local manager.",
+      "expected": 1
+    }
+  ]
+}
