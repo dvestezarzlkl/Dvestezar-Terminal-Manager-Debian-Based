@@ -200,5 +200,6 @@
       "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.15.0 / Firewall Manager 0.10.0 adds a read-only central Hub policy delivery/cache stage on top of the verified host-local manager. The shared JBLibs 1.2.34 `terminal()` API still presents the cyan `UFW Live Terminal` with a versioned header and a separately rendered current-rule section.",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger apply workflow"
 }
