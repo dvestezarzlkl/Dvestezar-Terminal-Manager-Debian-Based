@@ -2,6 +2,7 @@
 
 ## v2.14.1
 
+- FIX `:ver` nyní z `ufw --version` používá jen první verzní řádek a normalizuje jej na `UFW: <verze>`; copyright Canonical se do konzole nevypisuje.
 - UX konzolová nápověda nyní zapisuje příkaz `':help'` v apostrofech, aby byla dvojtečka jednoznačně vidět jako součást příkazu.
 - UX Firewall Manager 0.9.1 přejmenovává položku menu na cyan `UFW Live Terminal` a konzole má vlastní horní hlavičku `UFW Live Terminal v...` s oddělenou sekcí aktuálních nativních pravidel.
 - UX `:list` už neduplikuje pravidla do výsledkové části; dynamický header provede nový read-back a příkaz pouze potvrdí obnovení seznamu.

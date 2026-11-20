@@ -213,7 +213,12 @@ def ufw_app_info(profile: str, *, runner: Runner = _run) -> str:
 def ufw_version(*, runner: Runner = _run) -> str:
     ufw = _binary("ufw")
     result = runner([ufw, "--version"], check=True, timeout=15)
-    return (result.stdout or result.stderr or "").strip()
+    output = (result.stdout or result.stderr or "").strip()
+    if not output:
+        return ""
+    first_line = output.splitlines()[0].strip()
+    match = re.match(r"(?i)^ufw\s+(.+)$", first_line)
+    return match.group(1).strip() if match else first_line
 
 
 def add_native_ufw_rule(
