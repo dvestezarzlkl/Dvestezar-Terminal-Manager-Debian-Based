@@ -357,10 +357,15 @@ class FirewallApplyTransactionTests(unittest.TestCase):
                 )
                 for call in calls
             ))
-            self.assertTrue(any(
-                call[-3:] == ["/usr/bin/ufw", "--dry-run", "reload"]
-                for call in calls
-            ))
+            dry_index = next(
+                i for i, call in enumerate(calls)
+                if call[-3:] == ["/usr/bin/ufw", "--dry-run", "reload"]
+            )
+            recovery_index = next(
+                i for i, call in enumerate(calls)
+                if call[-2:] == ["/usr/bin/ufw", "reload"]
+            )
+            self.assertLess(dry_index, recovery_index)
             self.assertEqual(live_reload_contents, [original4])
 
     def test_active_apply_arms_rollback_before_reload_and_saves_state(self):
