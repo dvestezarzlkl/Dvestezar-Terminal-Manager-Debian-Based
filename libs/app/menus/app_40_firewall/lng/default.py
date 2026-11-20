@@ -129,7 +129,7 @@ TXT_FW_NATIVE_RULE_DELETED = "Deleted: {rule}. Select another rule or press ESC 
 TXT_FW_NATIVE_RULE_DELETE_LAST = "The selected UFW rule was deleted; no native numbered UFW rules remain."
 TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = "Fresh SSH confirmation was not completed; the native UFW delete was rolled back. Backup: {backup}"
 TXT_FW_NATIVE_RULES_FAIL = "Native UFW rule operation failed safely: {reason}"
-TXT_FW_NATIVE_CONSOLE_READY = "Enter a rule number to delete it, use add ... to add a rule, or :help for examples."
+TXT_FW_NATIVE_CONSOLE_READY = "Enter a rule number to delete it, use add ... to add a rule, or ':help' for examples."
 TXT_FW_NATIVE_CONSOLE_PROMPT = "Current native UFW rules:\n{rules}\n\n{message}"
 TXT_FW_CONSOLE_MUTATING_HELP = [
     "add p <port>    add an ALLOW port",

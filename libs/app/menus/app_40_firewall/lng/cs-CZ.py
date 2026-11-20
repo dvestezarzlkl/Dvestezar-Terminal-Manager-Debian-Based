@@ -129,7 +129,7 @@ TXT_FW_NATIVE_RULE_DELETED = "Smazáno: {rule}. Vyberte další pravidlo nebo ES
 TXT_FW_NATIVE_RULE_DELETE_LAST = "Vybrané UFW pravidlo bylo smazáno; žádná číslovaná nativní UFW pravidla nezůstala."
 TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = "Potvrzení z nového SSH nebylo dokončeno; smazání nativního UFW pravidla bylo vráceno. Záloha: {backup}"
 TXT_FW_NATIVE_RULES_FAIL = "Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}"
-TXT_FW_NATIVE_CONSOLE_READY = "Zadejte číslo pravidla pro smazání, add ... pro přidání nebo :help pro příklady."
+TXT_FW_NATIVE_CONSOLE_READY = "Zadejte číslo pravidla pro smazání, add ... pro přidání nebo ':help' pro příklady."
 TXT_FW_NATIVE_CONSOLE_PROMPT = "Aktuální nativní UFW pravidla:\n{rules}\n\n{message}"
 TXT_FW_CONSOLE_MUTATING_HELP = [
     "add p <port>    přidat ALLOW port",
