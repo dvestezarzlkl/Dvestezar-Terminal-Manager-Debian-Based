@@ -642,7 +642,9 @@ class FirewallApplyTransactionTests(unittest.TestCase):
         ):
             self.assertIn("Apache Full", ufw_app_list(runner=runner))
             self.assertIn("80,443/tcp", ufw_app_info("Apache Full", runner=runner))
-            self.assertEqual(ufw_version(runner=runner), "0.36.2")
+            version = ufw_version(runner=runner)
+            self.assertEqual(version, "0.36.2")
+            self.assertNotIn("Canonical", version)
 
         self.assertIn(["/usr/sbin/ufw", "app", "list"], calls)
         self.assertIn(["/usr/sbin/ufw", "app", "info", "Apache Full"], calls)
