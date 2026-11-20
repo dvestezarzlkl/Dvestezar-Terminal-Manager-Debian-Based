@@ -83,6 +83,48 @@ class HubFirewallRule:
 
 
 @dataclass(frozen=True)
+class HubCentralFirewallVpnServer:
+    server_uid: str
+    target_kind: str
+    name: str
+    server_ip: str
+    server_mask: int
+    interface_name: str = "tun+"
+
+
+@dataclass(frozen=True)
+class HubCentralFirewallRule:
+    rule_uid: str
+    target_kind: str
+    position: int
+    rule_type: str
+    enabled: bool
+    name: str = ""
+    direction: str = "input"
+    action: str = "allow"
+    protocol: str = "any"
+    source: str = ""
+    destination: str = ""
+    destination_invert: bool = False
+    port_from: Optional[int] = None
+    port_to: Optional[int] = None
+    src_ports: str = ""
+    dst_ports: str = ""
+    interface_name: str = ""
+    ban_to: Optional[str] = None
+    vpn_server_uid: str = ""
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyUpdate:
+    machine_id: str
+    group_id: Optional[int]
+    generated_at: datetime
+    vpn_servers: tuple[HubCentralFirewallVpnServer, ...] = field(default_factory=tuple)
+    rules: tuple[HubCentralFirewallRule, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
 class HubHostSnapshot:
     machine_id: str
     hostname: str
@@ -152,7 +194,7 @@ HubProviderItem = (
     | HubFirewallVpnServer
     | HubFirewallRule
 )
-HubRemoteUpdate = HubDiskNameUpdate
+HubRemoteUpdate = HubDiskNameUpdate | HubFirewallPolicyUpdate
 
 
 @dataclass(frozen=True)

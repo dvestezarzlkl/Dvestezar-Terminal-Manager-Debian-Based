@@ -7,8 +7,11 @@ import re
 from typing import Any, Iterator
 
 from .models import (
+    HubCentralFirewallRule,
+    HubCentralFirewallVpnServer,
     HubDisk,
     HubDiskNameUpdate,
+    HubFirewallPolicyUpdate,
     HubFirewallRule,
     HubFirewallVpnServer,
     HubHostSnapshot,
@@ -349,6 +352,8 @@ class HubDatabase:
             return self._sync_firewall_rules_provider(machine_id, snapshot)
         if snapshot.dataset == "firewall_vpn_servers":
             return self._sync_firewall_vpn_servers_provider(machine_id, snapshot)
+        if snapshot.dataset == "firewall_central_policy":
+            return self._sync_firewall_central_policy_provider(machine_id, snapshot)
         raise ValueError(f"Unsupported Hub dataset: {snapshot.dataset}")
 
     def _sync_firewall_vpn_servers_provider(
@@ -540,6 +545,116 @@ class HubDatabase:
             except Exception:
                 connection.rollback()
                 raise
+
+    def _sync_firewall_central_policy_provider(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+    ) -> HubProviderSyncResult:
+        """Read applicable central firewall policy without mutating policy rows."""
+        if snapshot.source_key != "firewall_central_policy" or snapshot.items:
+            raise ValueError("Invalid central firewall policy provider snapshot.")
+
+        hosts = table_identifier(self.settings, "hosts")
+        rules_table = table_identifier(self.settings, "firewall_rules")
+        vpn_table = table_identifier(self.settings, "firewall_vpn_servers")
+        now = _utc_now()
+
+        with self.connect() as connection:
+            try:
+                with connection.cursor() as cursor:
+                    host_id = self._host_id(cursor, machine_id)
+                    cursor.execute(
+                        f"SELECT group_id FROM {hosts} WHERE id=%s",
+                        (host_id,),
+                    )
+                    row = cursor.fetchone()
+                    if row is None:
+                        raise RuntimeError("Cannot resolve Hub host group.")
+                    group_id = int(row[0]) if row[0] is not None else None
+
+                    scope_sql = (
+                        "origin=%s AND ("
+                        "(target_kind='all' AND host_id IS NULL AND group_id IS NULL) OR "
+                        "(target_kind='host' AND host_id=%s AND group_id IS NULL) OR "
+                        "(target_kind='group' AND host_id IS NULL AND group_id=%s)"
+                        ")"
+                    )
+                    scope_params = ("central", host_id, group_id)
+
+                    cursor.execute(
+                        f"SELECT server_uid,target_kind,name,server_ip,server_mask,"
+                        f"interface_name FROM {vpn_table} WHERE {scope_sql} "
+                        "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
+                        "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END, "
+                        "server_uid",
+                        scope_params,
+                    )
+                    vpn_servers = tuple(
+                        HubCentralFirewallVpnServer(
+                            server_uid=str(item[0]),
+                            target_kind=str(item[1]),
+                            name=str(item[2]),
+                            server_ip=str(item[3]),
+                            server_mask=int(item[4]),
+                            interface_name=str(item[5]),
+                        )
+                        for item in cursor.fetchall()
+                    )
+
+                    cursor.execute(
+                        f"SELECT rule_uid,target_kind,position,rule_type,"
+                        "vpn_server_uid,enabled,name,direction,action,protocol,"
+                        "source,destination,destination_invert,port_from,port_to,"
+                        f"src_ports,dst_ports,interface_name,ban_to FROM {rules_table} "
+                        f"WHERE {scope_sql} "
+                        "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
+                        "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END, "
+                        "position,rule_uid",
+                        scope_params,
+                    )
+                    rules = tuple(
+                        HubCentralFirewallRule(
+                            rule_uid=str(item[0]),
+                            target_kind=str(item[1]),
+                            position=int(item[2]),
+                            rule_type=str(item[3]),
+                            vpn_server_uid=str(item[4] or ""),
+                            enabled=bool(item[5]),
+                            name=str(item[6] or ""),
+                            direction=str(item[7]),
+                            action=str(item[8]),
+                            protocol=str(item[9]),
+                            source=str(item[10] or ""),
+                            destination=str(item[11] or ""),
+                            destination_invert=bool(item[12]),
+                            port_from=int(item[13]) if item[13] is not None else None,
+                            port_to=int(item[14]) if item[14] is not None else None,
+                            src_ports=str(item[15] or ""),
+                            dst_ports=str(item[16] or ""),
+                            interface_name=str(item[17] or ""),
+                            ban_to=item[18].isoformat() if item[18] is not None else None,
+                        )
+                        for item in cursor.fetchall()
+                    )
+                    count = len(vpn_servers) + len(rules)
+                    self._upsert_source(
+                        cursor, host_id, snapshot.source_key, "ok", count
+                    )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+
+        update = HubFirewallPolicyUpdate(
+            machine_id=machine_id,
+            group_id=group_id,
+            generated_at=_utc_aware(now),
+            vpn_servers=vpn_servers,
+            rules=rules,
+        )
+        return HubProviderSyncResult(count, (update,))
+
 
     def _sync_service_provider(
         self,

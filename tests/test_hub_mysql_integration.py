@@ -8,6 +8,7 @@ import unittest
 from libs.app.hub.database import HubDatabase
 from libs.app.hub.models import (
     HubDisk,
+    HubFirewallPolicyUpdate,
     HubFirewallRule,
     HubFirewallVpnServer,
     HubHostSnapshot,
@@ -43,8 +44,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 8:
-            raise AssertionError(f"Expected schema version 8, got {version}")
+        if version != 9:
+            raise AssertionError(f"Expected schema version 9, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -178,7 +179,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 8)
+                self.assertEqual(cursor.fetchone()[0], 9)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -246,7 +247,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             before = db.check_status()
             self.assertEqual(before.state, HubState.READY)
             self.assertEqual(before.schema_version, 4)
-            self.assertEqual(before.latest_schema_version, 8)
+            self.assertEqual(before.latest_schema_version, 9)
             self.assertEqual(before.message, "ready")
             db.sync_core(self._host("new-host", "new-host"))
 
@@ -326,7 +327,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 8)
+                self.assertEqual(check.latest_version, 9)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
@@ -573,6 +574,83 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     min_schema_version=8,
                 ),
             )
+
+    def test_central_firewall_policy_selects_all_group_host_in_position_order(self) -> None:
+        host = self._host("machine-central-policy", "host-central-policy")
+        self.database.sync_core(host)
+        rules = table_identifier(self.settings, "firewall_rules")
+        servers = table_identifier(self.settings, "firewall_vpn_servers")
+        hosts = table_identifier(self.settings, "hosts")
+        groups = table_identifier(self.settings, "host_groups")
+
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"INSERT INTO {groups} (code,name,description) VALUES (%s,%s,%s)",
+                    ("prod", "Production", ""),
+                )
+                group_id = cursor.lastrowid
+                cursor.execute(
+                    f"UPDATE {hosts} SET group_id=%s WHERE machine_id=%s",
+                    (group_id, host.machine_id),
+                )
+                cursor.execute(
+                    f"SELECT id FROM {hosts} WHERE machine_id=%s",
+                    (host.machine_id,),
+                )
+                host_id = cursor.fetchone()[0]
+
+                cursor.executemany(
+                    f"INSERT INTO {rules} "
+                    "(rule_uid,origin,target_kind,position,host_id,group_id,"
+                    "rule_type,enabled,name,direction,action,protocol,source,"
+                    "destination,destination_invert,src_ports,dst_ports,"
+                    "interface_name,ban_to,last_seen_at) "
+                    "VALUES (%s,'central',%s,%s,%s,%s,'standard',1,%s,"
+                    "'input','allow','tcp','','',0,'',%s,'',NULL,UTC_TIMESTAMP(6))",
+                    (
+                        ("1" * 32, "all", 20, None, None, "all-20", "80"),
+                        ("2" * 32, "all", 10, None, None, "all-10", "443"),
+                        ("3" * 32, "group", 5, None, group_id, "group-5", "8080"),
+                        ("4" * 32, "host", 1, host_id, None, "host-1", "22"),
+                    ),
+                )
+                cursor.execute(
+                    f"INSERT INTO {servers} "
+                    "(server_uid,origin,target_kind,host_id,group_id,name,"
+                    "server_ip,server_mask,interface_name,last_seen_at) "
+                    "VALUES (%s,'central','group',NULL,%s,%s,%s,%s,%s,UTC_TIMESTAMP(6))",
+                    ("a" * 32, group_id, "Central VPN", "10.9.0.1", 24, "tun9"),
+                )
+            connection.commit()
+
+        result = self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_central_policy",
+                "firewall_central_policy",
+                (),
+                min_schema_version=9,
+            ),
+        )
+        self.assertEqual(result.item_count, 5)
+        self.assertEqual(len(result.remote_updates), 1)
+        update = result.remote_updates[0]
+        self.assertIsInstance(update, HubFirewallPolicyUpdate)
+        self.assertEqual(update.group_id, group_id)
+        self.assertEqual(
+            [(item.target_kind, item.position, item.name) for item in update.rules],
+            [
+                ("all", 10, "all-10"),
+                ("all", 20, "all-20"),
+                ("group", 5, "group-5"),
+                ("host", 1, "host-1"),
+            ],
+        )
+        self.assertEqual(
+            [(item.target_kind, item.name) for item in update.vpn_servers],
+            [("group", "Central VPN")],
+        )
 
     def test_single_service_provider_survives_core_and_cleans_own_key_only(self) -> None:
         host = replace(
