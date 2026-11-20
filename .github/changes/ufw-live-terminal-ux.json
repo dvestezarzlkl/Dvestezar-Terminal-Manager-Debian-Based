@@ -104,5 +104,6 @@
       "new": "Command results stay visible inside the terminal loop until the next input; the dynamic header owns the authoritative current numbered-rule view, so `:list` refreshes that header instead of duplicating rules in the result area. Do not reintroduce `anyKey` or a private input loop.",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger apply workflow"
 }
