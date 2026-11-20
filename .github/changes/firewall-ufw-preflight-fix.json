@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): validate candidates through complete UFW dry-run context",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "old": "def _validate_candidate_files(\n    plan: ApplyPlan,\n    *,\n    runner: Runner,\n) -> None:\n    \"\"\"Validate the exact full before.rules candidates before any file write.\n\n    Testing only extracted managed rules can hide invalid references to chains\n    that do not exist in the real UFW file (notably ufw-before-* vs\n    ufw6-before-*). The payload validated here is byte-for-byte the candidate\n    that would later be atomically written.\n    \"\"\"\n    iptables_restore = _binary(\"iptables-restore\")\n    runner(\n        [iptables_restore, \"--test\"],\n        input_text=plan.ipv4.content,\n        check=True,\n        timeout=20,\n    )\n    if plan.ipv6 is not None:\n        ip6tables_restore = _binary(\"ip6tables-restore\")\n        runner(\n            [ip6tables_restore, \"--test\"],\n            input_text=plan.ipv6.content,\n            check=True,\n            timeout=20,\n        )\n\n\n",
+      "new": "",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "old": "    _validate_candidate_files(plan, runner=runner)\n    ufw = _binary(\"ufw\")\n",
+      "new": "    # Do not feed before.rules to iptables-restore in isolation: stock UFW\n    # files may reference chains provided by the complete UFW ruleset (for\n    # example ufw-logging-deny). The authoritative syntax/backend preflight is\n    # `ufw --dry-run reload|enable` after the exact candidate is staged, with\n    # backup + independent rollback already armed and before any live reload.\n    ufw = _binary(\"ufw\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "old": "    def test_preflight_validates_exact_full_ipv4_and_ipv6_candidates(self):\n        plan = build_apply_plan(\n            config(),\n            before4=base_before(),\n            before6=base_before6(),\n        )\n        payloads: list[tuple[list[str], str]] = []\n\n        def runner(args, **kwargs):\n            payloads.append((list(args), kwargs.get(\"input_text\") or \"\"))\n            return subprocess.CompletedProcess(args, 0, \"\", \"\")\n\n        with patch.object(\n            firewall_apply, \"_binary\", side_effect=lambda name: f\"/usr/bin/{name}\"\n        ):\n            firewall_apply._validate_candidate_files(plan, runner=runner)\n\n        self.assertEqual(payloads[0][1], plan.ipv4.content)\n        self.assertEqual(payloads[1][1], plan.ipv6.content)\n        self.assertIn(\":ufw6-before-input - [0:0]\", payloads[1][1])\n        self.assertIn(\"-A ufw6-before-input\", payloads[1][1])\n\n",
+      "new": "    def test_active_apply_uses_ufw_dry_run_context_and_restores_on_failure(self):\n        with tempfile.TemporaryDirectory() as tmp:\n            paths = self._paths(Path(tmp))\n            original4 = paths.before4.read_text(encoding=\"utf-8\")\n            original6 = paths.before6.read_text(encoding=\"utf-8\")\n            calls: list[list[str]] = []\n            live_reload_contents: list[str] = []\n\n            def runner(args, **kwargs):\n                calls.append(list(args))\n                if args[-3:] == [\"/usr/bin/ufw\", \"--dry-run\", \"reload\"]:\n                    raise FirewallApplyError(\"simulated UFW dry-run failure\")\n                if args[-2:] == [\"/usr/bin/ufw\", \"reload\"]:\n                    live_reload_contents.append(\n                        paths.before4.read_text(encoding=\"utf-8\")\n                    )\n                return subprocess.CompletedProcess(args, 0, \"\", \"\")\n\n            with patch.object(\n                firewall_apply, \"_binary\", side_effect=lambda name: f\"/usr/bin/{name}\"\n            ), patch.object(\n                firewall_apply,\n                \"inspect_ufw_service\",\n                return_value=SimpleNamespace(detected=True, status=\"active\"),\n            ), patch.object(\n                firewall_apply.os, \"fchown\", return_value=None\n            ):\n                with self.assertRaisesRegex(\n                    FirewallApplyError, \"simulated UFW dry-run failure\"\n                ):\n                    apply_local_config(\n                        config(),\n                        acknowledge=lambda token, seconds: True,\n                        paths=paths,\n                        runner=runner,\n                    )\n\n            self.assertEqual(paths.before4.read_text(encoding=\"utf-8\"), original4)\n            self.assertEqual(paths.before6.read_text(encoding=\"utf-8\"), original6)\n            self.assertFalse(any(\n                call and (\n                    call[0].endswith(\"/iptables-restore\")\n                    or call[0].endswith(\"/ip6tables-restore\")\n                )\n                for call in calls\n            ))\n            self.assertTrue(any(\n                call[-3:] == [\"/usr/bin/ufw\", \"--dry-run\", \"reload\"]\n                for call in calls\n            ))\n            self.assertEqual(live_reload_contents, [original4])\n\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/AGENTS.md",
+      "old": "- UFW IPv4 and IPv6 chain namespaces are different: `before.rules` uses `ufw-before-*`, while `before6.rules` uses `ufw6-before-*`. Compile family-neutral IPv6 rules to the latter. Preflight must validate the **exact full candidate files** through `iptables-restore --test` / `ip6tables-restore --test`, never a synthetic subset with invented chain declarations.\n",
+      "new": "- UFW IPv4 and IPv6 chain namespaces are different: `before.rules` uses `ufw-before-*`, while `before6.rules` uses `ufw6-before-*`. Compile family-neutral IPv6 rules to the latter. Never validate `before.rules` / `before6.rules` standalone with `iptables-restore --test` / `ip6tables-restore --test`: stock UFW files can legitimately reference chains supplied by other UFW rule fragments (for example `ufw-logging-deny`), so isolated restore tests produce false failures. The authoritative backend preflight is `ufw --dry-run reload` or `ufw --dry-run --force enable` against the staged exact candidate after backup + independent rollback are armed and before any live reload/enable.\n",
+      "expected": 1
+    },
+    {
+      "path": "docs/firewall-manager-design.md",
+      "old": "- For Apply: stage candidates and a complete local backup; validate iptables-restore syntax and UFW backend; verify both v4/v6 where applicable; stage an automatic time-bound local rollback *before* reload; preserve a tested rescue SSH/VPN access route; verify a new authenticated session; confirm before committing. Fail closed and retain original on any problem.\n",
+      "new": "- For Apply: stage candidates and a complete local backup; arm an automatic time-bound local rollback before mutation; validate the staged exact candidate through the complete UFW backend using `ufw --dry-run reload` / `ufw --dry-run --force enable`; verify both v4/v6 where applicable; only then perform live reload/enable, preserve a tested rescue SSH/VPN access route, verify a new authenticated session and confirm before committing. Do not run standalone `iptables-restore --test` on `before.rules` fragments because they may reference chains defined elsewhere in the UFW ruleset. Fail closed and retain original on any problem.\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/menu.py",
+      "old": "    _VERSION_ = \"0.11.0\"\n",
+      "new": "    _VERSION_ = \"0.11.1\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/cfg.py",
+      "old": "VERSION = \"2.16.0\"\n",
+      "new": "VERSION = \"2.16.1\"\n",
+      "expected": 1
+    },
+    {
+      "path": "readme.md",
+      "old": "v2.16.0\n",
+      "new": "v2.16.1\n",
+      "expected": 1
+    },
+    {
+      "path": "readme_en.md",
+      "old": "v2.16.0\n",
+      "new": "v2.16.1\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "# Changelog\n\n",
+      "new": "# Changelog\n\n## v2.16.1\n\n- FIX Firewall Manager 0.11.1 odstraňuje chybný izolovaný preflight `iptables-restore --test` / `ip6tables-restore --test` nad samotným `before.rules`/`before6.rules`. Standardní UFW soubory mohou legitimně odkazovat na řetězce definované v jiných částech kompletního UFW rulesetu (např. `ufw-logging-deny`), takže izolovaný test falešně blokoval Apply, i když `ufw reload` byl platný.\n- SAFETY autoritativní preflight zůstává `ufw --dry-run reload` nebo `ufw --dry-run --force enable` nad přesně atomicky stagingovaným kandidátem; před stagingem je vytvořena záloha a aktivován nezávislý rollback, živý reload/enable následuje až po úspěšném dry-run.\n- TEST dry-run failure musí obnovit původní `before.rules`/`before6.rules`; případný recovery reload smí běžet až nad obnovenými soubory. Regression zároveň ověřuje, že Apply již nevolá standalone `iptables-restore`/`ip6tables-restore`.\n\n",
+      "expected": 1
+    }
+  ]
+}
