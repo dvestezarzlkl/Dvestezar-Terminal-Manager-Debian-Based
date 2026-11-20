@@ -106,7 +106,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
             ctx.fnPrefix = kwargs["fnPrefix"]
             header_rows = list(kwargs["header"](ctx))
             self.assertIn(
-                ("UFW Live Terminal v0.9.1", "c"),
+                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version="0.9.1"), "c"),
                 header_rows,
             )
             self.assertIn(
