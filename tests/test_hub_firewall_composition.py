@@ -31,6 +31,18 @@ class FirewallCompositionTests(unittest.TestCase):
             rules=tuple(rules),
         )
 
+    def test_local_only_preview_needs_no_machine_identity(self):
+        local = FirewallConfig(rules=(
+            FirewallRule(
+                "0" * 32, "standard", True, "local-only",
+                direction="input", action="allow", protocol="tcp",
+                dst_ports="443",
+            ),
+        ))
+        result = compose_firewall_policy(local, None)
+        self.assertEqual([item.name for item in result.config.rules], ["local-only"])
+        self.assertEqual([item.key for item in result.rule_sources], ["host_local"])
+
     def test_specificity_order_is_local_host_group_all(self):
         local = FirewallConfig(rules=(
             FirewallRule(
