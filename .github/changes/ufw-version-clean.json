@@ -38,5 +38,6 @@
       "new": "## v2.14.1\n\n- FIX `:ver` nyní z `ufw --version` používá jen první verzní řádek a normalizuje jej na `UFW: <verze>`; copyright Canonical se do konzole nevypisuje.\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger apply workflow"
 }
