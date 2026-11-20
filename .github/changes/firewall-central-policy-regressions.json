@@ -20,5 +20,6 @@
       "new": "            self.assertEqual(check.latest_version, 9)\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger regression alignment patch"
 }
