@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.14.0
+
+- ADD JBLibs 1.2.34 zavádí sdílené veřejné `terminal()` API pro plnohodnotné příkazové konzole: readline editace a historie, dynamický `header/footer`, statický `title`, aplikační context, deklarativní prefix dispatcher a automaticky generovaný help z `terminal_command` metadata.
+- UX Firewall Manager 0.9.0 převádí nativní UFW konzoli na sdílené `terminal()` API. `:help`, `:srv`, `:info`, `:ver`, `:list` a `:list p` jsou deklarativní read-only příkazy; šipky nahoru/dolů procházejí vlastní historii konzole a Backspace/kurzorové klávesy používají readline.
+- SAFETY `add ...` a číslované Delete zůstávají mimo read-only dispatcher a zachovávají existující confirm, stable-snapshot, rollback a fresh-SSH ACK ochrany.
+
 ## v2.13.1
 
 - UX aktualizován submodul JBLibs na 1.2.33. Platná callable volba v `c_menu`, `select()` a `confirm()` nyní okamžitě před zahájením práce zobrazí lokalizovaný stav `Zpracovávám ... (zvoleno: ...)`; pomalá operace už nevypadá jako nezaregistrovaný stisk. Konkrétní volba může feedback vypnout nebo přepsat přes `processingText`, placeholder podporuje `{value}` i `%v%`.
