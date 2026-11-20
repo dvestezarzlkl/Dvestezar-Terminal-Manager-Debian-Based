@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.9.1")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.10.0")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -106,7 +106,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
             ctx.fnPrefix = kwargs["fnPrefix"]
             header_rows = list(kwargs["header"](ctx))
             self.assertIn(
-                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version="0.9.1"), "c"),
+                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version="0.10.0"), "c"),
                 header_rows,
             )
             self.assertIn(
