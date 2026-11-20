@@ -7,6 +7,7 @@ central policy snapshot for later preview/merge stages.
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime
 import json
 import os
 from pathlib import Path
@@ -14,7 +15,11 @@ import tempfile
 
 from libs.JBLibs.helper import getConfigPath
 from libs.app import g_def as defs
-from libs.app.hub.models import HubFirewallPolicyUpdate
+from libs.app.hub.models import (
+    HubCentralFirewallRule,
+    HubCentralFirewallVpnServer,
+    HubFirewallPolicyUpdate,
+)
 
 from .config import normalize_rule, normalize_vpn_server
 
@@ -159,3 +164,42 @@ def load_central_policy(path: Path | None = None) -> dict:
     if not isinstance(raw.get("vpn_servers"), list) or not isinstance(raw.get("rules"), list):
         raise FirewallCentralPolicyError("Invalid central firewall cache payload.")
     return raw
+
+
+def load_central_policy_update(
+    path: Path | None = None,
+) -> HubFirewallPolicyUpdate | None:
+    """Load and fully validate the cached central policy as typed data."""
+    raw = load_central_policy(path)
+    if not raw.get("machine_id"):
+        return None
+    try:
+        generated_at = datetime.fromisoformat(str(raw.get("generated_at") or ""))
+        group_id = raw.get("group_id")
+        if group_id is not None:
+            if isinstance(group_id, bool):
+                raise ValueError("Invalid central firewall group ID.")
+            group_id = int(group_id)
+            if group_id <= 0:
+                raise ValueError("Invalid central firewall group ID.")
+        vpn_servers = tuple(
+            HubCentralFirewallVpnServer(**item)
+            for item in raw["vpn_servers"]
+        )
+        rules = tuple(
+            HubCentralFirewallRule(**item)
+            for item in raw["rules"]
+        )
+        update = HubFirewallPolicyUpdate(
+            machine_id=str(raw["machine_id"]),
+            group_id=group_id,
+            generated_at=generated_at,
+            vpn_servers=vpn_servers,
+            rules=rules,
+        )
+        _validate(update)
+        return update
+    except (TypeError, ValueError, KeyError) as exc:
+        raise FirewallCentralPolicyError(
+            "Invalid central firewall cache payload."
+        ) from exc

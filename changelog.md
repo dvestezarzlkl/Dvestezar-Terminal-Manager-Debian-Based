@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.16.0
+
+- ADD Firewall Manager 0.11.0 přidává pure kompozici centrální Hub cache s host-local `firewall.json`; provenance každého pravidla zůstává zachována a žádný zdroj se nepřepisuje.
+- POLICY běžná pravidla používají specificity precedence `host-local -> central host -> central group -> central all`; pořadí uvnitř central scope určuje schema 009 `position`. Existující compiler nadále drží bezpečnostní bloky `VPN BAN/izolace -> hard-source ALLOW -> standard`.
+- SAFE nové menu `Náhled efektivní Hub + lokální politiky` sestaví a porovná kandidátní pravidla read-only. Apply stále používá výhradně lokální `firewall.json`; centrální cache nemůže spustit UFW reload ani změnu.
+
 ## v2.15.0
 
 - ADD Hub schema 009 přidává explicitní `firewall_rules.position`, takže centrální `all/group/host` policy má deterministické pořadí nezávislé na DB `id` nebo pořadí SELECTu.

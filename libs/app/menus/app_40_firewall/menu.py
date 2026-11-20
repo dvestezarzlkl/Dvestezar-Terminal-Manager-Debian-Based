@@ -47,6 +47,14 @@ from .config import (
     FirewallConfig, FirewallConfigError, config_path,
     import_legacy, load_config, merge_config, save_config,
 )
+from .central_policy import (
+    FirewallCentralPolicyError,
+    load_central_policy_update,
+)
+from .composition import (
+    FirewallCompositionError,
+    compose_firewall_policy,
+)
 from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
 from .hub_sync import sync_local_rules_best_effort
 from .menu_rules import FirewallRulesMenu
@@ -66,7 +74,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.10.0"
+    _VERSION_ = "0.11.0"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -139,6 +147,11 @@ class menu(c_menu):
             c_menu_item(TXT_FW_INSPECT, "i", self.inspect_rules),
             c_menu_item(TXT_FW_STATUS, "s", self.inspect_status),
             c_menu_item(TXT_FW_PREVIEW, "p", self.preview_local_config),
+            c_menu_item(
+                text_color(TXT_FW_COMPOSE_PREVIEW, en_color.BRIGHT_CYAN),
+                "c",
+                self.preview_composed_policy,
+            ),
             c_menu_title_label(TXT_FW_SECTION_IMPORT),
             c_menu_item(TXT_FW_IMPORT_LEGACY, "l", self.import_legacy_config),
         ]
@@ -173,15 +186,14 @@ class menu(c_menu):
                 last_remaining = remaining
             sleep_ms(100)
 
-    def _build_preview(
+    def _build_preview_for_config(
         self,
+        cfg: FirewallConfig,
     ) -> tuple[
-        FirewallConfig,
         CompiledFirewall,
         CandidateResult,
         CandidateResult | None,
     ]:
-        cfg = load_config()
         compiled = compile_firewall(cfg)
         result4 = build_candidate(
             _BEFORE_RULES.read_text(encoding="utf-8"),
@@ -199,6 +211,18 @@ class menu(c_menu):
             raise FirewallPolicyError(
                 "IPv6 rule exists but before6.rules is unavailable."
             )
+        return compiled, result4, result6
+
+    def _build_preview(
+        self,
+    ) -> tuple[
+        FirewallConfig,
+        CompiledFirewall,
+        CandidateResult,
+        CandidateResult | None,
+    ]:
+        cfg = load_config()
+        compiled, result4, result6 = self._build_preview_for_config(cfg)
         return cfg, compiled, result4, result6
 
     def _print_preview(
@@ -227,6 +251,106 @@ class menu(c_menu):
                 day=compiled.next_expiry.isoformat()
             ))
         print(TXT_FW_PREVIEW_SAFE)
+
+    @staticmethod
+    def _compose_source_label(source) -> str:
+        return {
+            "host_local": TXT_FW_COMPOSE_SOURCE_LOCAL,
+            "central_host": TXT_FW_COMPOSE_SOURCE_HOST,
+            "central_group": TXT_FW_COMPOSE_SOURCE_GROUP,
+            "central_all": TXT_FW_COMPOSE_SOURCE_ALL,
+        }.get(source.key, source.key)
+
+    def preview_composed_policy(self, selItem: c_menu_item) -> onSelReturn:
+        """Preview central + host-local effective desired state without Apply."""
+        try:
+            local = load_config()
+            central = load_central_policy_update()
+            machine_id = str(
+                getattr(getattr(app_cfg, "machineInfo", None), "machine_id", "")
+                or ""
+            )
+            composed = compose_firewall_policy(
+                local,
+                central,
+                machine_id=machine_id,
+            )
+            compiled, result4, result6 = self._build_preview_for_config(
+                composed.config
+            )
+        except (
+            OSError,
+            UnicodeError,
+            FirewallPolicyError,
+            FirewallConfigError,
+            FirewallCentralPolicyError,
+            FirewallCompositionError,
+        ) as exc:
+            return onSelReturn().errRet(
+                TXT_FW_COMPOSE_FAIL.format(reason=str(exc))
+            )
+
+        block = c_menu_block_items(blockColor=en_color.BRIGHT_CYAN)
+        block.append((TXT_FW_COMPOSE_TITLE, "c"))
+        block.append("-")
+        block.append((
+            TXT_FW_COMPOSE_SOURCE_LOCAL,
+            str(composed.rule_count("host_local")),
+        ))
+        block.append((
+            TXT_FW_COMPOSE_SOURCE_HOST,
+            str(composed.rule_count("central_host")),
+        ))
+        block.append((
+            TXT_FW_COMPOSE_SOURCE_GROUP,
+            str(composed.rule_count("central_group")),
+        ))
+        block.append((
+            TXT_FW_COMPOSE_SOURCE_ALL,
+            str(composed.rule_count("central_all")),
+        ))
+        if central is None:
+            block.append("-")
+            block.append(TXT_FW_COMPOSE_NO_CENTRAL)
+        else:
+            block.append((
+                TXT_FW_COMPOSE_GENERATED,
+                composed.central_generated_at,
+            ))
+            block.append((
+                TXT_FW_COMPOSE_GROUP,
+                str(composed.central_group_id)
+                if composed.central_group_id is not None
+                else "-",
+            ))
+
+        block.append("-")
+        if not composed.config.rules:
+            block.append(TXT_FW_COMPOSE_NO_RULES)
+        else:
+            for index, (rule, source) in enumerate(
+                zip(composed.config.rules, composed.rule_sources),
+                start=1,
+            ):
+                state = "ON" if rule.enabled else "OFF"
+                label = self._compose_source_label(source)
+                name = rule.name or rule.rule_id[:8]
+                block.append((
+                    f"{index:>2} [{label}]",
+                    f"{state} {rule.direction.upper()} "
+                    f"{rule.action.upper()} {rule.protocol.upper()} {name}",
+                ))
+
+        printBlock(
+            block,
+            c_menu_block_items(),
+            eof=True,
+            min_width=self.minMenuWidth,
+        )
+        self._print_preview(compiled, result4, result6)
+        print(TXT_FW_COMPOSE_SAFE)
+        anyKey()
+        return onSelReturn()
 
     def apply_rules(self, selItem: c_menu_item) -> onSelReturn:
         service = inspect_ufw_service()

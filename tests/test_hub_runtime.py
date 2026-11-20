@@ -10,6 +10,7 @@ from tests.test_hub_firewall_policy import HubFirewallPolicyTests
 from tests.test_hub_firewall_reconcile import HubFirewallReconcileTests
 from tests.test_hub_firewall_config import HubFirewallConfigTests
 from tests.test_hub_firewall_central_policy import HubFirewallCentralPolicyTests
+from tests.test_hub_firewall_composition import FirewallCompositionTests
 from tests.test_hub_firewall_apply import (
     FirewallApplyTransactionTests,
     FirewallCompilerTests,
