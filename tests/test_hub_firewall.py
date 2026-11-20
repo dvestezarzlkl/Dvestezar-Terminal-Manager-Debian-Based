@@ -71,7 +71,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
     def test_active_menu_prioritizes_edit_and_explicit_guarded_runtime_actions(self):
         self.assertEqual(firewall_menu._HUB_PROVIDER_KEY_, "ufw")
         self.assertTrue(callable(firewall_menu.hub_collect))
-        self.assertEqual(firewall_menu.menu._VERSION_, "0.8.1")
+        self.assertEqual(firewall_menu.menu._VERSION_, "0.9.0")
         screen = firewall_menu.menu()
         with patch.object(
             firewall_menu,
@@ -91,23 +91,37 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertTrue(hasattr(firewall_menu.menu, "disable_runtime"))
         self.assertTrue(hasattr(firewall_menu.menu, "manage_native_ufw_rules"))
 
-    def test_native_console_list_renders_explicit_view_and_waits(self):
+    def test_native_console_uses_shared_terminal_dispatcher(self):
         screen = firewall_menu.menu()
         rules = (
             SimpleNamespace(number=1, text="22/tcp ALLOW IN Anywhere"),
             SimpleNamespace(number=2, text="Apache ALLOW IN Anywhere"),
         )
+        captured = {}
+
+        def fake_terminal(**kwargs):
+            captured.update(kwargs)
+            ctx = firewall_menu.terminal_context(kwargs["context"])
+            ctx.commands = kwargs["commands"]
+            ctx.fnPrefix = kwargs["fnPrefix"]
+            self.assertIn("[ 1] 22/tcp ALLOW IN Anywhere", kwargs["header"](ctx))
+            self.assertIn(":list", str(list(ctx.help())))
+            self.assertIn("Apache ALLOW IN Anywhere", kwargs["commands"]["list"].fn(ctx, ""))
+            return None
+
         with patch.object(
             firewall_menu, "list_numbered_ufw_rules", return_value=rules
         ), patch.object(
-            firewall_menu, "get_input", side_effect=[":list", None]
-        ), patch.object(
-            screen, "_show_native_rules"
-        ) as show:
+            firewall_menu, "terminal", side_effect=fake_terminal
+        ):
             result = screen.manage_native_ufw_rules(None)
 
         self.assertIsInstance(result, firewall_menu.onSelReturn)
-        show.assert_called_once_with(rules)
+        self.assertEqual(captured["historyKey"], "firewall-native-ufw")
+        self.assertEqual(
+            set(captured["commands"]),
+            {"help", "srv", "info", "ver", "list", "list p"},
+        )
 
     def test_menu_offers_only_guarded_activation_when_inactive(self):
         with patch.object(

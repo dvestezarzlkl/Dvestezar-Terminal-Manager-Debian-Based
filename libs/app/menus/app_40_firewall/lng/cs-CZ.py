@@ -130,7 +130,22 @@ TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = "Potvrzení z nového SSH nebylo dokonč
 TXT_FW_NATIVE_RULES_FAIL = "Operace s nativním UFW pravidlem byla bezpečně zastavena: {reason}"
 TXT_FW_NATIVE_CONSOLE_READY = "Zadejte číslo pravidla pro smazání, add ... pro přidání nebo :help pro příklady."
 TXT_FW_NATIVE_CONSOLE_PROMPT = "Aktuální nativní UFW pravidla:\n{rules}\n\n{message}"
-TXT_FW_CONSOLE_HELP = """Přidání:\n  add p <port>\n  add p <port> proto <tcp|udp>\n  add p <port> from <ip/cidr>\n  add p <port> from <ip/cidr> to <ip/cidr> proto <tcp|udp>\n  add srv <profile>\n\nRead-only pomoc:\n  :help\n  :srv                 ufw app list\n  :info <profile>      ufw app info <profile>\n  :ver\n  :list\n  :list p <port|profile>\n\nAlias: port=p, service=srv. Číslo zobrazeného pravidla = smazat."""
+TXT_FW_CONSOLE_MUTATING_HELP = [
+    "add p <port>    přidat ALLOW port",
+    "add p <port> proto <tcp|udp>    přidat ALLOW port s protokolem",
+    "add p <port> from <ip/cidr>    přidat ALLOW port ze zdroje",
+    "add srv <profile>    přidat UFW aplikační profil",
+    "<number>    smazat zobrazené číslované pravidlo",
+]
+TXT_FW_CONSOLE_HELP_HELP = "zobrazit tuto nápovědu"
+TXT_FW_CONSOLE_HELP_SRV = "vypsat dostupné UFW aplikační profily"
+TXT_FW_CONSOLE_HELP_INFO = "<profile>    zobrazit detail UFW profilu"
+TXT_FW_CONSOLE_HELP_VER = "zobrazit verze SysApps / Firewall Manager / UFW"
+TXT_FW_CONSOLE_HELP_LIST = "obnovit a zobrazit aktuální číslovaný seznam"
+TXT_FW_CONSOLE_HELP_LIST_PORT = [
+    "<port>    diagnostika portu",
+    "<profile>    diagnostika UFW profilu",
+]
 TXT_FW_CONSOLE_ERROR = "Chyba příkazu: {reason}"
 TXT_FW_CONSOLE_LIST_REFRESHED = "Seznam nativních UFW pravidel byl obnoven."
 TXT_FW_CONSOLE_EMPTY_OUTPUT = "(bez výstupu)"

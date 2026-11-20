@@ -130,7 +130,22 @@ TXT_FW_NATIVE_RULE_DELETE_ROLLED_BACK = "Fresh SSH confirmation was not complete
 TXT_FW_NATIVE_RULES_FAIL = "Native UFW rule operation failed safely: {reason}"
 TXT_FW_NATIVE_CONSOLE_READY = "Enter a rule number to delete it, use add ... to add a rule, or :help for examples."
 TXT_FW_NATIVE_CONSOLE_PROMPT = "Current native UFW rules:\n{rules}\n\n{message}"
-TXT_FW_CONSOLE_HELP = """Commands:\n  add p <port>\n  add p <port> proto <tcp|udp>\n  add p <port> from <ip/cidr>\n  add p <port> from <ip/cidr> to <ip/cidr> proto <tcp|udp>\n  add srv <profile>\n\nRead-only helpers:\n  :help\n  :srv                 ufw app list\n  :info <profile>      ufw app info <profile>\n  :ver\n  :list\n  :list p <port|profile>\n\nAliases: port=p, service=srv. Enter a displayed rule number to delete it."""
+TXT_FW_CONSOLE_MUTATING_HELP = [
+    "add p <port>    add an ALLOW port",
+    "add p <port> proto <tcp|udp>    add an ALLOW port with protocol",
+    "add p <port> from <ip/cidr>    add an ALLOW port from source",
+    "add srv <profile>    add a UFW application profile",
+    "<number>    delete the displayed numbered rule",
+]
+TXT_FW_CONSOLE_HELP_HELP = "show this help"
+TXT_FW_CONSOLE_HELP_SRV = "list available UFW application profiles"
+TXT_FW_CONSOLE_HELP_INFO = "<profile>    show UFW profile detail"
+TXT_FW_CONSOLE_HELP_VER = "show SysApps / Firewall Manager / UFW versions"
+TXT_FW_CONSOLE_HELP_LIST = "refresh and show current numbered rules"
+TXT_FW_CONSOLE_HELP_LIST_PORT = [
+    "<port>    diagnose a port",
+    "<profile>    diagnose a UFW profile",
+]
 TXT_FW_CONSOLE_ERROR = "Command error: {reason}"
 TXT_FW_CONSOLE_LIST_REFRESHED = "Native UFW rule list refreshed."
 TXT_FW_CONSOLE_EMPTY_OUTPUT = "(no output)"
