@@ -441,35 +441,6 @@ def build_apply_plan(
     return ApplyPlan(compiled, ipv4, ipv6)
 
 
-def _validate_candidate_files(
-    plan: ApplyPlan,
-    *,
-    runner: Runner,
-) -> None:
-    """Validate the exact full before.rules candidates before any file write.
-
-    Testing only extracted managed rules can hide invalid references to chains
-    that do not exist in the real UFW file (notably ufw-before-* vs
-    ufw6-before-*). The payload validated here is byte-for-byte the candidate
-    that would later be atomically written.
-    """
-    iptables_restore = _binary("iptables-restore")
-    runner(
-        [iptables_restore, "--test"],
-        input_text=plan.ipv4.content,
-        check=True,
-        timeout=20,
-    )
-    if plan.ipv6 is not None:
-        ip6tables_restore = _binary("ip6tables-restore")
-        runner(
-            [ip6tables_restore, "--test"],
-            input_text=plan.ipv6.content,
-            check=True,
-            timeout=20,
-        )
-
-
 def _atomic_replace(path: Path, content: str) -> None:
     if path.is_symlink() or not path.is_file():
         raise FirewallApplyError(f"Refusing non-regular UFW file: {path}")
@@ -854,7 +825,11 @@ def apply_local_config(
     if was_active and not plan.changed:
         return ApplyResult("NO_CHANGE", False, False)
 
-    _validate_candidate_files(plan, runner=runner)
+    # Do not feed before.rules to iptables-restore in isolation: stock UFW
+    # files may reference chains provided by the complete UFW ruleset (for
+    # example ufw-logging-deny). The authoritative syntax/backend preflight is
+    # `ufw --dry-run reload|enable` after the exact candidate is staged, with
+    # backup + independent rollback already armed and before any live reload.
     ufw = _binary("ufw")
     backup, existed = _create_backup(paths, was_active=was_active)
     _assert_source_unchanged(paths.before4, before4)

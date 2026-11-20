@@ -311,27 +311,62 @@ class FirewallApplyTransactionTests(unittest.TestCase):
             return subprocess.CompletedProcess(args, 0, "", "")
         return run
 
-    def test_preflight_validates_exact_full_ipv4_and_ipv6_candidates(self):
-        plan = build_apply_plan(
-            config(),
-            before4=base_before(),
-            before6=base_before6(),
-        )
-        payloads: list[tuple[list[str], str]] = []
+    def test_active_apply_uses_ufw_dry_run_context_and_restores_on_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self._paths(Path(tmp))
+            original4 = paths.before4.read_text(encoding="utf-8")
+            original6 = paths.before6.read_text(encoding="utf-8")
+            calls: list[list[str]] = []
+            live_reload_contents: list[str] = []
 
-        def runner(args, **kwargs):
-            payloads.append((list(args), kwargs.get("input_text") or ""))
-            return subprocess.CompletedProcess(args, 0, "", "")
+            def runner(args, **kwargs):
+                calls.append(list(args))
+                if args[-3:] == ["/usr/bin/ufw", "--dry-run", "reload"]:
+                    raise FirewallApplyError("simulated UFW dry-run failure")
+                if args[-2:] == ["/usr/bin/ufw", "reload"]:
+                    live_reload_contents.append(
+                        paths.before4.read_text(encoding="utf-8")
+                    )
+                return subprocess.CompletedProcess(args, 0, "", "")
 
-        with patch.object(
-            firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
-        ):
-            firewall_apply._validate_candidate_files(plan, runner=runner)
+            with patch.object(
+                firewall_apply, "_binary", side_effect=lambda name: f"/usr/bin/{name}"
+            ), patch.object(
+                firewall_apply,
+                "inspect_ufw_service",
+                return_value=SimpleNamespace(detected=True, status="active"),
+            ), patch.object(
+                firewall_apply.os, "fchown", return_value=None
+            ):
+                with self.assertRaisesRegex(
+                    FirewallApplyError, "simulated UFW dry-run failure"
+                ):
+                    apply_local_config(
+                        config(),
+                        acknowledge=lambda token, seconds: True,
+                        paths=paths,
+                        runner=runner,
+                    )
 
-        self.assertEqual(payloads[0][1], plan.ipv4.content)
-        self.assertEqual(payloads[1][1], plan.ipv6.content)
-        self.assertIn(":ufw6-before-input - [0:0]", payloads[1][1])
-        self.assertIn("-A ufw6-before-input", payloads[1][1])
+            self.assertEqual(paths.before4.read_text(encoding="utf-8"), original4)
+            self.assertEqual(paths.before6.read_text(encoding="utf-8"), original6)
+            self.assertFalse(any(
+                call and (
+                    call[0].endswith("/iptables-restore")
+                    or call[0].endswith("/ip6tables-restore")
+                )
+                for call in calls
+            ))
+            dry_index = next(
+                i for i, call in enumerate(calls)
+                if call[-3:] == ["/usr/bin/ufw", "--dry-run", "reload"]
+            )
+            recovery_index = next(
+                i for i, call in enumerate(calls)
+                if call[-2:] == ["/usr/bin/ufw", "reload"]
+            )
+            self.assertLess(dry_index, recovery_index)
+            self.assertEqual(live_reload_contents, [original4])
 
     def test_active_apply_arms_rollback_before_reload_and_saves_state(self):
         with tempfile.TemporaryDirectory() as tmp:
