@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.15.0
+
+- ADD Hub schema 009 přidává explicitní `firewall_rules.position`, takže centrální `all/group/host` policy má deterministické pořadí nezávislé na DB `id` nebo pořadí SELECTu.
+- ADD nový typed provider `firewall_central_policy` (schema >=009) čte pouze `origin=central` pravidla a VPN servery aplikovatelné na aktuální host (`all`, jeho group, jeho host) přes standardní Hub remote-update kontrakt.
+- SAFE přijatá centrální policy se pouze validuje a atomicky ukládá do privátního `/etc/jb_sys_apps/firewall_hub_policy.json`; nemění lokální `firewall.json`, UFW, reload ani Apply. Merge/precedence a automatický Apply zůstávají samostatné další etapy.
+
 ## v2.14.1
 
 - FIX `:ver` nyní z `ufw --version` používá jen první verzní řádek a normalizuje jej na `UFW: <verze>`; copyright Canonical se do konzole nevypisuje.

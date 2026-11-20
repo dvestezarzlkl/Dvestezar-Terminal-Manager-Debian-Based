@@ -43,8 +43,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 8:
-            raise AssertionError(f"Expected schema version 8, got {version}")
+        if version != 9:
+            raise AssertionError(f"Expected schema version 9, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -178,7 +178,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 8)
+                self.assertEqual(cursor.fetchone()[0], 9)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -246,7 +246,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             before = db.check_status()
             self.assertEqual(before.state, HubState.READY)
             self.assertEqual(before.schema_version, 4)
-            self.assertEqual(before.latest_schema_version, 8)
+            self.assertEqual(before.latest_schema_version, 9)
             self.assertEqual(before.message, "ready")
             db.sync_core(self._host("new-host", "new-host"))
 
