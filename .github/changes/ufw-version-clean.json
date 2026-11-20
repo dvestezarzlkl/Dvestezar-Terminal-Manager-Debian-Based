@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "commit_message": "fix(firewall): normalize UFW version output",
+  "replacements": [
+    {
+      "path": "libs/app/menus/app_40_firewall/apply.py",
+      "old": "def ufw_version(*, runner: Runner = _run) -> str:\n    ufw = _binary(\"ufw\")\n    result = runner([ufw, \"--version\"], check=True, timeout=15)\n    return (result.stdout or result.stderr or \"\").strip()\n",
+      "new": "def ufw_version(*, runner: Runner = _run) -> str:\n    ufw = _binary(\"ufw\")\n    result = runner([ufw, \"--version\"], check=True, timeout=15)\n    output = (result.stdout or result.stderr or \"\").strip()\n    if not output:\n        return \"\"\n    first_line = output.splitlines()[0].strip()\n    match = re.match(r\"(?i)^ufw\\s+(.+)$\", first_line)\n    return match.group(1).strip() if match else first_line\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "old": "            if args[-1:] == [\"--version\"]:\n                return subprocess.CompletedProcess(args, 0, \"ufw 0.36.2\\n\", \"\")\n",
+      "new": "            if args[-1:] == [\"--version\"]:\n                return subprocess.CompletedProcess(\n                    args,\n                    0,\n                    \"ufw 0.36.2\\nCopyright 2008-2023 Canonical Ltd.\\n\",\n                    \"\",\n                )\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall_apply.py",
+      "old": "            self.assertEqual(ufw_version(runner=runner), \"ufw 0.36.2\")\n",
+      "new": "            self.assertEqual(ufw_version(runner=runner), \"0.36.2\")\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/cs-CZ.py",
+      "old": "TXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\n{ufw}\"\n",
+      "new": "TXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\nUFW: {ufw}\"\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/menus/app_40_firewall/lng/default.py",
+      "old": "TXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\n{ufw}\"\n",
+      "new": "TXT_FW_CONSOLE_VERSION = \"SysApps: {sysapps}\\nFirewall Manager: {firewall}\\nUFW: {ufw}\"\n",
+      "expected": 1
+    },
+    {
+      "path": "changelog.md",
+      "old": "## v2.14.1\n\n",
+      "new": "## v2.14.1\n\n- FIX `:ver` nyní z `ufw --version` používá jen první verzní řádek a normalizuje jej na `UFW: <verze>`; copyright Canonical se do konzole nevypisuje.\n",
+      "expected": 1
+    }
+  ]
+}
