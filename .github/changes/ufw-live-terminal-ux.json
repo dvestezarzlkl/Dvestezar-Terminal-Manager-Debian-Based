@@ -4,8 +4,8 @@
   "replacements": [
     {
       "path": "libs/app/menus/app_40_firewall/menu.py",
-      "old": "    _VERSION_ = \"0.9.0\"\n",
-      "new": "    _VERSION_ = \"0.9.1\"\n",
+      "old": "_VERSION_ = \"0.9.0\"",
+      "new": "_VERSION_ = \"0.9.1\"",
       "expected": 1
     },
     {
@@ -65,7 +65,7 @@
     {
       "path": "tests/test_hub_firewall.py",
       "old": "            self.assertIn(\"[ 1] 22/tcp ALLOW IN Anywhere\", kwargs[\"header\"](ctx))\n            self.assertIn(\":list\", str(list(ctx.help())))\n            self.assertIn(\"Apache ALLOW IN Anywhere\", kwargs[\"commands\"][\"list\"].fn(ctx, \"\"))\n            return None\n",
-      "new": "            header_rows = list(kwargs[\"header\"](ctx))\n            self.assertIn(\n                (\"UFW Live Terminal v0.9.1\", \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (\"Aktuální nativní UFW pravidla\", \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (\"[ 1]\", \"22/tcp ALLOW IN Anywhere\"),\n                header_rows,\n            )\n            self.assertIn(\":list\", str(list(ctx.help())))\n            self.assertEqual(\n                kwargs[\"commands\"][\"list\"].fn(ctx, \"\"),\n                firewall_menu.TXT_FW_CONSOLE_LIST_REFRESHED,\n            )\n            return None\n",
+      "new": "            header_rows = list(kwargs[\"header\"](ctx))\n            self.assertIn(\n                (\"UFW Live Terminal v0.9.1\", \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (firewall_menu.TXT_FW_NATIVE_RULES_TITLE, \"c\"),\n                header_rows,\n            )\n            self.assertIn(\n                (\"[ 1]\", \"22/tcp ALLOW IN Anywhere\"),\n                header_rows,\n            )\n            self.assertIn(\":list\", str(list(ctx.help())))\n            self.assertEqual(\n                kwargs[\"commands\"][\"list\"].fn(ctx, \"\"),\n                firewall_menu.TXT_FW_CONSOLE_LIST_REFRESHED,\n            )\n            return None\n",
       "expected": 1
     },
     {
@@ -105,5 +105,5 @@
       "expected": 1
     }
   ],
-  "note": "trigger apply workflow"
+  "note": "retry with stable version anchor"
 }
