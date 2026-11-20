@@ -110,5 +110,6 @@
       "new": "Status: **guarded manual UFW Apply implemented and cross-session ACK physically verified on dev-vm**; SysApps 2.16.0 / Firewall Manager 0.11.0 adds read-only composition/preview of the cached central Hub policy with the verified host-local manager.",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger effective policy preview patch"
 }
