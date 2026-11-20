@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.16.1
+
+- FIX Firewall Manager 0.11.1 odstraňuje chybný izolovaný preflight `iptables-restore --test` / `ip6tables-restore --test` nad samotným `before.rules`/`before6.rules`. Standardní UFW soubory mohou legitimně odkazovat na řetězce definované v jiných částech kompletního UFW rulesetu (např. `ufw-logging-deny`), takže izolovaný test falešně blokoval Apply, i když `ufw reload` byl platný.
+- SAFETY autoritativní preflight zůstává `ufw --dry-run reload` nebo `ufw --dry-run --force enable` nad přesně atomicky stagingovaným kandidátem; před stagingem je vytvořena záloha a aktivován nezávislý rollback, živý reload/enable následuje až po úspěšném dry-run.
+- TEST dry-run failure musí obnovit původní `before.rules`/`before6.rules`; případný recovery reload smí běžet až nad obnovenými soubory. Regression zároveň ověřuje, že Apply již nevolá standalone `iptables-restore`/`ip6tables-restore`.
+
 ## v2.16.0
 
 - ADD Firewall Manager 0.11.0 přidává pure kompozici centrální Hub cache s host-local `firewall.json`; provenance každého pravidla zůstává zachována a žádný zdroj se nepřepisuje.
