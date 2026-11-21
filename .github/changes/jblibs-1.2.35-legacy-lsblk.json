@@ -45,5 +45,5 @@
       "expected": 1
     }
   ],
-  "note": "trigger SysApps 2.16.2 release patch"
+  "note": "retry after concurrent workflow push race"
 }
