@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.16.2
+
+- FIX JBLibs 1.2.35 opravuje Disk/Hub inventář na starších util-linux (ověřený případ Ubuntu 18.04), kde `lsblk` nezná sloupce `MOUNTPOINTS` a/nebo `PTUUID`. Nepodporovaný `MOUNTPOINTS` se bezpečně nahradí singular `MOUNTPOINT`; chybějící whole-disk PTUUID se read-only doplní přes `blkid`.
+- HUB tím odpadá falešný provider warning `lsblk: unknown column: PTUUID`, kvůli kterému jinak úspěšný headless Hub sync končil korektně jako warning/`exit 2` a systemd oneshot byl označen jako failed. Semantika `exit 2 = provider warning` se nemění ani nemaskuje.
+- TEST JBLibs regression simuluje legacy `lsblk` bez obou sloupců, ověřuje fallback přes `blkid`, zdědění PTUUID do partition a normalizaci mountpointu. SysApps updater/runtime CI očekává JBLibs 1.2.35.
+
 ## v2.16.1
 
 - FIX Firewall Manager 0.11.1 odstraňuje chybný izolovaný preflight `iptables-restore --test` / `ip6tables-restore --test` nad samotným `before.rules`/`before6.rules`. Standardní UFW soubory mohou legitimně odkazovat na řetězce definované v jiných částech kompletního UFW rulesetu (např. `ufw-logging-deny`), takže izolovaný test falešně blokoval Apply, i když `ufw reload` byl platný.
