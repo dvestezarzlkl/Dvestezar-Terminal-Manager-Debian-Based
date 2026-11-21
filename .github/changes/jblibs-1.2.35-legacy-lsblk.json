@@ -27,23 +27,11 @@
       "expected": 1
     },
     {
-      "path": ".github/workflows/test-self-updater.yml",
-      "old": "          assert '__version__ = \"1.2.34\"' in package_init\n",
-      "new": "          assert '__version__ = \"1.2.35\"' in package_init\n",
-      "expected": 1
-    },
-    {
-      "path": ".github/workflows/test-runtime-dependencies.yml",
-      "old": "          assert __version__ == \"1.2.34\"\n",
-      "new": "          assert __version__ == \"1.2.35\"\n",
-      "expected": 1
-    },
-    {
       "path": "AGENTS.md",
       "old": "- Disk Hub rozlišuje globální katalog PTUUID/názvů a aktuální host-device vazby. Lokálně známý pojmenovaný disk se synchronizuje i odpojený, ale pouze fyzicky nalezený disk smí vytvořit `host_disks` vazbu nebo aktualizovat velikost a čas posledního nalezení.\n",
       "new": "- Disk Hub rozlišuje globální katalog PTUUID/názvů a aktuální host-device vazby. Lokálně známý pojmenovaný disk se synchronizuje i odpojený, ale pouze fyzicky nalezený disk smí vytvořit `host_disks` vazbu nebo aktualizovat velikost a čas posledního nalezení. Starší util-linux (ověřeně Ubuntu 18.04) nemusí v `lsblk` podporovat `MOUNTPOINTS` ani `PTUUID`; obecný fallback patří do JBLibs `fs_utils`: singular `MOUNTPOINT` normalizovat a whole-disk PTUUID read-only doplnit přes `blkid`, ne shodit celý Disk/Hub provider.\n",
       "expected": 1
     }
   ],
-  "note": "retry after concurrent workflow push race"
+  "note": "workflow files updated separately by authenticated human commit"
 }
