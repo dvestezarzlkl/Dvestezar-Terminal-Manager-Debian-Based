@@ -49,14 +49,20 @@ from .config import (
 )
 from .central_policy import (
     FirewallCentralPolicyError,
+    load_central_apply_state,
     load_central_policy_update,
+    mark_central_policy_applied,
+    mark_central_policy_apply_failed,
 )
 from .composition import (
     FirewallCompositionError,
     compose_firewall_policy,
 )
 from .hub_provider import HUB_PROVIDER_KEY, hub_collect, inspect_ufw_service
-from .hub_sync import sync_local_rules_best_effort
+from .hub_sync import (
+    sync_central_policy_state_best_effort,
+    sync_local_rules_best_effort,
+)
 from .menu_rules import FirewallRulesMenu
 from .policy import FirewallPolicyError, inspect_before_rules
 from .ufw_console import (
@@ -74,7 +80,7 @@ _BEFORE6_RULES = Path("/etc/ufw/before6.rules")
 
 
 class menu(c_menu):
-    _VERSION_ = "0.11.1"
+    _VERSION_ = "0.12.0"
     ESC_is_quit = True
     minMenuWidth = 78
 
@@ -87,6 +93,33 @@ class menu(c_menu):
         if _BEFORE6_RULES.exists():
             title.append((TXT_FW_FILE6, str(_BEFORE6_RULES)))
         title.append((TXT_FW_LOCAL_CONFIG, str(config_path(create_dir=False))))
+        try:
+            central = load_central_policy_update()
+            applied = load_central_apply_state()
+            if central is None:
+                central_status = TXT_FW_CENTRAL_NONE
+            elif (
+                applied.applied_hash == central.policy_hash
+                or (
+                    not applied.applied_hash
+                    and central.policy_revision == 0
+                    and not central.rules
+                    and not central.vpn_servers
+                )
+            ):
+                central_status = TXT_FW_CENTRAL_APPLIED.format(
+                    revision=central.policy_revision
+                )
+            else:
+                central_status = TXT_FW_CENTRAL_PENDING.format(
+                    revision=central.policy_revision
+                )
+            title.append((TXT_FW_CENTRAL_POLICY, central_status))
+        except FirewallCentralPolicyError as exc:
+            title.append((
+                TXT_FW_CENTRAL_POLICY,
+                TXT_FW_CENTRAL_ERROR.format(reason=str(exc)),
+            ))
         self.title = title
 
         service = inspect_ufw_service()
@@ -352,22 +385,76 @@ class menu(c_menu):
         anyKey()
         return onSelReturn()
 
+    def _record_central_apply_result(
+        self,
+        central,
+        *,
+        success: bool,
+        error: str = "",
+        rolled_back: bool = False,
+    ) -> str:
+        if central is None:
+            return ""
+        try:
+            if success:
+                mark_central_policy_applied(central)
+            else:
+                mark_central_policy_apply_failed(
+                    central,
+                    error,
+                    rolled_back=rolled_back,
+                )
+            sync_central_policy_state_best_effort()
+            return ""
+        except FirewallCentralPolicyError as exc:
+            return str(exc)
+
     def apply_rules(self, selItem: c_menu_item) -> onSelReturn:
         service = inspect_ufw_service()
         if not service.detected or service.status not in {"active", "inactive"}:
             return onSelReturn().errRet(TXT_FW_APPLY_UNSAFE_STATUS)
 
+        central = None
         try:
-            cfg, compiled, result4, result6 = self._build_preview()
-        except (OSError, UnicodeError, FirewallPolicyError, FirewallConfigError) as exc:
+            local_cfg = load_config()
+            central = load_central_policy_update()
+            machine_id = str(
+                getattr(getattr(app_cfg, "machineInfo", None), "machine_id", "")
+                or ""
+            )
+            composed = compose_firewall_policy(
+                local_cfg,
+                central,
+                machine_id=machine_id,
+            )
+            compiled, result4, result6 = self._build_preview_for_config(
+                composed.config
+            )
+        except (
+            OSError,
+            UnicodeError,
+            FirewallPolicyError,
+            FirewallConfigError,
+            FirewallCentralPolicyError,
+            FirewallCompositionError,
+        ) as exc:
             return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
 
-        # Even when inactive, keep the menu itself reduced to one activation
-        # action, but show the exact read-only candidate before confirmation.
+        # The operator always sees the exact effective local + cached central
+        # candidate before any guarded runtime mutation.
         self._print_preview(compiled, result4, result6)
 
         changed = result4.changed or bool(result6 and result6.changed)
         if service.status == "active" and not changed:
+            state_error = self._record_central_apply_result(
+                central,
+                success=True,
+            )
+            self.menuRecycle = True
+            if state_error:
+                return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE_STATE_WARN.format(
+                    reason=state_error
+                ))
             return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)
 
         confirm_text = (
@@ -379,24 +466,61 @@ class menu(c_menu):
             return onSelReturn().errRet(TXT_FW_CANCELLED)
 
         try:
-            # The configuration the operator confirmed must be exactly the
-            # configuration that is applied.
-            if load_config() != cfg:
+            # Both sources the operator confirmed must still be identical.
+            if load_config() != local_cfg:
                 return onSelReturn().errRet(TXT_FW_APPLY_CONFIG_CHANGED)
+            current_central = load_central_policy_update()
+            current_identity = (
+                (current_central.policy_hash, current_central.policy_revision)
+                if current_central is not None else ("", 0)
+            )
+            preview_identity = (
+                (central.policy_hash, central.policy_revision)
+                if central is not None else ("", 0)
+            )
+            if current_identity != preview_identity:
+                return onSelReturn().errRet(TXT_FW_APPLY_CENTRAL_CHANGED)
+
             result = apply_local_config(
-                cfg,
+                composed.config,
                 acknowledge=self._acknowledge_live_apply,
             )
-        except (FirewallConfigError, FirewallPolicyError, FirewallApplyError) as exc:
+        except (
+            FirewallConfigError,
+            FirewallPolicyError,
+            FirewallApplyError,
+            FirewallCentralPolicyError,
+        ) as exc:
+            self._record_central_apply_result(
+                central,
+                success=False,
+                error=str(exc),
+            )
             return onSelReturn().errRet(TXT_FW_APPLY_FAIL.format(reason=str(exc)))
 
         self.menuRecycle = True
-        if result.status == "NO_CHANGE":
-            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)
         if result.status == "ROLLED_BACK":
+            self._record_central_apply_result(
+                central,
+                success=False,
+                error="Guarded Apply was rolled back.",
+                rolled_back=True,
+            )
             return onSelReturn(ok=TXT_FW_APPLY_ROLLED_BACK.format(
                 backup=result.backup_dir
             ))
+
+        state_error = self._record_central_apply_result(
+            central,
+            success=result.status in {"APPLIED", "NO_CHANGE"},
+        )
+        if state_error:
+            return onSelReturn(ok=TXT_FW_APPLY_OK_STATE_WARN.format(
+                backup=result.backup_dir or "-",
+                reason=state_error,
+            ))
+        if result.status == "NO_CHANGE":
+            return onSelReturn(ok=TXT_FW_APPLY_NO_CHANGE)
         return onSelReturn(ok=TXT_FW_APPLY_OK.format(
             backup=result.backup_dir
         ))
