@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "commit_message": "test(hub): align schema 010 firewall policy state contracts",
+  "replacements": [
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "    def __init__(self, settings):\n        self.settings = settings\n        self.core = []\n        self.providers = []\n        self.errors = []\n        FakeDatabase.instances.append(self)\n",
+      "new": "    def __init__(self, settings):\n        self.settings = settings\n        self.core = []\n        self.providers = []\n        self.errors = []\n        self.acks = []\n        FakeDatabase.instances.append(self)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "    def record_source_error(self, machine_id, key, error):\n        self.errors.append((machine_id, key, error))\n\n\n",
+      "new": "    def record_source_error(self, machine_id, key, error):\n        self.errors.append((machine_id, key, error))\n\n    def ack_remote_updates(self, machine_id, snapshot, updates):\n        self.acks.append((machine_id, snapshot.dataset, updates))\n\n\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_runtime.py",
+      "old": "        self.assertEqual(report.provider_counts, {\"disks\": 0})\n        self.assertEqual(applied, [update])\n",
+      "new": "        self.assertEqual(report.provider_counts, {\"disks\": 0})\n        self.assertEqual(applied, [update])\n        sync_database = next(db for db in FakeDatabase.instances if db.providers)\n        self.assertEqual(\n            sync_database.acks,\n            [(\"machine-1\", \"disks\", (update,))],\n        )\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.11.1\")\n",
+      "new": "        self.assertEqual(firewall_menu.menu._VERSION_, \"0.12.0\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_firewall.py",
+      "old": "                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version=\"0.11.1\"), \"c\"),\n",
+      "new": "                (firewall_menu.TXT_FW_LIVE_TERMINAL_TITLE.format(version=\"0.12.0\"), \"c\"),\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7, 8, 9])\n",
+      "new": "        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        firewall_order = migrations[8].render(self.settings.prefix)\n",
+      "new": "        firewall_order = migrations[8].render(self.settings.prefix)\n        firewall_state = migrations[9].render(self.settings.prefix)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertEqual(len(firewall_order), 1)\n        self.assertIn(\"ADD COLUMN `position` INT UNSIGNED\", firewall_order[0])\n",
+      "new": "        self.assertEqual(len(firewall_order), 1)\n        self.assertIn(\"ADD COLUMN `position` INT UNSIGNED\", firewall_order[0])\n        self.assertEqual(len(firewall_state), 3)\n        self.assertIn(\"CREATE TABLE IF NOT EXISTS `hub_firewall_policy_meta`\", firewall_state[0])\n        self.assertIn(\"INSERT IGNORE INTO `hub_firewall_policy_meta`\", firewall_state[1])\n        self.assertIn(\"CREATE TABLE IF NOT EXISTS `hub_firewall_policy_host_state`\", firewall_state[2])\n        self.assertIn(\"`desired_hash` CHAR(64)\", firewall_state[2])\n        self.assertIn(\"`delivered_hash` CHAR(64)\", firewall_state[2])\n        self.assertIn(\"`applied_hash` CHAR(64)\", firewall_state[2])\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "    def test_only_known_additive_migrations_005_to_009_may_be_pending(self):\n",
+      "new": "    def test_only_known_additive_migrations_005_to_010_may_be_pending(self):\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            (4, 9),\n",
+      "new": "            (4, 10),\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 9))\n",
+      "new": "        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 10))\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            **known, 10: \"0\" * 64\n",
+      "new": "            **known, 11: \"0\" * 64\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        # Existing schema 8 -> 9 must still require the fleet/backup warning.\n        status = SimpleNamespace(schema_version=8, latest_schema_version=9)\n",
+      "new": "        # Existing schema 9 -> 10 must still require the fleet/backup warning.\n        status = SimpleNamespace(schema_version=9, latest_schema_version=10)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            self.assertIn(\"8 -> 9\", ask.call_args_list[1].args[0])\n",
+      "new": "            self.assertIn(\"9 -> 10\", ask.call_args_list[1].args[0])\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        status = SimpleNamespace(schema_version=0, latest_schema_version=9)\n",
+      "new": "        status = SimpleNamespace(schema_version=0, latest_schema_version=10)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "        status = SimpleNamespace(schema_version=9, latest_schema_version=9)\n",
+      "new": "        status = SimpleNamespace(schema_version=10, latest_schema_version=10)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            schema_version=8,\n            latest_schema_version=9,\n",
+      "new": "            schema_version=9,\n            latest_schema_version=10,\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            self.assertIn(\"8 -> 9\", value)\n",
+      "new": "            self.assertIn(\"9 -> 10\", value)\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            schema_version=9,\n            latest_schema_version=9,\n",
+      "new": "            schema_version=10,\n            latest_schema_version=10,\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_schema.py",
+      "old": "            self.assertEqual(screen._schema_status_text(), \"9\")\n",
+      "new": "            self.assertEqual(screen._schema_status_text(), \"10\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "    HubFirewallPolicyUpdate,\n",
+      "new": "    HubFirewallPolicyActor,\n    HubFirewallPolicyStatus,\n    HubFirewallPolicyTarget,\n    HubFirewallPolicyUpdate,\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "from libs.app.hub.schema import HubSchemaManager, table_identifier\n",
+      "new": "from libs.app.hub.firewall_policy_admin import (\n    HubFirewallPolicyAdmin,\n    HubFirewallPolicyRevisionConflict,\n)\nfrom libs.app.hub.models import HubCentralFirewallRule\nfrom libs.app.hub.schema import HubSchemaManager, table_identifier\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "        if version != 9:\n            raise AssertionError(f\"Expected schema version 9, got {version}\")\n",
+      "new": "        if version != 10:\n            raise AssertionError(f\"Expected schema version 10, got {version}\")\n",
+      "expected": 1
+    },
+    {
+      "path": "tests/test_hub_mysql_integration.py",
+      "old": "            HubProviderSnapshot(\n                \"firewall_central_policy\",\n                \"firewall_central_policy\",\n                (),\n                min_schema_version=9,\n            ),\n",
+      "new": "            HubProviderSnapshot(\n                \"firewall_central_policy\",\n                \"firewall_central_policy\",\n                (HubFirewallPolicyStatus(),),\n                min_schema_version=10,\n            ),\n",
+      "expected": 1
+    }
+  ]
+}
