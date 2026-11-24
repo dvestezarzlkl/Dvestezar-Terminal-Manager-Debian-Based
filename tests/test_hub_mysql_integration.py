@@ -807,6 +807,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
         deleted_state = deleted.affected_hosts[0]
         self.assertEqual(deleted_state.state, "waiting_for_delivery")
         self.assertNotEqual(deleted_state.desired_hash, update.policy_hash)
+        self.assertEqual(deleted_state.apply_status, "unknown")
+        self.assertEqual(deleted_state.apply_error, "")
 
     def test_single_service_provider_survives_core_and_cleans_own_key_only(self) -> None:
         host = replace(
