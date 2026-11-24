@@ -11,6 +11,8 @@ from .models import (
     HubCentralFirewallVpnServer,
     HubDisk,
     HubDiskNameUpdate,
+    HubFirewallPolicyHostState,
+    HubFirewallPolicyStatus,
     HubFirewallPolicyUpdate,
     HubFirewallRule,
     HubFirewallVpnServer,
@@ -21,6 +23,12 @@ from .models import (
     HubService,
     HubState,
     HubStatus,
+)
+from .firewall_policy_store import (
+    acknowledge_policy_delivery,
+    list_policy_host_states,
+    load_effective_central_policy,
+    sync_policy_host_state,
 )
 from .schema import HubSchemaManager, table_identifier
 from .settings import HubSettings
@@ -551,15 +559,18 @@ class HubDatabase:
         machine_id: str,
         snapshot: HubProviderSnapshot,
     ) -> HubProviderSyncResult:
-        """Read applicable central firewall policy without mutating policy rows."""
-        if snapshot.source_key != "firewall_central_policy" or snapshot.items:
-            raise ValueError("Invalid central firewall policy provider snapshot.")
+        """Deliver central desired-state and record host-reported policy state."""
+        if snapshot.source_key != "firewall_central_policy":
+            raise ValueError("Invalid central firewall policy provider key.")
+        if len(snapshot.items) != 1 or not isinstance(
+            snapshot.items[0], HubFirewallPolicyStatus
+        ):
+            raise ValueError(
+                "Central firewall policy provider requires exactly one status item."
+            )
 
         hosts = table_identifier(self.settings, "hosts")
-        rules_table = table_identifier(self.settings, "firewall_rules")
-        vpn_table = table_identifier(self.settings, "firewall_vpn_servers")
         now = _utc_now()
-
         with self.connect() as connection:
             try:
                 with connection.cursor() as cursor:
@@ -573,71 +584,23 @@ class HubDatabase:
                         raise RuntimeError("Cannot resolve Hub host group.")
                     group_id = int(row[0]) if row[0] is not None else None
 
-                    scope_sql = (
-                        "origin=%s AND ("
-                        "(target_kind='all' AND host_id IS NULL AND group_id IS NULL) OR "
-                        "(target_kind='host' AND host_id=%s AND group_id IS NULL) OR "
-                        "(target_kind='group' AND host_id IS NULL AND group_id=%s)"
-                        ")"
+                    update = load_effective_central_policy(
+                        cursor,
+                        self.settings,
+                        host_id=host_id,
+                        machine_id=machine_id,
+                        group_id=group_id,
+                        generated_at=_utc_aware(now),
                     )
-                    scope_params = ("central", host_id, group_id)
-
-                    cursor.execute(
-                        f"SELECT server_uid,target_kind,name,server_ip,server_mask,"
-                        f"interface_name FROM {vpn_table} WHERE {scope_sql} "
-                        "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
-                        "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END, "
-                        "server_uid",
-                        scope_params,
+                    sync_policy_host_state(
+                        cursor,
+                        self.settings,
+                        host_id=host_id,
+                        update=update,
+                        reported=snapshot.items[0],
+                        now=now,
                     )
-                    vpn_servers = tuple(
-                        HubCentralFirewallVpnServer(
-                            server_uid=str(item[0]),
-                            target_kind=str(item[1]),
-                            name=str(item[2]),
-                            server_ip=str(item[3]),
-                            server_mask=int(item[4]),
-                            interface_name=str(item[5]),
-                        )
-                        for item in cursor.fetchall()
-                    )
-
-                    cursor.execute(
-                        f"SELECT rule_uid,target_kind,position,rule_type,"
-                        "vpn_server_uid,enabled,name,direction,action,protocol,"
-                        "source,destination,destination_invert,port_from,port_to,"
-                        f"src_ports,dst_ports,interface_name,ban_to FROM {rules_table} "
-                        f"WHERE {scope_sql} "
-                        "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
-                        "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END, "
-                        "position,rule_uid",
-                        scope_params,
-                    )
-                    rules = tuple(
-                        HubCentralFirewallRule(
-                            rule_uid=str(item[0]),
-                            target_kind=str(item[1]),
-                            position=int(item[2]),
-                            rule_type=str(item[3]),
-                            vpn_server_uid=str(item[4] or ""),
-                            enabled=bool(item[5]),
-                            name=str(item[6] or ""),
-                            direction=str(item[7]),
-                            action=str(item[8]),
-                            protocol=str(item[9]),
-                            source=str(item[10] or ""),
-                            destination=str(item[11] or ""),
-                            destination_invert=bool(item[12]),
-                            port_from=int(item[13]) if item[13] is not None else None,
-                            port_to=int(item[14]) if item[14] is not None else None,
-                            src_ports=str(item[15] or ""),
-                            dst_ports=str(item[16] or ""),
-                            interface_name=str(item[17] or ""),
-                            ban_to=item[18].isoformat() if item[18] is not None else None,
-                        )
-                        for item in cursor.fetchall()
-                    )
-                    count = len(vpn_servers) + len(rules)
+                    count = len(update.vpn_servers) + len(update.rules)
                     self._upsert_source(
                         cursor, host_id, snapshot.source_key, "ok", count
                     )
@@ -646,14 +609,47 @@ class HubDatabase:
                 connection.rollback()
                 raise
 
-        update = HubFirewallPolicyUpdate(
-            machine_id=machine_id,
-            group_id=group_id,
-            generated_at=_utc_aware(now),
-            vpn_servers=vpn_servers,
-            rules=rules,
-        )
         return HubProviderSyncResult(count, (update,))
+
+    def ack_remote_updates(
+        self,
+        machine_id: str,
+        snapshot: HubProviderSnapshot,
+        updates: tuple,
+    ) -> None:
+        """Acknowledge delivery only after the local provider applier succeeds."""
+        if not updates or snapshot.dataset != "firewall_central_policy":
+            return
+        if len(updates) != 1 or not isinstance(updates[0], HubFirewallPolicyUpdate):
+            raise ValueError("Invalid central firewall delivery acknowledgement.")
+        update = updates[0]
+        if update.machine_id != machine_id:
+            raise ValueError("Central firewall delivery belongs to another machine.")
+
+        now = _utc_now()
+        with self.connect() as connection:
+            try:
+                with connection.cursor() as cursor:
+                    host_id = self._host_id(cursor, machine_id)
+                    acknowledge_policy_delivery(
+                        cursor,
+                        self.settings,
+                        host_id=host_id,
+                        update=update,
+                        now=now,
+                    )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+
+    def list_firewall_policy_states(
+        self,
+    ) -> tuple[HubFirewallPolicyHostState, ...]:
+        """Read-only host status surface intended for future central UI/API."""
+        with self.connect() as connection:
+            with connection.cursor() as cursor:
+                return list_policy_host_states(cursor, self.settings)
 
 
     def _sync_service_provider(
