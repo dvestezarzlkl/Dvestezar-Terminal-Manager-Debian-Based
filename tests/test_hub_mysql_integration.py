@@ -686,7 +686,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
         )
 
         self.assertFalse(hasattr(admin, "apply"))
-        self.assertEqual(admin.current_revision(), 0)
+        self.assertEqual(admin.current_revision(actor=actor), 0)
 
         with self.assertRaises(PermissionError):
             admin.upsert_rule(
@@ -711,6 +711,25 @@ class HubMySqlIntegrationTests(unittest.TestCase):
         self.assertTrue(state.desired_hash)
         self.assertEqual(state.delivered_hash, "")
         self.assertEqual(state.applied_hash, "")
+
+        snapshot = admin.get_snapshot(actor=actor)
+        self.assertEqual(snapshot.revision, 1)
+        self.assertEqual(snapshot.updated_by, "web-user")
+        self.assertEqual(len(snapshot.rules), 1)
+        self.assertEqual(snapshot.rules[0].target.machine_id, host.machine_id)
+        self.assertEqual(snapshot.rules[0].rule.rule_uid, rule.rule_uid)
+        self.assertFalse(snapshot.rules[0].rule.enabled)
+        self.assertEqual(
+            next(
+                item.state for item in snapshot.host_states
+                if item.machine_id == host.machine_id
+            ),
+            "waiting_for_delivery",
+        )
+        with self.assertRaises(PermissionError):
+            admin.get_snapshot(
+                actor=HubFirewallPolicyActor("no-read", frozenset())
+            )
 
         with self.assertRaises(HubFirewallPolicyRevisionConflict):
             admin.upsert_rule(
@@ -745,7 +764,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             ),
             result.remote_updates,
         )
-        delivered = admin.list_host_states()
+        delivered = admin.list_host_states(actor=actor)
         delivered_state = next(
             item for item in delivered if item.machine_id == host.machine_id
         )
@@ -772,7 +791,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             ),
         )
         applied_state = next(
-            item for item in admin.list_host_states()
+            item for item in admin.list_host_states(actor=actor)
             if item.machine_id == host.machine_id
         )
         self.assertEqual(applied_state.state, "applied")
