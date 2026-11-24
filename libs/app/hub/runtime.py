@@ -196,8 +196,13 @@ class HubRuntime:
             apply_started = perf_counter()
             log.info("SysApps Hub provider %s remote apply: start", key)
             registration.applier(result.remote_updates)
+            database.ack_remote_updates(
+                machine_id,
+                snapshot,
+                result.remote_updates,
+            )
             log.info(
-                "SysApps Hub provider %s remote apply: done in %.3fs",
+                "SysApps Hub provider %s remote apply/cache + ack: done in %.3fs",
                 key,
                 perf_counter() - apply_started,
             )
