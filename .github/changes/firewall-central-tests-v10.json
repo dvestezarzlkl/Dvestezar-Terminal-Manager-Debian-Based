@@ -146,5 +146,6 @@
       "new": "            HubProviderSnapshot(\n                \"firewall_central_policy\",\n                \"firewall_central_policy\",\n                (HubFirewallPolicyStatus(),),\n                min_schema_version=10,\n            ),\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger schema 010 firewall regression alignment"
 }
