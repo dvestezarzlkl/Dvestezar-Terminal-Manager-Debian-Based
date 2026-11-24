@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.17.0
+
+- ADD Firewall Manager 0.12.0 zavádí bezpečný lifecycle centrální firewall politiky `desired -> delivered -> waiting_for_apply -> applied` s deterministickým SHA-256 efektivní central policy pro každý host. Revision zůstává audit/UI metadata; hash je autorita pro stav.
+- ADD Hub schema 010 přidává `firewall_policy_meta` a per-host `firewall_policy_host_state` s desired/delivered/applied hash/revision/time, apply status/error a read-only stavovým povrchem pro budoucí web UI.
+- ADD trusted `HubFirewallPolicyAdmin` zapisuje pouze `origin=central` přes typované host/group/all targety, ACL capability `firewall.policy.write`, validaci pravidel/VPN referencí a optimistic `expected_revision`. Obecný SQL writer ani vzdálený Apply neexistuje.
+- SAFETY Hub označí policy jako delivered až po úspěšném lokálním validovaném/atomickém cache zápisu. Web/Hub/timer nikdy nesmí spustit UFW Apply/reload ani potvrdit SSH token.
+- SAFETY explicitní ruční Firewall Manager Apply nyní sestaví efektivní `firewall.json + cached central policy`, zobrazí exact preview a používá beze změny existující backup, pre-armed rollback, UFW dry-run a případný fresh-SSH `sys_apps ufw <token>` guard. Po úspěchu/NO_CHANGE se uloží/reportuje applied hash; failure/rollback předchozí applied hash neposune.
+- UI hlavní Firewall Manager zobrazuje, zda centrální policy není stažena, je aplikovaná, nebo čeká na ruční Apply. Detailní budoucí web kontrakt je v `docs/firewall-central-policy-ui-contract.md`.
+- TEST Hub/MariaDB pokrývá ACL writer, optimistic revision conflict, disabled host-target policy, delivery ACK, waiting_for_apply/applied přechody, hash stabilitu a zachování applied hash při failure/rollback.
+
 ## v2.16.2
 
 - FIX JBLibs 1.2.35 opravuje Disk/Hub inventář na starších util-linux (ověřený případ Ubuntu 18.04), kde `lsblk` nezná sloupce `MOUNTPOINTS` a/nebo `PTUUID`. Nepodporovaný `MOUNTPOINTS` se bezpečně nahradí singular `MOUNTPOINT`; chybějící whole-disk PTUUID se read-only doplní přes `blkid`.
