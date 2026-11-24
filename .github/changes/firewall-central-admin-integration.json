@@ -26,5 +26,6 @@
       "new": "                self.assertEqual(cursor.fetchone()[0], 10)\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger central firewall admin integration test"
 }
