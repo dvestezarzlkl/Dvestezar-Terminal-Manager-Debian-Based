@@ -187,7 +187,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                     ("host-a.example.test", "service.host-a.example.test"),
                 )
                 cursor.execute(f"SELECT MAX(version) FROM {migrations}")
-                self.assertEqual(cursor.fetchone()[0], 9)
+                self.assertEqual(cursor.fetchone()[0], 10)
 
     def test_upgrade_003_to_004_preserves_existing_hosts(self) -> None:
         old_settings = replace(
@@ -255,7 +255,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             before = db.check_status()
             self.assertEqual(before.state, HubState.READY)
             self.assertEqual(before.schema_version, 4)
-            self.assertEqual(before.latest_schema_version, 9)
+            self.assertEqual(before.latest_schema_version, 10)
             self.assertEqual(before.message, "ready")
             db.sync_core(self._host("new-host", "new-host"))
 
@@ -335,7 +335,7 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 check = HubSchemaManager(old_settings).check(connection)
                 self.assertFalse(check.current)
                 self.assertEqual(check.current_version, 3)
-                self.assertEqual(check.latest_version, 9)
+                self.assertEqual(check.latest_version, 10)
             db.initialize_or_upgrade_schema()
             migrations = table_identifier(old_settings, "schema_migrations")
             with db.connect() as connection:
@@ -659,6 +659,135 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             [(item.target_kind, item.name) for item in update.vpn_servers],
             [("group", "Central VPN")],
         )
+
+    def test_central_firewall_admin_tracks_desired_delivered_applied_state(self) -> None:
+        host = self._host("machine-policy-admin", "host-policy-admin")
+        self.database.sync_core(host)
+        admin = HubFirewallPolicyAdmin(self.database)
+        actor = HubFirewallPolicyActor(
+            "web-user",
+            frozenset({"firewall.policy.write"}),
+        )
+        target = HubFirewallPolicyTarget(
+            "host",
+            machine_id=host.machine_id,
+        )
+        rule = HubCentralFirewallRule(
+            rule_uid="7" * 32,
+            target_kind="host",
+            position=10,
+            rule_type="standard",
+            enabled=False,
+            name="Disabled integration test",
+            direction="input",
+            action="allow",
+            protocol="tcp",
+            dst_ports="65534",
+        )
+
+        self.assertFalse(hasattr(admin, "apply"))
+        self.assertEqual(admin.current_revision(), 0)
+
+        with self.assertRaises(PermissionError):
+            admin.upsert_rule(
+                actor=HubFirewallPolicyActor("reader", frozenset()),
+                target=target,
+                rule=rule,
+                expected_revision=0,
+            )
+
+        created = admin.upsert_rule(
+            actor=actor,
+            target=target,
+            rule=rule,
+            expected_revision=0,
+        )
+        self.assertEqual(created.revision, 1)
+        self.assertEqual(len(created.affected_hosts), 1)
+        state = created.affected_hosts[0]
+        self.assertEqual(state.machine_id, host.machine_id)
+        self.assertEqual(state.state, "waiting_for_delivery")
+        self.assertEqual(state.desired_revision, 1)
+        self.assertTrue(state.desired_hash)
+        self.assertEqual(state.delivered_hash, "")
+        self.assertEqual(state.applied_hash, "")
+
+        with self.assertRaises(HubFirewallPolicyRevisionConflict):
+            admin.upsert_rule(
+                actor=actor,
+                target=target,
+                rule=replace(rule, name="stale update"),
+                expected_revision=0,
+            )
+
+        result = self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_central_policy",
+                "firewall_central_policy",
+                (HubFirewallPolicyStatus(),),
+                min_schema_version=10,
+            ),
+        )
+        self.assertEqual(result.item_count, 1)
+        update = result.remote_updates[0]
+        self.assertEqual(update.policy_revision, 1)
+        self.assertEqual(update.policy_hash, state.desired_hash)
+        self.assertFalse(update.rules[0].enabled)
+
+        self.database.ack_remote_updates(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_central_policy",
+                "firewall_central_policy",
+                (HubFirewallPolicyStatus(),),
+                min_schema_version=10,
+            ),
+            result.remote_updates,
+        )
+        delivered = admin.list_host_states()
+        delivered_state = next(
+            item for item in delivered if item.machine_id == host.machine_id
+        )
+        self.assertEqual(delivered_state.state, "waiting_for_apply")
+        self.assertEqual(delivered_state.delivered_hash, update.policy_hash)
+        self.assertEqual(delivered_state.applied_hash, "")
+
+        self.database.sync_provider(
+            host.machine_id,
+            HubProviderSnapshot(
+                "firewall_central_policy",
+                "firewall_central_policy",
+                (
+                    HubFirewallPolicyStatus(
+                        cached_hash=update.policy_hash,
+                        cached_revision=1,
+                        applied_hash=update.policy_hash,
+                        applied_revision=1,
+                        apply_status="applied",
+                        applied_at=datetime.now(timezone.utc),
+                    ),
+                ),
+                min_schema_version=10,
+            ),
+        )
+        applied_state = next(
+            item for item in admin.list_host_states()
+            if item.machine_id == host.machine_id
+        )
+        self.assertEqual(applied_state.state, "applied")
+        self.assertEqual(applied_state.applied_hash, update.policy_hash)
+        self.assertEqual(applied_state.apply_status, "applied")
+
+        deleted = admin.delete_rule(
+            rule.rule_uid,
+            actor=actor,
+            expected_revision=1,
+        )
+        self.assertEqual(deleted.revision, 2)
+        deleted_state = deleted.affected_hosts[0]
+        self.assertEqual(deleted_state.state, "waiting_for_delivery")
+        self.assertNotEqual(deleted_state.desired_hash, update.policy_hash)
 
     def test_single_service_provider_survives_core_and_cleans_own_key_only(self) -> None:
         host = replace(
