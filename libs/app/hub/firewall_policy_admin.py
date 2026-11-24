@@ -34,6 +34,7 @@ from .models import (
 )
 from .schema import table_identifier
 
+FIREWALL_POLICY_READ_PERMISSION = "firewall.policy.read"
 FIREWALL_POLICY_WRITE_PERMISSION = "firewall.policy.write"
 
 _UID_RE = re.compile(r"^[0-9a-f]{32}$")
@@ -56,14 +57,25 @@ class HubFirewallPolicyAdmin:
         self.settings = database.settings
 
     @staticmethod
-    def _require_actor(actor: HubFirewallPolicyActor) -> str:
+    def _actor_subject(
+        actor: HubFirewallPolicyActor,
+        *,
+        write: bool,
+    ) -> str:
         if not isinstance(actor, HubFirewallPolicyActor):
             raise HubFirewallPolicyAdminError("Invalid firewall policy actor.")
         subject = str(actor.subject or "").strip()
         if not subject or len(subject) > 128:
             raise HubFirewallPolicyAdminError("Invalid firewall policy actor identity.")
-        if FIREWALL_POLICY_WRITE_PERMISSION not in actor.permissions:
-            raise PermissionError("Missing firewall.policy.write permission.")
+        permissions = set(actor.permissions)
+        if write:
+            if FIREWALL_POLICY_WRITE_PERMISSION not in permissions:
+                raise PermissionError("Missing firewall.policy.write permission.")
+        elif not (
+            FIREWALL_POLICY_READ_PERMISSION in permissions
+            or FIREWALL_POLICY_WRITE_PERMISSION in permissions
+        ):
+            raise PermissionError("Missing firewall.policy.read permission.")
         return subject
 
     def _resolve_target(
@@ -149,9 +161,7 @@ class HubFirewallPolicyAdmin:
         return {int(row[0]) for row in cursor.fetchall()}
 
     @staticmethod
-    def _validate_revision(expected_revision: int | None, current: int) -> None:
-        if expected_revision is None:
-            return
+    def _validate_revision(expected_revision: int, current: int) -> None:
         if isinstance(expected_revision, bool) or int(expected_revision) < 0:
             raise HubFirewallPolicyAdminError("Invalid expected policy revision.")
         if int(expected_revision) != int(current):
@@ -165,7 +175,7 @@ class HubFirewallPolicyAdmin:
         cursor: Any,
         *,
         actor: str,
-        expected_revision: int | None,
+        expected_revision: int,
         now: datetime,
     ) -> int:
         meta = table_identifier(self.settings, "firewall_policy_meta")
@@ -374,9 +384,9 @@ class HubFirewallPolicyAdmin:
         actor: HubFirewallPolicyActor,
         target: HubFirewallPolicyTarget,
         rule: HubCentralFirewallRule,
-        expected_revision: int | None = None,
+        expected_revision: int,
     ) -> HubFirewallPolicyMutationResult:
-        subject = self._require_actor(actor)
+        subject = self._actor_subject(actor, write=True)
         rule = self._normalize_rule(rule)
         if rule.target_kind != target.target_kind:
             raise HubFirewallPolicyAdminError("Rule target_kind does not match target.")
@@ -473,9 +483,9 @@ class HubFirewallPolicyAdmin:
         rule_uid: str,
         *,
         actor: HubFirewallPolicyActor,
-        expected_revision: int | None = None,
+        expected_revision: int,
     ) -> HubFirewallPolicyMutationResult:
-        subject = self._require_actor(actor)
+        subject = self._actor_subject(actor, write=True)
         if not _UID_RE.fullmatch(str(rule_uid or "")):
             raise HubFirewallPolicyAdminError("Invalid central firewall rule UID.")
         table = table_identifier(self.settings, "firewall_rules")
@@ -532,9 +542,9 @@ class HubFirewallPolicyAdmin:
         actor: HubFirewallPolicyActor,
         target: HubFirewallPolicyTarget,
         server: HubCentralFirewallVpnServer,
-        expected_revision: int | None = None,
+        expected_revision: int,
     ) -> HubFirewallPolicyMutationResult:
-        subject = self._require_actor(actor)
+        subject = self._actor_subject(actor, write=True)
         server = self._normalize_server(server)
         if server.target_kind != target.target_kind:
             raise HubFirewallPolicyAdminError("VPN server target_kind does not match target.")
@@ -599,9 +609,9 @@ class HubFirewallPolicyAdmin:
         *,
         target: HubFirewallPolicyTarget,
         actor: HubFirewallPolicyActor,
-        expected_revision: int | None = None,
+        expected_revision: int,
     ) -> HubFirewallPolicyMutationResult:
-        subject = self._require_actor(actor)
+        subject = self._actor_subject(actor, write=True)
         if not _UID_RE.fullmatch(str(server_uid or "")):
             raise HubFirewallPolicyAdminError("Invalid central VPN server UID.")
         table = table_identifier(self.settings, "firewall_vpn_servers")
@@ -651,10 +661,127 @@ class HubFirewallPolicyAdmin:
                 connection.rollback()
                 raise
 
-    def current_revision(self) -> int:
+    def get_snapshot(
+        self,
+        *,
+        actor: HubFirewallPolicyActor,
+    ) -> HubFirewallPolicyAdminSnapshot:
+        """Typed read model for future web/API policy editors."""
+        self._actor_subject(actor, write=False)
+        meta = table_identifier(self.settings, "firewall_policy_meta")
+        rules_table = table_identifier(self.settings, "firewall_rules")
+        vpn_table = table_identifier(self.settings, "firewall_vpn_servers")
+
+        with self.database.connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT revision,updated_at,updated_by FROM {meta} WHERE id=1"
+                )
+                row = cursor.fetchone()
+                if row is None:
+                    raise RuntimeError("Central firewall policy metadata row is missing.")
+                revision = int(row[0])
+                updated_at = row[1]
+                if updated_at is not None and updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                updated_by = str(row[2] or "")
+
+                cursor.execute(
+                    f"SELECT rule_uid,target_kind,position,host_id,group_id,"
+                    "rule_type,vpn_server_uid,enabled,name,direction,action,protocol,"
+                    "source,destination,destination_invert,port_from,port_to,"
+                    f"src_ports,dst_ports,interface_name,ban_to FROM {rules_table} "
+                    "WHERE origin='central' "
+                    "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
+                    "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END,"
+                    "group_id,host_id,position,rule_uid"
+                )
+                rule_records = []
+                for item in cursor.fetchall():
+                    target = self._target_from_row(
+                        cursor,
+                        str(item[1]),
+                        int(item[3]) if item[3] is not None else None,
+                        int(item[4]) if item[4] is not None else None,
+                    )
+                    rule_records.append(HubFirewallPolicyRuleRecord(
+                        target=target,
+                        rule=HubCentralFirewallRule(
+                            rule_uid=str(item[0]),
+                            target_kind=str(item[1]),
+                            position=int(item[2]),
+                            rule_type=str(item[5]),
+                            vpn_server_uid=str(item[6] or ""),
+                            enabled=bool(item[7]),
+                            name=str(item[8] or ""),
+                            direction=str(item[9]),
+                            action=str(item[10]),
+                            protocol=str(item[11]),
+                            source=str(item[12] or ""),
+                            destination=str(item[13] or ""),
+                            destination_invert=bool(item[14]),
+                            port_from=int(item[15]) if item[15] is not None else None,
+                            port_to=int(item[16]) if item[16] is not None else None,
+                            src_ports=str(item[17] or ""),
+                            dst_ports=str(item[18] or ""),
+                            interface_name=str(item[19] or ""),
+                            ban_to=item[20].isoformat() if item[20] is not None else None,
+                        ),
+                    ))
+
+                cursor.execute(
+                    f"SELECT server_uid,target_kind,host_id,group_id,name,"
+                    f"server_ip,server_mask,interface_name FROM {vpn_table} "
+                    "WHERE origin='central' "
+                    "ORDER BY CASE target_kind WHEN 'all' THEN 0 "
+                    "WHEN 'group' THEN 1 WHEN 'host' THEN 2 ELSE 9 END,"
+                    "group_id,host_id,server_uid"
+                )
+                vpn_records = []
+                for item in cursor.fetchall():
+                    target = self._target_from_row(
+                        cursor,
+                        str(item[1]),
+                        int(item[2]) if item[2] is not None else None,
+                        int(item[3]) if item[3] is not None else None,
+                    )
+                    vpn_records.append(HubFirewallPolicyVpnServerRecord(
+                        target=target,
+                        server=HubCentralFirewallVpnServer(
+                            server_uid=str(item[0]),
+                            target_kind=str(item[1]),
+                            name=str(item[4]),
+                            server_ip=str(item[5]),
+                            server_mask=int(item[6]),
+                            interface_name=str(item[7]),
+                        ),
+                    ))
+
+                states = list_policy_host_states(cursor, self.settings)
+
+        return HubFirewallPolicyAdminSnapshot(
+            revision=revision,
+            updated_at=updated_at,
+            updated_by=updated_by,
+            rules=tuple(rule_records),
+            vpn_servers=tuple(vpn_records),
+            host_states=states,
+        )
+
+    def current_revision(
+        self,
+        *,
+        actor: HubFirewallPolicyActor,
+    ) -> int:
+        self._actor_subject(actor, write=False)
         with self.database.connect() as connection:
             with connection.cursor() as cursor:
                 return current_policy_revision(cursor, self.settings)
 
-    def list_host_states(self):
+    def list_host_states(
+        self,
+        *,
+        actor: HubFirewallPolicyActor,
+    ):
+        self._actor_subject(actor, write=False)
         return self.database.list_firewall_policy_states()
