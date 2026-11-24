@@ -152,9 +152,10 @@ class HubFirewallCollectorTests(unittest.TestCase):
         self.assertTrue(screen.menu[0].enabled)
         self.assertEqual(screen.menu[0].choice, "a")
 
-    def test_inactive_apply_shows_preview_before_confirmation(self):
+    def test_inactive_apply_shows_effective_preview_before_confirmation(self):
         screen = firewall_menu.menu()
         cfg = FirewallConfig()
+        composed = SimpleNamespace(config=cfg)
         compiled = compile_firewall(cfg)
         result4 = SimpleNamespace(changed=True)
         with patch.object(
@@ -164,9 +165,15 @@ class HubFirewallCollectorTests(unittest.TestCase):
                 detected=True, status="inactive", version="0.36"
             ),
         ), patch.object(
+            firewall_menu, "load_config", return_value=cfg
+        ), patch.object(
+            firewall_menu, "load_central_policy_update", return_value=None
+        ), patch.object(
+            firewall_menu, "compose_firewall_policy", return_value=composed
+        ) as compose, patch.object(
             screen,
-            "_build_preview",
-            return_value=(cfg, compiled, result4, None),
+            "_build_preview_for_config",
+            return_value=(compiled, result4, None),
         ) as preview, patch.object(
             screen, "_print_preview"
         ) as render, patch.object(
@@ -176,12 +183,13 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ) as apply:
             screen.apply_rules(None)
 
-        preview.assert_called_once_with()
+        compose.assert_called_once()
+        preview.assert_called_once_with(cfg)
         render.assert_called_once_with(compiled, result4, None)
         ask.assert_called_once()
         apply.assert_not_called()
 
-    def test_active_no_change_apply_skips_confirmation_and_mutation(self):
+    def test_active_no_change_effective_apply_skips_confirmation_and_mutation(self):
         screen = firewall_menu.menu()
         cfg = FirewallConfig()
         compiled = compile_firewall(cfg)
@@ -193,9 +201,17 @@ class HubFirewallCollectorTests(unittest.TestCase):
                 detected=True, status="active", version="0.36"
             ),
         ), patch.object(
+            firewall_menu, "load_config", return_value=cfg
+        ), patch.object(
+            firewall_menu, "load_central_policy_update", return_value=None
+        ), patch.object(
+            firewall_menu,
+            "compose_firewall_policy",
+            return_value=SimpleNamespace(config=cfg),
+        ), patch.object(
             screen,
-            "_build_preview",
-            return_value=(cfg, compiled, result4, None),
+            "_build_preview_for_config",
+            return_value=(compiled, result4, None),
         ), patch.object(
             screen, "_print_preview"
         ), patch.object(
@@ -208,7 +224,7 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ask.assert_not_called()
         apply.assert_not_called()
 
-    def test_apply_aborts_if_config_changed_after_preview(self):
+    def test_apply_aborts_if_local_config_changed_after_effective_preview(self):
         screen = firewall_menu.menu()
         cfg = FirewallConfig()
         changed_cfg = FirewallConfig(rules=(
@@ -232,15 +248,21 @@ class HubFirewallCollectorTests(unittest.TestCase):
                 detected=True, status="inactive", version="0.36"
             ),
         ), patch.object(
+            firewall_menu, "load_config", side_effect=[cfg, changed_cfg]
+        ), patch.object(
+            firewall_menu, "load_central_policy_update", return_value=None
+        ), patch.object(
+            firewall_menu,
+            "compose_firewall_policy",
+            return_value=SimpleNamespace(config=cfg),
+        ), patch.object(
             screen,
-            "_build_preview",
-            return_value=(cfg, compiled, result4, None),
+            "_build_preview_for_config",
+            return_value=(compiled, result4, None),
         ), patch.object(
             screen, "_print_preview"
         ), patch.object(
             firewall_menu, "confirm", return_value=True
-        ), patch.object(
-            firewall_menu, "load_config", return_value=changed_cfg
         ), patch.object(
             firewall_menu, "apply_local_config"
         ) as apply:
