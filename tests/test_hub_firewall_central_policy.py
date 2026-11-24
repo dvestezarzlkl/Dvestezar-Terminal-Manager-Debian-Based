@@ -193,6 +193,7 @@ class HubFirewallCentralPolicyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "firewall_hub_apply_state.json"
             mark_central_policy_applied(update, path)
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
             state = load_central_apply_state(path)
             self.assertEqual(state.applied_hash, update.policy_hash)
             self.assertEqual(state.status, "applied")
