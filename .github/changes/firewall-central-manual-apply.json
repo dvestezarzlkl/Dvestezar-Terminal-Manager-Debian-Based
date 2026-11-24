@@ -80,5 +80,6 @@
       "new": "TXT_FW_APPLY_CONFIG_CHANGED = \"firewall.json changed after Preview; Apply was cancelled. Review the new Preview and confirm again.\"\nTXT_FW_APPLY_CENTRAL_CHANGED = \"Central Hub policy changed after Preview; Apply was cancelled. Review the new Preview and confirm again.\"\nTXT_FW_APPLY_FAIL = \"UFW Apply failed or was rolled back: {reason}\"\nTXT_FW_APPLY_NO_CHANGE = \"UFW is active and managed blocks already match the confirmed effective policy; no write/reload was performed.\"\nTXT_FW_APPLY_NO_CHANGE_STATE_WARN = \"UFW already matches the effective policy, but central applied state could not be stored/reported: {reason}\"\nTXT_FW_APPLY_OK_STATE_WARN = \"UFW was applied successfully (backup: {backup}), but central applied state could not be stored/reported: {reason}\"\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger manual-only central firewall Apply patch"
 }
