@@ -24,7 +24,7 @@ class HubSchemaTests(unittest.TestCase):
 
     def test_migrations_use_only_validated_prefix_placeholder(self):
         migrations = load_migrations()
-        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7, 8, 9])
+        self.assertEqual([item.version for item in migrations], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         initial = migrations[0].render(self.settings.prefix)
         disks = migrations[1].render(self.settings.prefix)
         service_host = migrations[2].render(self.settings.prefix)
@@ -34,6 +34,7 @@ class HubSchemaTests(unittest.TestCase):
         firewall_ports = migrations[6].render(self.settings.prefix)
         firewall_vpn = migrations[7].render(self.settings.prefix)
         firewall_order = migrations[8].render(self.settings.prefix)
+        firewall_state = migrations[9].render(self.settings.prefix)
         self.assertIn('ADD COLUMN `src_ports`', firewall_ports[0])
         self.assertIn('ADD COLUMN `dst_ports`', firewall_ports[0])
         self.assertEqual(len(firewall_vpn), 2)
@@ -47,6 +48,13 @@ class HubSchemaTests(unittest.TestCase):
         )
         self.assertEqual(len(firewall_order), 1)
         self.assertIn("ADD COLUMN `position` INT UNSIGNED", firewall_order[0])
+        self.assertEqual(len(firewall_state), 3)
+        self.assertIn("CREATE TABLE IF NOT EXISTS `hub_firewall_policy_meta`", firewall_state[0])
+        self.assertIn("INSERT IGNORE INTO `hub_firewall_policy_meta`", firewall_state[1])
+        self.assertIn("CREATE TABLE IF NOT EXISTS `hub_firewall_policy_host_state`", firewall_state[2])
+        self.assertIn("`desired_hash` CHAR(64)", firewall_state[2])
+        self.assertIn("`delivered_hash` CHAR(64)", firewall_state[2])
+        self.assertIn("`applied_hash` CHAR(64)", firewall_state[2])
         self.assertEqual(len(initial), 7)
         self.assertEqual(len(disks), 2)
         self.assertEqual(len(service_host), 1)
@@ -82,7 +90,7 @@ class HubSchemaTests(unittest.TestCase):
             )
         )
 
-    def test_only_known_additive_migrations_005_to_009_may_be_pending(self):
+    def test_only_known_additive_migrations_005_to_010_may_be_pending(self):
         from libs.app.hub.schema import HubSchemaManager
 
         class Cursor:
@@ -119,13 +127,13 @@ class HubSchemaTests(unittest.TestCase):
         self.assertTrue(pending_005_006.current)
         self.assertEqual(
             (pending_005_006.current_version, pending_005_006.latest_version),
-            (4, 9),
+            (4, 10),
         )
         pending_006 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 5
         }))
         self.assertTrue(pending_006.current)
-        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 9))
+        self.assertEqual((pending_006.current_version, pending_006.latest_version), (5, 10))
 
         missing_mandatory_004 = manager.check(Connection({
             k: v for k, v in known.items() if k <= 3
@@ -133,7 +141,7 @@ class HubSchemaTests(unittest.TestCase):
         self.assertFalse(missing_mandatory_004.current)
 
         unexpected_future = manager.check(Connection({
-            **known, 10: "0" * 64
+            **known, 11: "0" * 64
         }))
         self.assertFalse(unexpected_future.current)
         self.assertIn("Unsupported schema migrations", unexpected_future.error)
@@ -149,8 +157,8 @@ class HubSchemaTests(unittest.TestCase):
         from unittest.mock import patch
         from libs.app.hub.menu import HubSettingsMenu
 
-        # Existing schema 8 -> 9 must still require the fleet/backup warning.
-        status = SimpleNamespace(schema_version=8, latest_schema_version=9)
+        # Existing schema 9 -> 10 must still require the fleet/backup warning.
+        status = SimpleNamespace(schema_version=9, latest_schema_version=10)
         with patch("libs.app.hub.menu.confirm", side_effect=[True, False]) as ask, patch(
             "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
         ), patch("libs.app.hub.menu.hub_runtime.initialize_schema") as apply:
@@ -166,11 +174,11 @@ class HubSchemaTests(unittest.TestCase):
         ) as apply:
             HubSettingsMenu.initialize_schema(None, None)
             self.assertEqual(ask.call_count, 2)
-            self.assertIn("8 -> 9", ask.call_args_list[1].args[0])
+            self.assertIn("9 -> 10", ask.call_args_list[1].args[0])
             apply.assert_called_once_with()
 
         # Fresh installations have no older fleet to coordinate.
-        status = SimpleNamespace(schema_version=0, latest_schema_version=9)
+        status = SimpleNamespace(schema_version=0, latest_schema_version=10)
         with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
             "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
         ), patch(
@@ -181,7 +189,7 @@ class HubSchemaTests(unittest.TestCase):
             ask.assert_called_once()
 
         # An already current DB also needs only the generic confirmation.
-        status = SimpleNamespace(schema_version=9, latest_schema_version=9)
+        status = SimpleNamespace(schema_version=10, latest_schema_version=10)
         with patch("libs.app.hub.menu.confirm", return_value=True) as ask, patch(
             "libs.app.hub.menu.hub_runtime.refresh_status", return_value=status
         ), patch(
@@ -200,24 +208,24 @@ class HubSchemaTests(unittest.TestCase):
         status = HubStatus(
             HubState.READY,
             "ready",
-            schema_version=8,
-            latest_schema_version=9,
+            schema_version=9,
+            latest_schema_version=10,
         )
         with patch.object(hub_menu.hub_runtime, "status", status):
             screen = HubSettingsMenu()
             value = screen._schema_status_text()
-            self.assertIn("8 -> 9", value)
+            self.assertIn("9 -> 10", value)
             self.assertEqual(screen._status_color(), hub_menu.en_color.BRIGHT_YELLOW)
 
         status = HubStatus(
             HubState.READY,
             "ready",
-            schema_version=9,
-            latest_schema_version=9,
+            schema_version=10,
+            latest_schema_version=10,
         )
         with patch.object(hub_menu.hub_runtime, "status", status):
             screen = HubSettingsMenu()
-            self.assertEqual(screen._schema_status_text(), "9")
+            self.assertEqual(screen._schema_status_text(), "10")
             self.assertEqual(screen._status_color(), hub_menu.en_color.BRIGHT_GREEN)
 
     def test_statement_marker_is_explicit(self):

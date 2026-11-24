@@ -8,6 +8,9 @@ import unittest
 from libs.app.hub.database import HubDatabase
 from libs.app.hub.models import (
     HubDisk,
+    HubFirewallPolicyActor,
+    HubFirewallPolicyStatus,
+    HubFirewallPolicyTarget,
     HubFirewallPolicyUpdate,
     HubFirewallRule,
     HubFirewallVpnServer,
@@ -16,6 +19,11 @@ from libs.app.hub.models import (
     HubService,
     HubState,
 )
+from libs.app.hub.firewall_policy_admin import (
+    HubFirewallPolicyAdmin,
+    HubFirewallPolicyRevisionConflict,
+)
+from libs.app.hub.models import HubCentralFirewallRule
 from libs.app.hub.schema import HubSchemaManager, table_identifier
 from libs.app.hub.settings import HubSettings
 
@@ -44,8 +52,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
                 cursor.execute(f"DROP DATABASE IF EXISTS `{cls.settings.database}`")
             connection.commit()
         version = cls.database.initialize_or_upgrade_schema()
-        if version != 9:
-            raise AssertionError(f"Expected schema version 9, got {version}")
+        if version != 10:
+            raise AssertionError(f"Expected schema version 10, got {version}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -629,8 +637,8 @@ class HubMySqlIntegrationTests(unittest.TestCase):
             HubProviderSnapshot(
                 "firewall_central_policy",
                 "firewall_central_policy",
-                (),
-                min_schema_version=9,
+                (HubFirewallPolicyStatus(),),
+                min_schema_version=10,
             ),
         )
         self.assertEqual(result.item_count, 5)
