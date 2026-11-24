@@ -74,5 +74,6 @@
       "new": "### Centrální firewall policy lifecycle (schema 010)\n\nCentrální UI/API smí měnit pouze desired-state přes typovaný trusted writer. Policy hash je deterministický SHA-256 efektivního central rulesetu pro konkrétní host a je autoritou pro stav; globální revision slouží pro optimistic concurrency, audit a zobrazení.\n\nPer-host stav:\n- `desired_hash != delivered_hash` = čeká na doručení/cache hostem,\n- `desired_hash == delivered_hash && desired_hash != applied_hash` = doručeno, čeká na **ruční lokální Apply**,\n- `desired_hash == applied_hash` = aktuální central policy byla úspěšně aktivována nebo při explicitním Apply potvrzena jako NO_CHANGE,\n- failed/rolled_back nikdy neposune `applied_hash`.\n\nDelivery ACK vzniká až po úspěšném lokálním validovaném atomickém cache zápisu. Web/Hub/timer nemá a nesmí získat endpoint/capability pro UFW Apply/reload/enable/disable ani pro fresh-SSH token. Jedinou aktivační cestou je explicitní lokální Firewall Manager Apply na cílovém hostu se stávajícím preview/backup/rollback/dry-run/token guardem. Detailní UI kontrakt je v [firewall-central-policy-ui-contract.md](firewall-central-policy-ui-contract.md).\n\nHesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger SysApps 2.17.0 central firewall release docs"
 }
