@@ -177,16 +177,30 @@ def sync_policy_host_state(
             ),
         )
     else:
-        cursor.execute(
-            f"UPDATE {state} SET desired_hash=%s,desired_revision=%s,"
-            "desired_at=%s WHERE host_id=%s",
-            (
-                update.policy_hash,
-                update.policy_revision,
-                now,
-                host_id,
-            ),
-        )
+        previous_desired_hash = str(existing[0] or "")
+        if previous_desired_hash != update.policy_hash:
+            cursor.execute(
+                f"UPDATE {state} SET desired_hash=%s,desired_revision=%s,"
+                "desired_at=%s,apply_status='unknown',apply_error='' "
+                "WHERE host_id=%s",
+                (
+                    update.policy_hash,
+                    update.policy_revision,
+                    now,
+                    host_id,
+                ),
+            )
+        else:
+            cursor.execute(
+                f"UPDATE {state} SET desired_hash=%s,desired_revision=%s,"
+                "desired_at=%s WHERE host_id=%s",
+                (
+                    update.policy_hash,
+                    update.policy_revision,
+                    now,
+                    host_id,
+                ),
+            )
 
     if reported is None:
         return
