@@ -406,7 +406,7 @@ class menu(c_menu):
                 )
             sync_central_policy_state_best_effort()
             return ""
-        except FirewallCentralPolicyError as exc:
+        except (FirewallCentralPolicyError, OSError) as exc:
             return str(exc)
 
     def apply_rules(self, selItem: c_menu_item) -> onSelReturn:
