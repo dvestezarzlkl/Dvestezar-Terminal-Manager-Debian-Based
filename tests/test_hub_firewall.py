@@ -189,6 +189,55 @@ class HubFirewallCollectorTests(unittest.TestCase):
         ask.assert_called_once()
         apply.assert_not_called()
 
+    def test_apply_aborts_if_central_policy_changed_after_preview(self):
+        screen = firewall_menu.menu()
+        cfg = FirewallConfig()
+        compiled = compile_firewall(cfg)
+        result4 = SimpleNamespace(changed=True)
+        preview_central = SimpleNamespace(
+            policy_hash="a" * 64,
+            policy_revision=7,
+        )
+        changed_central = SimpleNamespace(
+            policy_hash="b" * 64,
+            policy_revision=8,
+        )
+        with patch.object(
+            firewall_menu,
+            "inspect_ufw_service",
+            return_value=SimpleNamespace(
+                detected=True, status="inactive", version="0.36"
+            ),
+        ), patch.object(
+            firewall_menu, "load_config", side_effect=[cfg, cfg]
+        ), patch.object(
+            firewall_menu,
+            "load_central_policy_update",
+            side_effect=[preview_central, changed_central],
+        ), patch.object(
+            firewall_menu,
+            "compose_firewall_policy",
+            return_value=SimpleNamespace(config=cfg),
+        ), patch.object(
+            screen,
+            "_build_preview_for_config",
+            return_value=(compiled, result4, None),
+        ), patch.object(
+            screen, "_print_preview"
+        ), patch.object(
+            firewall_menu, "confirm", return_value=True
+        ), patch.object(
+            firewall_menu, "apply_local_config"
+        ) as apply:
+            result = screen.apply_rules(None)
+
+        apply.assert_not_called()
+        self.assertFalse(result.ok)
+        self.assertIn(
+            firewall_menu.TXT_FW_APPLY_CENTRAL_CHANGED,
+            str(result.err),
+        )
+
     def test_active_no_change_effective_apply_skips_confirmation_and_mutation(self):
         screen = firewall_menu.menu()
         cfg = FirewallConfig()
