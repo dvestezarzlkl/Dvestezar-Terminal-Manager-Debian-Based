@@ -26,5 +26,6 @@
       "new": "            registration.applier(result.remote_updates)\n            database.ack_remote_updates(\n                machine_id,\n                snapshot,\n                result.remote_updates,\n            )\n            log.info(\n                \"SysApps Hub provider %s remote apply/cache + ack: done in %.3fs\",\n                key,\n                perf_counter() - apply_started,\n            )\n",
       "expected": 1
     }
-  ]
+  ],
+  "note": "trigger central firewall state contracts patch"
 }
