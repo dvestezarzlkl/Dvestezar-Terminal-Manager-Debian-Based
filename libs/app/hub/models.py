@@ -187,6 +187,28 @@ class HubFirewallPolicyMutationResult:
 
 
 @dataclass(frozen=True)
+class HubFirewallPolicyRuleRecord:
+    target: HubFirewallPolicyTarget
+    rule: HubCentralFirewallRule
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyVpnServerRecord:
+    target: HubFirewallPolicyTarget
+    server: HubCentralFirewallVpnServer
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyAdminSnapshot:
+    revision: int
+    updated_at: Optional[datetime]
+    updated_by: str
+    rules: tuple[HubFirewallPolicyRuleRecord, ...] = field(default_factory=tuple)
+    vpn_servers: tuple[HubFirewallPolicyVpnServerRecord, ...] = field(default_factory=tuple)
+    host_states: tuple[HubFirewallPolicyHostState, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
 class HubHostSnapshot:
     machine_id: str
     hostname: str
