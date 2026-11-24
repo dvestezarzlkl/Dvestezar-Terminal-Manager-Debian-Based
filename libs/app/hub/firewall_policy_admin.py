@@ -5,12 +5,15 @@ that can invoke UFW or acknowledge the local fresh-SSH token.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from ipaddress import IPv4Address, ip_address, ip_network
+from datetime import datetime, timezone
 import re
 from typing import Any
 
-from libs.app.menus.app_40_firewall.config import normalize_port_spec
+from libs.app.menus.app_40_firewall.config import (
+    FirewallConfigError,
+    normalize_rule,
+    normalize_vpn_server,
+)
 
 from .database import HubDatabase
 from .firewall_policy_store import (
@@ -23,8 +26,11 @@ from .models import (
     HubCentralFirewallRule,
     HubCentralFirewallVpnServer,
     HubFirewallPolicyActor,
+    HubFirewallPolicyAdminSnapshot,
     HubFirewallPolicyMutationResult,
+    HubFirewallPolicyRuleRecord,
     HubFirewallPolicyTarget,
+    HubFirewallPolicyVpnServerRecord,
 )
 from .schema import table_identifier
 
@@ -177,28 +183,40 @@ class HubFirewallPolicyAdmin:
         return revision
 
     @staticmethod
-    def _validate_server(item: HubCentralFirewallVpnServer) -> None:
+    def _normalize_server(
+        item: HubCentralFirewallVpnServer,
+    ) -> HubCentralFirewallVpnServer:
         if not isinstance(item, HubCentralFirewallVpnServer):
             raise HubFirewallPolicyAdminError("Invalid central VPN server.")
         if not _UID_RE.fullmatch(item.server_uid):
             raise HubFirewallPolicyAdminError("Invalid central VPN server UID.")
         if item.target_kind not in {"host", "group", "all"}:
             raise HubFirewallPolicyAdminError("Invalid central VPN server target.")
-        if not item.name or len(item.name) > 128:
-            raise HubFirewallPolicyAdminError("Invalid central VPN server name.")
         try:
-            parsed = ip_address(item.server_ip)
-        except ValueError as exc:
-            raise HubFirewallPolicyAdminError("Invalid central VPN server IP.") from exc
-        if not isinstance(parsed, IPv4Address):
-            raise HubFirewallPolicyAdminError("Central VPN server IP must be IPv4.")
-        if isinstance(item.server_mask, bool) or not 0 <= int(item.server_mask) <= 32:
-            raise HubFirewallPolicyAdminError("Invalid central VPN server mask.")
-        if not item.interface_name or not _INTERFACE_RE.fullmatch(item.interface_name):
-            raise HubFirewallPolicyAdminError("Invalid central VPN server interface.")
+            normalized = normalize_vpn_server({
+                "server_id": item.server_uid,
+                "name": item.name,
+                "ip": item.server_ip,
+                "mask": item.server_mask,
+                "interface": item.interface_name,
+            })
+        except FirewallConfigError as exc:
+            raise HubFirewallPolicyAdminError(
+                f"Invalid central VPN server: {exc}"
+            ) from exc
+        return HubCentralFirewallVpnServer(
+            server_uid=normalized.server_id,
+            target_kind=item.target_kind,
+            name=normalized.name,
+            server_ip=normalized.ip,
+            server_mask=normalized.mask,
+            interface_name=normalized.interface,
+        )
 
     @staticmethod
-    def _validate_rule(item: HubCentralFirewallRule) -> None:
+    def _normalize_rule(
+        item: HubCentralFirewallRule,
+    ) -> HubCentralFirewallRule:
         if not isinstance(item, HubCentralFirewallRule):
             raise HubFirewallPolicyAdminError("Invalid central firewall rule.")
         if not _UID_RE.fullmatch(item.rule_uid):
@@ -207,58 +225,51 @@ class HubFirewallPolicyAdmin:
             raise HubFirewallPolicyAdminError("Invalid central firewall rule target.")
         if isinstance(item.position, bool) or int(item.position) < 0:
             raise HubFirewallPolicyAdminError("Invalid central firewall rule position.")
-        if item.rule_type not in {"vpn_ban", "standard"}:
-            raise HubFirewallPolicyAdminError("Unsupported central firewall rule type.")
-        if item.vpn_server_uid:
-            if not _UID_RE.fullmatch(item.vpn_server_uid):
-                raise HubFirewallPolicyAdminError("Invalid central firewall VPN server UID.")
-        elif item.rule_type == "vpn_ban":
-            raise HubFirewallPolicyAdminError("VPN BAN rule requires a VPN server UID.")
-        if item.direction not in {"input", "forward", "output"}:
-            raise HubFirewallPolicyAdminError("Unsupported central firewall direction.")
-        if item.action not in {"allow", "deny", "reject"}:
-            raise HubFirewallPolicyAdminError("Unsupported central firewall action.")
-        if item.protocol not in {"any", "tcp", "udp", "icmp"}:
-            raise HubFirewallPolicyAdminError("Unsupported central firewall protocol.")
-        if len(item.name) > 255 or len(item.source) > 128 or len(item.destination) > 128:
-            raise HubFirewallPolicyAdminError("Central firewall rule text exceeds column limits.")
-        if not _INTERFACE_RE.fullmatch(item.interface_name):
-            raise HubFirewallPolicyAdminError("Invalid central firewall interface.")
-        for address in (item.source, item.destination):
-            if address:
-                try:
-                    ip_network(address, strict=False)
-                except ValueError as exc:
-                    raise HubFirewallPolicyAdminError(
-                        "Invalid central firewall IP/network."
-                    ) from exc
-        if item.destination_invert and not item.destination:
+        try:
+            normalized = normalize_rule({
+                "rule_id": item.rule_uid,
+                "kind": item.rule_type,
+                "enabled": item.enabled,
+                "name": item.name,
+                "direction": item.direction,
+                "action": item.action,
+                "protocol": item.protocol,
+                "source": item.source,
+                "destination": item.destination,
+                "destination_invert": item.destination_invert,
+                "port_from": item.port_from,
+                "port_to": item.port_to,
+                "src_ports": item.src_ports,
+                "dst_ports": item.dst_ports,
+                "interface": item.interface_name,
+                "ban_to": item.ban_to or "",
+                "vpn_server_id": item.vpn_server_uid,
+            })
+        except FirewallConfigError as exc:
             raise HubFirewallPolicyAdminError(
-                "Inverted firewall destination requires a destination."
-            )
-        if (item.port_from is None) != (item.port_to is None):
-            raise HubFirewallPolicyAdminError("Central firewall port range is incomplete.")
-        if item.port_from is not None:
-            if (
-                isinstance(item.port_from, bool)
-                or isinstance(item.port_to, bool)
-                or not 1 <= int(item.port_from) <= int(item.port_to) <= 65535
-                or item.protocol not in {"tcp", "udp"}
-            ):
-                raise HubFirewallPolicyAdminError("Invalid central firewall port range.")
-        if item.src_ports != normalize_port_spec(item.src_ports, "source ports"):
-            raise HubFirewallPolicyAdminError("Source ports must be normalized.")
-        if item.dst_ports != normalize_port_spec(item.dst_ports, "destination ports"):
-            raise HubFirewallPolicyAdminError("Destination ports must be normalized.")
-        if item.protocol not in {"tcp", "udp"} and (item.src_ports or item.dst_ports):
-            raise HubFirewallPolicyAdminError("Central firewall ports require TCP or UDP.")
-        if item.ban_to:
-            try:
-                parsed = date.fromisoformat(item.ban_to)
-            except ValueError as exc:
-                raise HubFirewallPolicyAdminError("Invalid central firewall BAN date.") from exc
-            if parsed.isoformat() != item.ban_to:
-                raise HubFirewallPolicyAdminError("Invalid central firewall BAN date.")
+                f"Invalid central firewall rule: {exc}"
+            ) from exc
+        return HubCentralFirewallRule(
+            rule_uid=normalized.rule_id,
+            target_kind=item.target_kind,
+            position=int(item.position),
+            rule_type=normalized.kind,
+            enabled=normalized.enabled,
+            name=normalized.name,
+            direction=normalized.direction,
+            action=normalized.action,
+            protocol=normalized.protocol,
+            source=normalized.source,
+            destination=normalized.destination,
+            destination_invert=normalized.destination_invert,
+            port_from=normalized.port_from,
+            port_to=normalized.port_to,
+            src_ports=normalized.src_ports,
+            dst_ports=normalized.dst_ports,
+            interface_name=normalized.interface,
+            ban_to=normalized.ban_to or None,
+            vpn_server_uid=normalized.vpn_server_id,
+        )
 
     def _validate_vpn_reference(
         self,
@@ -366,7 +377,7 @@ class HubFirewallPolicyAdmin:
         expected_revision: int | None = None,
     ) -> HubFirewallPolicyMutationResult:
         subject = self._require_actor(actor)
-        self._validate_rule(rule)
+        rule = self._normalize_rule(rule)
         if rule.target_kind != target.target_kind:
             raise HubFirewallPolicyAdminError("Rule target_kind does not match target.")
         table = table_identifier(self.settings, "firewall_rules")
@@ -524,7 +535,7 @@ class HubFirewallPolicyAdmin:
         expected_revision: int | None = None,
     ) -> HubFirewallPolicyMutationResult:
         subject = self._require_actor(actor)
-        self._validate_server(server)
+        server = self._normalize_server(server)
         if server.target_kind != target.target_kind:
             raise HubFirewallPolicyAdminError("VPN server target_kind does not match target.")
         table = table_identifier(self.settings, "firewall_vpn_servers")
