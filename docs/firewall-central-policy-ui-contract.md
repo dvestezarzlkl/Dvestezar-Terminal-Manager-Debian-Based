@@ -86,14 +86,24 @@ On exception or rollback, SysApps may report status/error but must not advance a
 
 Future web/API code must call the typed central writer contract, not write firewall tables directly.
 
-Suggested ACL names:
+ACL capabilities are fixed by the backend contract:
 
-- firewall.policy.read
-- firewall.policy.write
+- `firewall.policy.read`
+- `firewall.policy.write`
 
-There is intentionally **no** firewall.policy.apply remote permission.
+Write permission also permits the typed read snapshot. There is intentionally **no** `firewall.policy.apply` remote permission.
 
-The writer validates ownership (origin=central), target (host/group/all), host/group existence, stable IDs, position, VPN references, optimistic revision and field normalization before commit.
+The web/API authentication layer must construct `HubFirewallPolicyActor` from the authenticated identity and granted ACL; callers must never supply arbitrary permissions themselves. Every mutation requires the current `expected_revision`; a stale revision fails with a conflict instead of silently overwriting another editor.
+
+The writer validates ownership (`origin=central`), target (`host/group/all`), host/group existence, stable IDs, position, VPN references and canonical Firewall Manager field normalization before commit.
+
+`HubFirewallPolicyAdmin.get_snapshot()` is the supported editor read model. It returns policy revision/update identity, typed central rule/VPN records with resolved host/group/all targets, and per-host desired/delivered/applied states. Future web UI must use this typed service rather than querying firewall tables directly.
+
+## Host groups and future group editor
+
+A `group` firewall target can reference only an already existing centrally owned `host_groups.code`. Group catalog and host membership are a separate user-owned Hub domain; this firewall writer intentionally does not create groups or reassign hosts.
+
+When a future host/group metadata editor changes membership, it must invoke the same central-policy recomputation service for the affected host(s) so the desired hash changes immediately in the web UI rather than waiting for a later host sync. Do not implement group membership by editing `firewall_policy_host_state` directly.
 
 ## UI data useful for listing hosts
 
