@@ -45,6 +45,10 @@ Aktuální migrace:
 - `004_host_metadata_timer.sql`: centrálně editovatelná metadata hostu a hlášené zapnutí hodinového timeru.
 - `005_host_groups.sql`: centrální skupiny serverů a volitelné přiřazení právě jedné skupiny hostu; `group_id NULL` = nepřiřazeno.
 - `006_firewall_rules.sql`: typovaný katalog firewall pravidel s cílem `host/group/all` a odděleným vlastnictvím `host_local/central`.
+- `007_firewall_port_specs.sql`: nezávislé source/destination port expressions.
+- `008_firewall_vpn_servers.sql`: katalog VPN serverů a reference pravidel na stabilní VPN UID.
+- `009_firewall_rule_order.sql`: explicitní `position` pro deterministické pořadí central policy.
+- `010_firewall_policy_state.sql`: central policy revision metadata a per-host desired/delivered/applied stav pro bezpečný web/UI lifecycle bez vzdáleného Apply.
 
 ## Datové sady
 
@@ -56,6 +60,9 @@ Aktuální migrace:
 - `node_red_editor_users`: uživatelé `adminAuth` a jejich RW/R oprávnění,
 - `disks`: globální disk podle jedinečného PTUUID, sdílený název a čas změny,
 - `host_disks`: aktuální vazba disku na host, `/dev` zařízení, velikost, partitiony, mounty a systémový příznak.
+- `firewall_rules` / `firewall_vpn_servers`: host-local i centrální desired-state s explicitním ownership/target scope.
+- `firewall_policy_meta`: globální central writer revision a audit identity posledního writeru.
+- `firewall_policy_host_state`: pro každý host desired/delivered/applied hash+revision+čas, poslední Apply status/error; tento stav je určen i pro budoucí web UI.
 
 Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrálním UI editovatelná, ale lokální SysApps je nikdy neposílá ani nepřepisuje. `name = NULL` znamená zobrazit `COALESCE(NULLIF(name,''),NULLIF(fqdn,''),hostname)`; FQDN se tedy nekopíruje do uživatelského názvu. `description` ukládá surový Markdown jako `TEXT`, při převodu do HTML jej UI musí bezpečně sanitizovat. Pole `auto_sync_enabled` hlásí skutečný stav `systemctl is-enabled jb-sysapps-hub.timer`, nikoli legacy `HUB_AUTO_SYNC`, a samo neprokazuje úspěšný hodinový běh. Při chybě detekce je hodnota neznámá (`NULL`) a dříve známá hodnota v DB se nemaže. Při změně režimu přes menu proběhne best-effort synchronizace core inventáře, aby vypnutí timeru nezůstalo bez zpětné aktualizace.
 
@@ -68,6 +75,18 @@ Pole `hosts.name` a `hosts.description` jsou **user-owned**, v budoucím centrá
 Skupiny hostů slouží pro budoucí cílení pravidel `host` / `group` / `all`. **Nejsou** to skupiny zdrojových IP adres (`home`/`office`/`vpn_admin`); ty mají budoucí samostatný katalog. Tato migrace zatím neobsahuje firewall pravidla ani nespouští UFW. Viz [firewall-manager-design.md](firewall-manager-design.md).
 
 **Koordinovaný rollout 005/006:** SysApps 2.7.0 toleruje známé aditivní migrace 005 a 006 ještě neaplikované, takže může dál synchronizovat core a starší datasety proti v004/v005. Každý provider deklaruje minimální potřebné schéma; lokální `firewall_rules` se před schema 006 pouze přeskočí bez zápisu. Před ručním spuštěním čekajících migrací nejprve aktualizuj **všechny** klienty používající sdílenou DB na 2.7.0 a zazálohuj DB. Starší klient, který nezná 006, vyšší schéma odmítne. DDL spouští výhradně ruční akce `Inicializovat/aktualizovat schéma Hubu`, nikoli běžný Update me; menu vyžaduje dodatečné potvrzení koordinace flotily a zálohy.
+
+### Centrální firewall policy lifecycle (schema 010)
+
+Centrální UI/API smí měnit pouze desired-state přes typovaný trusted writer. Policy hash je deterministický SHA-256 efektivního central rulesetu pro konkrétní host a je autoritou pro stav; globální revision slouží pro optimistic concurrency, audit a zobrazení.
+
+Per-host stav:
+- `desired_hash != delivered_hash` = čeká na doručení/cache hostem,
+- `desired_hash == delivered_hash && desired_hash != applied_hash` = doručeno, čeká na **ruční lokální Apply**,
+- `desired_hash == applied_hash` = aktuální central policy byla úspěšně aktivována nebo při explicitním Apply potvrzena jako NO_CHANGE,
+- failed/rolled_back nikdy neposune `applied_hash`.
+
+Delivery ACK vzniká až po úspěšném lokálním validovaném atomickém cache zápisu. Web/Hub/timer nemá a nesmí získat endpoint/capability pro UFW Apply/reload/enable/disable ani pro fresh-SSH token. Jedinou aktivační cestou je explicitní lokální Firewall Manager Apply na cílovém hostu se stávajícím preview/backup/rollback/dry-run/token guardem. Detailní UI kontrakt je v [firewall-central-policy-ui-contract.md](firewall-central-policy-ui-contract.md).
 
 Hesla, bcrypt hashe, Node-RED credentials, SMTP hesla a privátní klíče se do Hubu neukládají.
 

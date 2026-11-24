@@ -120,8 +120,92 @@ class HubFirewallPolicyUpdate:
     machine_id: str
     group_id: Optional[int]
     generated_at: datetime
+    policy_hash: str = ""
+    policy_revision: int = 0
     vpn_servers: tuple[HubCentralFirewallVpnServer, ...] = field(default_factory=tuple)
     rules: tuple[HubCentralFirewallRule, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyStatus:
+    cached_hash: str = ""
+    cached_revision: int = 0
+    applied_hash: str = ""
+    applied_revision: int = 0
+    apply_status: str = "unknown"
+    applied_at: Optional[datetime] = None
+    last_error: str = ""
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyHostState:
+    machine_id: str
+    hostname: str
+    desired_hash: str = ""
+    desired_revision: int = 0
+    desired_at: Optional[datetime] = None
+    delivered_hash: str = ""
+    delivered_revision: int = 0
+    delivered_at: Optional[datetime] = None
+    applied_hash: str = ""
+    applied_revision: int = 0
+    applied_at: Optional[datetime] = None
+    apply_status: str = "unknown"
+    apply_error: str = ""
+    reported_at: Optional[datetime] = None
+
+    @property
+    def state(self) -> str:
+        if self.desired_hash and self.desired_hash != self.delivered_hash:
+            return "waiting_for_delivery"
+        if self.desired_hash and self.desired_hash != self.applied_hash:
+            if self.apply_status in {"failed", "rolled_back"}:
+                return self.apply_status
+            return "waiting_for_apply"
+        if self.desired_hash and self.desired_hash == self.applied_hash:
+            return "applied"
+        return "unknown"
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyActor:
+    subject: str
+    permissions: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyTarget:
+    target_kind: str
+    machine_id: str = ""
+    group_code: str = ""
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyMutationResult:
+    revision: int
+    affected_hosts: tuple[HubFirewallPolicyHostState, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyRuleRecord:
+    target: HubFirewallPolicyTarget
+    rule: HubCentralFirewallRule
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyVpnServerRecord:
+    target: HubFirewallPolicyTarget
+    server: HubCentralFirewallVpnServer
+
+
+@dataclass(frozen=True)
+class HubFirewallPolicyAdminSnapshot:
+    revision: int
+    updated_at: Optional[datetime]
+    updated_by: str
+    rules: tuple[HubFirewallPolicyRuleRecord, ...] = field(default_factory=tuple)
+    vpn_servers: tuple[HubFirewallPolicyVpnServerRecord, ...] = field(default_factory=tuple)
+    host_states: tuple[HubFirewallPolicyHostState, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -193,6 +277,7 @@ HubProviderItem = (
     | HubService
     | HubFirewallVpnServer
     | HubFirewallRule
+    | HubFirewallPolicyStatus
 )
 HubRemoteUpdate = HubDiskNameUpdate | HubFirewallPolicyUpdate
 

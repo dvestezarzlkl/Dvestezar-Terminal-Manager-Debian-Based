@@ -46,6 +46,7 @@ class FakeDatabase:
         self.core = []
         self.providers = []
         self.errors = []
+        self.acks = []
         FakeDatabase.instances.append(self)
 
     def check_status(self):
@@ -61,6 +62,9 @@ class FakeDatabase:
 
     def record_source_error(self, machine_id, key, error):
         self.errors.append((machine_id, key, error))
+
+    def ack_remote_updates(self, machine_id, snapshot, updates):
+        self.acks.append((machine_id, snapshot.dataset, updates))
 
 
 class HubRuntimeTests(unittest.TestCase):
@@ -318,6 +322,11 @@ class HubRuntimeTests(unittest.TestCase):
 
         self.assertEqual(report.provider_counts, {"disks": 0})
         self.assertEqual(applied, [update])
+        sync_database = next(db for db in FakeDatabase.instances if db.providers)
+        self.assertEqual(
+            sync_database.acks,
+            [("machine-1", "disks", (update,))],
+        )
 
     def test_missing_service_host_blocks_status_and_sync_before_database_access(self):
         runtime = HubRuntime()
