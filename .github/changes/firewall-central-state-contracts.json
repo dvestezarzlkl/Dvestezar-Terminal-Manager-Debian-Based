@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "commit_message": "feat(hub): add central firewall policy state contracts",
+  "replacements": [
+    {
+      "path": "libs/app/hub/models.py",
+      "old": "@dataclass(frozen=True)\nclass HubFirewallPolicyUpdate:\n    machine_id: str\n    group_id: Optional[int]\n    generated_at: datetime\n    vpn_servers: tuple[HubCentralFirewallVpnServer, ...] = field(default_factory=tuple)\n    rules: tuple[HubCentralFirewallRule, ...] = field(default_factory=tuple)\n\n\n",
+      "new": "@dataclass(frozen=True)\nclass HubFirewallPolicyUpdate:\n    machine_id: str\n    group_id: Optional[int]\n    generated_at: datetime\n    policy_hash: str = \"\"\n    policy_revision: int = 0\n    vpn_servers: tuple[HubCentralFirewallVpnServer, ...] = field(default_factory=tuple)\n    rules: tuple[HubCentralFirewallRule, ...] = field(default_factory=tuple)\n\n\n@dataclass(frozen=True)\nclass HubFirewallPolicyStatus:\n    cached_hash: str = \"\"\n    cached_revision: int = 0\n    applied_hash: str = \"\"\n    applied_revision: int = 0\n    apply_status: str = \"unknown\"\n    applied_at: Optional[datetime] = None\n    last_error: str = \"\"\n\n\n@dataclass(frozen=True)\nclass HubFirewallPolicyHostState:\n    machine_id: str\n    hostname: str\n    desired_hash: str = \"\"\n    desired_revision: int = 0\n    desired_at: Optional[datetime] = None\n    delivered_hash: str = \"\"\n    delivered_revision: int = 0\n    delivered_at: Optional[datetime] = None\n    applied_hash: str = \"\"\n    applied_revision: int = 0\n    applied_at: Optional[datetime] = None\n    apply_status: str = \"unknown\"\n    apply_error: str = \"\"\n    reported_at: Optional[datetime] = None\n\n    @property\n    def state(self) -> str:\n        if self.desired_hash and self.desired_hash != self.delivered_hash:\n            return \"waiting_for_delivery\"\n        if self.desired_hash and self.desired_hash != self.applied_hash:\n            if self.apply_status in {\"failed\", \"rolled_back\"}:\n                return self.apply_status\n            return \"waiting_for_apply\"\n        if self.desired_hash and self.desired_hash == self.applied_hash:\n            return \"applied\"\n        return \"unknown\"\n\n\n@dataclass(frozen=True)\nclass HubFirewallPolicyActor:\n    subject: str\n    permissions: frozenset[str] = field(default_factory=frozenset)\n\n\n@dataclass(frozen=True)\nclass HubFirewallPolicyTarget:\n    target_kind: str\n    machine_id: str = \"\"\n    group_code: str = \"\"\n\n\n@dataclass(frozen=True)\nclass HubFirewallPolicyMutationResult:\n    revision: int\n    affected_hosts: tuple[HubFirewallPolicyHostState, ...] = field(default_factory=tuple)\n\n\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/models.py",
+      "old": "HubProviderItem = (\n    HubNodeRedInstance\n    | HubDisk\n    | HubService\n    | HubFirewallVpnServer\n    | HubFirewallRule\n)\n",
+      "new": "HubProviderItem = (\n    HubNodeRedInstance\n    | HubDisk\n    | HubService\n    | HubFirewallVpnServer\n    | HubFirewallRule\n    | HubFirewallPolicyStatus\n)\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/schema.py",
+      "old": "    \"firewall_rules\",\n    \"firewall_vpn_servers\",\n})\n\n# Migrations 005-009 are additive. New clients can continue syncing core and\n# older datasets while these tables are pending; providers declare the minimum\n# schema they require. Never accept unknown future migrations.\n_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6, 7, 8, 9})\n",
+      "new": "    \"firewall_rules\",\n    \"firewall_vpn_servers\",\n    \"firewall_policy_meta\",\n    \"firewall_policy_host_state\",\n})\n\n# Migrations 005-010 are additive. New clients can continue syncing core and\n# older datasets while these tables are pending; providers declare the minimum\n# schema they require. Never accept unknown future migrations.\n_OPTIONAL_ADDITIVE_MIGRATIONS = frozenset({5, 6, 7, 8, 9, 10})\n",
+      "expected": 1
+    },
+    {
+      "path": "libs/app/hub/runtime.py",
+      "old": "            registration.applier(result.remote_updates)\n            log.info(\n                \"SysApps Hub provider %s remote apply: done in %.3fs\",\n                key,\n                perf_counter() - apply_started,\n            )\n",
+      "new": "            registration.applier(result.remote_updates)\n            database.ack_remote_updates(\n                machine_id,\n                snapshot,\n                result.remote_updates,\n            )\n            log.info(\n                \"SysApps Hub provider %s remote apply/cache + ack: done in %.3fs\",\n                key,\n                perf_counter() - apply_started,\n            )\n",
+      "expected": 1
+    }
+  ]
+}
